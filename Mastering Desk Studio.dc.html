@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  html,body{margin:0;height:100%}
+  body{background:#0c0f12;font-family:"Archivo",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  @keyframes dkflow{to{stroke-dashoffset:-44}}
+  @keyframes dkpulse{0%,100%{opacity:.55}50%{opacity:1}}
+  @keyframes dkbob{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+  .dk-flow{stroke-dasharray:16 26;animation:dkflow 1.2s linear infinite}
+  .dk-card{transition:transform .2s cubic-bezier(.4,0,.2,1),box-shadow .2s,background .2s}
+  .dk-card:hover{transform:translateY(-3px)}
+  input.dk-in{font-family:"Archivo",sans-serif}
+  input.dk-in::placeholder{color:#a99f8a}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#cdbfa4;border-radius:4px}
+</style>
+</helmet>
+
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+    <linearGradient id="dk-rib" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="{{ aMain }}" /><stop offset="0.5" stop-color="{{ aBright }}" /><stop offset="1" stop-color="{{ aMain }}" /></linearGradient>
+    <radialGradient id="dk-cap" cx="0.5" cy="0.3" r="0.85"><stop offset="0" stop-color="#5a5347" /><stop offset="0.5" stop-color="#3a342b" /><stop offset="1" stop-color="#231f18" /></radialGradient>
+    <linearGradient id="dk-eq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{{ eqStopA }}" /><stop offset="1" stop-color="{{ eqStopB }}" /></linearGradient>
+    <symbol id="dk-input" viewBox="0 0 24 24"><path d="M12 3v9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /><path d="M8.4 9 12 12.6 15.6 9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /><path d="M4 14v3.2A1.8 1.8 0 0 0 5.8 19h12.4a1.8 1.8 0 0 0 1.8-1.8V14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></symbol>
+    <symbol id="dk-pre" viewBox="0 0 24 24"><path d="M3.5 5h17l-6.6 7.6v5.1l-3.8 1.8v-6.9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></symbol>
+    <symbol id="dk-spectral" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="4" y2="13" /><line x1="8" y1="20" x2="8" y2="6" /><line x1="12" y1="20" x2="12" y2="10" /><line x1="16" y1="20" x2="16" y2="4" /><line x1="20" y1="20" x2="20" y2="14" /></g></symbol>
+    <symbol id="dk-dynamics" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /><path d="M8 4v4.2m0 0L5.8 6m2.2 2.2L10.2 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /><path d="M16 20v-4.2m0 0L13.8 18m2.2-2.2L18.2 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></symbol>
+    <symbol id="dk-stereo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.2" fill="currentColor" /><path d="M7.6 9.2a4 4 0 0 0 0 5.6M4.8 6.8a8 8 0 0 0 0 10.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /><path d="M16.4 9.2a4 4 0 0 1 0 5.6M19.2 6.8a8 8 0 0 1 0 10.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></symbol>
+    <symbol id="dk-loudness" viewBox="0 0 24 24"><path d="M4 17a8 8 0 0 1 16 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /><line x1="12" y1="17" x2="16.4" y2="11.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /><circle cx="12" cy="17" r="1.8" fill="currentColor" /></symbol>
+    <symbol id="dk-export" viewBox="0 0 24 24"><path d="M12 15V4m0 0L8.4 7.6M12 4l3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /><path d="M4 14v3.2A1.8 1.8 0 0 0 5.8 19h12.4a1.8 1.8 0 0 0 1.8-1.8V14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" /></symbol>
+    <symbol id="dk-note" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /><circle cx="6.2" cy="18" r="2.8" fill="none" stroke="currentColor" stroke-width="1.6" /><circle cx="16.2" cy="16" r="2.8" fill="none" stroke="currentColor" stroke-width="1.6" /></symbol>
+  </defs>
+</svg>
+
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#15191e"/><g transform="translate(30,30)"><g stroke="#3fd6c2" stroke-width="3.4" stroke-linecap="round" fill="none"><path d="M2 28a14 14 0 0 1 28 0"/><path d="M9 28a7 7 0 0 1 14 0"/></g><circle cx="16" cy="28" r="3.6" fill="#3fd6c2"/><g stroke="#16a394" stroke-width="2.6" stroke-linecap="round"><line x1="4" y1="6" x2="4" y2="14"/><line x1="11" y1="3" x2="11" y2="14"/><line x1="18" y1="7" x2="18" y2="14"/><line x1="25" y1="2" x2="25" y2="14"/></g></g></svg></template>
+
+<div style="position:fixed;inset:0;background:{{ pageBg }};display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="{{ winStyle }}">
+    <div style="width:1208px;background:{{ frameBg }};border:1px solid #000;border-radius:12px;box-shadow:0 44px 100px -34px rgba(0,0,0,0.9);overflow:hidden">
+
+      <!-- title bar -->
+      <div onPointerDown="{{ onTitleDown }}" style="position:relative;height:44px;display:flex;align-items:center;gap:11px;padding:0 15px;background:#1a1f25;border-bottom:1px solid #0a0d10;cursor:default">
+        <img src="assets/logo.png" alt="FocusDAW" style="height:26px;width:26px;object-fit:contain;flex:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))" />
+        <div style="display:flex;align-items:center;gap:2px;position:relative;z-index:20" onPointerDown="{{ stopProp }}">
+          <sc-for list="{{ menus }}" as="mn" hint-placeholder-count="3">
+            <div style="position:relative">
+              <div onClick="{{ mn.onClick }}" style="{{ mn.btnStyle }}">{{ mn.label }}</div>
+              <sc-if value="{{ mn.open }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:30px;left:0;min-width:172px;background:#20262d;border:1px solid #323b44;border-radius:8px;box-shadow:0 14px 34px -10px rgba(0,0,0,0.7);padding:5px;z-index:30">
+                  <sc-for list="{{ mn.items }}" as="it" hint-placeholder-count="4">
+                    <div style="{{ it.style }}"><span>{{ it.label }}</span><span style="font-family:'Archivo';font-size:10px;color:#5e6b73">{{ it.key }}</span></div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="position:absolute;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:9px;pointer-events:none">
+          <span style="font-family:'Spectral',serif;font-size:16px;font-weight:600;letter-spacing:0.04em;color:#efe7d6">FocusDAW - Mastering Desk</span>
+          <span style="font-size:11.5px;color:#6f7d86">Station Edition</span>
+        </div>
+        <div style="flex:1"></div>
+        <span style="font-family:'Archivo';font-size:10.5px;color:#6f7d86;border:1px solid #303841;border-radius:5px;padding:3px 8px">{{ titleRate }} · {{ titleBit }}</span>
+        <span style="font-family:'Archivo';font-size:10.5px;color:{{ aBright }};border:1px solid #303841;border-radius:5px;padding:3px 8px">{{ titleFormat }}</span>
+        <div class="tb-win" style="display:flex;align-items:center;gap:7px;margin-left:6px">
+          <div style="width:22px;height:20px;border-radius:5px;display:grid;place-items:center;background:#252b32;border:1px solid #303841"><div style="width:8px;height:1.5px;background:#9aa7af"></div></div>
+          <div style="width:22px;height:20px;border-radius:5px;display:grid;place-items:center;background:#252b32;border:1px solid #303841"><div style="width:8px;height:8px;border:1.3px solid #9aa7af;border-radius:2px"></div></div>
+          <div style="width:22px;height:20px;border-radius:5px;display:grid;place-items:center;background:#252b32;border:1px solid #303841;color:#9aa7af;font-size:12px">×</div>
+        </div>
+      </div>
+
+      <!-- transport / batch -->
+      <div style="height:40px;display:flex;align-items:center;gap:13px;padding:0 15px;background:#13171c;border-bottom:1px solid #0a0d10">
+        <div style="display:flex;gap:5px">
+          <div onClick="{{ prevFile }}" style="width:26px;height:24px;border-radius:6px;display:grid;place-items:center;background:#222830;border:1px solid #303841;cursor:pointer;color:#9aa7af;font-size:10px">◀</div>
+          <div style="width:26px;height:24px;border-radius:6px;display:grid;place-items:center;background:{{ aMain }};cursor:pointer"><div style="width:0;height:0;border-left:7px solid {{ aInk }};border-top:4.5px solid transparent;border-bottom:4.5px solid transparent"></div></div>
+          <div onClick="{{ nextFile }}" style="width:26px;height:24px;border-radius:6px;display:grid;place-items:center;background:#222830;border:1px solid #303841;cursor:pointer;color:#9aa7af;font-size:10px">▶</div>
+        </div>
+        <span style="font-size:12px;color:#e3dccc;font-weight:500">{{ curFileName }}</span>
+        <span style="font-family:'Archivo';font-size:10.5px;color:#6f7d86">{{ curFileIdx }} / {{ batchCount }} · {{ batchSize }}</span>
+        <div style="flex:1"></div>
+        <button style="display:flex;align-items:center;gap:7px;font-family:'Archivo';font-size:10.5px;font-weight:600;letter-spacing:0.04em;color:{{ aBright }};background:rgba(255,255,255,0.04);border:1px solid {{ aMain }};border-radius:6px;padding:6px 16px;cursor:pointer"><span style="width:0;height:0;border-left:8px solid {{ aBright }};border-top:5px solid transparent;border-bottom:5px solid transparent"></span>Preview</button>
+        <div style="flex:1"></div>
+        <span style="font-family:'Archivo';font-size:11px;color:#6f7d86">Integrated <span style="color:{{ aBright }};font-weight:600">{{ lufsVal }} LUFS</span></span>
+        <span style="font-family:'Archivo';font-size:11px;color:#6f7d86">Peak <span style="color:#e3dccc;font-weight:600">{{ tpVal }} dBTP</span></span>
+        <button style="font-family:'Archivo';font-size:10.5px;font-weight:600;letter-spacing:0.04em;color:{{ aInk }};background:{{ aBright }};border:none;border-radius:6px;padding:7px 15px;cursor:pointer">Render Batch</button>
+      </div>
+
+      <!-- ===== DESK (signal path) ===== -->
+      <div style="position:relative;height:214px;background:{{ deskBg }};overflow:hidden">
+        <img src="assets/desk.png" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.4;mix-blend-mode:luminosity;pointer-events:none" />
+        <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 42%,{{ deskB }} 100%);pointer-events:none"></div>
+        <div style="position:absolute;inset:0;opacity:0.5;background:repeating-linear-gradient(91deg,transparent 0 96px,rgba(255,240,210,0.018) 96px 97px)"></div>
+        <svg width="1208" height="214" viewBox="0 0 1208 214" preserveAspectRatio="none" style="position:absolute;inset:0;display:block">
+          <path d="{{ ribbon }}" fill="none" stroke="{{ aMain }}" stroke-width="11" stroke-linecap="round" opacity="0.16" />
+          <path d="{{ ribbon }}" fill="none" stroke="url(#dk-rib)" stroke-width="2.4" stroke-linecap="round" opacity="0.85" />
+          <path class="dk-flow" d="{{ ribbon }}" fill="none" stroke="{{ aGlow }}" stroke-width="2.4" stroke-linecap="round" opacity="0.95" />
+        </svg>
+        <div style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-family:'Archivo';font-size:9px;font-weight:700;letter-spacing:0.12em;color:#6f7d86;writing-mode:vertical-rl;text-orientation:mixed">SOURCE</div>
+        <div style="position:absolute;right:13px;top:50%;transform:translateY(-50%);font-family:'Archivo';font-size:9px;font-weight:700;letter-spacing:0.12em;color:{{ aBright }};writing-mode:vertical-rl;text-orientation:mixed">MASTER</div>
+
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:12px;padding:0 34px">
+          <sc-for list="{{ modules }}" as="m" hint-placeholder-count="7">
+            <div style="{{ m.colStyle }}">
+            <button onClick="{{ m.onToggle }}" style="{{ m.bypBtnStyle }}">{{ m.bypLabel }}</button>
+            <div class="dk-card" onClick="{{ m.onSelect }}" style="{{ m.cardStyle }}">
+              <div style="display:flex;align-items:center;justify-content:flex-start">
+                <div style="{{ m.iconStyle }}"><svg width="13" height="13" viewBox="0 0 24 24" style="pointer-events:none"><use href="#dk-{{ m.icon }}"></use></svg></div>
+              </div>
+              <div style="{{ m.numStyle }}">{{ m.roman }}</div>
+              <div style="text-align:center;font-family:'Archivo';font-size:9px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:{{ m.nameColor }}">{{ m.short }}</div>
+              <div style="font-family:'Archivo';font-size:8px;letter-spacing:0.02em;text-align:center;color:{{ m.statColor }};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.stat }}</div>
+              <div style="{{ m.tapStyle }}"></div>
+            </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- ===== DETAIL SHEET ===== -->
+      <div style="position:relative;background:{{ frameBg }}">
+        <div style="position:absolute;top:-8px;left:{{ notchLeft }};width:16px;height:16px;background:{{ notchColor }};transform:translateX(-50%) rotate(45deg);border-radius:3px"></div>
+        <div style="margin:14px;border-radius:12px;background:linear-gradient(180deg,#f3ecdd,#e9e0cd);box-shadow:0 10px 30px -12px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.6);padding:18px 20px;height:308px;box-sizing:border-box;display:flex;gap:20px;background:{{ paperBg }}">
+
+          <!-- col 1: roman plate -->
+          <div style="width:168px;flex:none;border-right:1px solid rgba(58,52,43,0.14);padding-right:20px;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:11px">
+              <div style="width:40px;height:40px;border-radius:11px;flex:none;display:grid;place-items:center;color:#f3ecdd;background:{{ aMain }};box-shadow:0 4px 12px rgba(0,0,0,0.25)"><svg width="22" height="22" viewBox="0 0 24 24"><use href="#dk-{{ active.icon }}"></use></svg></div>
+              <div style="font-family:'Spectral',serif;font-size:46px;font-weight:600;color:{{ aMain }};line-height:0.85">{{ active.roman }}</div>
+            </div>
+            <div style="font-family:'Spectral',serif;font-size:21px;font-weight:600;color:{{ pInk }};margin-top:11px;line-height:1.05">{{ active.name }}</div>
+            <div style="font-family:'Archivo';font-size:11px;color:{{ pInk2 }};margin-top:7px;line-height:1.45">{{ active.desc }}</div>
+            <div style="flex:1"></div>
+            <div onClick="{{ active.onToggle }}" style="{{ active.bypassStyle }}">{{ active.bypassLabel }}</div>
+          </div>
+
+          <!-- col 2: visualization -->
+          <div style="width:368px;flex:none;display:flex;flex-direction:column">
+            <div style="font-family:'Archivo';font-size:10px;font-weight:700;letter-spacing:0.14em;color:#a99f8a;margin-bottom:11px">{{ vizTitle }}</div>
+            <div style="flex:1;border-radius:11px;padding:{{ vizPad }};position:relative;overflow:hidden;background:{{ vizBg }};box-shadow:{{ vizShadow }}">
+
+              <!-- INPUT: batch queue -->
+              <sc-if value="{{ isInput }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px"><span style="font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.1em;color:#8a8070">BATCH QUEUE</span><span style="font-family:'Archivo';font-size:9.5px;color:#6f6657">{{ batchCount }} · {{ batchSize }}</span></div>
+                <div style="position:relative">
+                  <sc-if value="{{ queueLess }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ scrollQueueUp }}" style="position:absolute;left:0;right:2px;top:0;z-index:2;height:30px;display:flex;align-items:flex-start;justify-content:center;padding-top:2px;cursor:pointer;background:linear-gradient(0deg,rgba(0,0,0,0),{{ panelBg }} 78%)">
+                      <svg width="20" height="20" viewBox="0 0 24 24" style="animation:dkbob 1.2s ease-in-out infinite"><path d="M7 14l5-5 5 5" fill="none" stroke="{{ aBright }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    </div>
+                  </sc-if>
+                  <div ref="{{ setQueueRef }}" onScroll="{{ onQueueScroll }}" style="max-height:176px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-right:2px">
+                    <sc-for list="{{ files }}" as="f" hint-placeholder-count="6">
+                      <div onClick="{{ f.onPick }}" style="{{ f.rowStyle }}">
+                        <svg width="12" height="12" viewBox="0 0 24 24" style="flex:none;color:{{ f.iconColor }}"><use href="#dk-note"></use></svg>
+                        <span style="flex:1;font-family:'Archivo';font-size:11px;font-weight:{{ f.weight }};color:{{ f.nameColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.name }}</span>
+                        <span style="font-family:'Archivo';font-size:9px;color:{{ f.sizeColor }};width:48px;text-align:right">{{ f.size }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ queueMore }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ scrollQueueDown }}" style="position:absolute;left:0;right:2px;bottom:0;height:30px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px;cursor:pointer;background:linear-gradient(180deg,rgba(0,0,0,0),{{ panelBg }} 78%)">
+                      <svg width="20" height="20" viewBox="0 0 24 24" style="animation:dkbob 1.2s ease-in-out infinite"><path d="M7 10l5 5 5-5" fill="none" stroke="{{ aBright }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <!-- PRE: 3D waterfall (time × freq × level) -->
+              <sc-if value="{{ isPre }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><span style="font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.1em;color:#8a8070">SPECTRO · 3D</span><span style="font-family:'Archivo';font-size:9px;color:#8a8070">time → · freq → · level ↑</span></div>
+                <svg width="338" height="150" viewBox="0 0 338 150" style="display:block">
+                  <line x1="14" y1="128" x2="314" y2="128" stroke="rgba(255,240,210,0.1)" stroke-width="1" />
+                  <line x1="14" y1="128" x2="38" y2="44" stroke="rgba(255,240,210,0.08)" stroke-width="1" />
+                  <line x1="314" y1="128" x2="338" y2="44" stroke="rgba(255,240,210,0.08)" stroke-width="1" />
+                  <sc-for list="{{ waterfall }}" as="s" hint-placeholder-count="11">
+                    <path d="{{ s.area }}" fill="{{ panelBg }}" opacity="0.9" />
+                    <path d="{{ s.area }}" fill="{{ aMain }}" opacity="{{ s.fop }}" />
+                    <path d="{{ s.line }}" fill="none" stroke="{{ aBright }}" stroke-width="1.3" opacity="{{ s.sop }}" />
+                  </sc-for>
+                  <text x="14" y="146" font-family="Archivo" font-size="8" fill="#8a8070">20Hz</text>
+                  <text x="300" y="146" font-family="Archivo" font-size="8" fill="#8a8070">20k</text>
+                </svg>
+                <div style="display:flex;gap:10px;margin-top:8px">
+                  <div style="flex:1;background:{{ panelDark }};border-radius:8px;padding:8px 10px">
+                    <div style="font-family:'Archivo';font-size:8.5px;font-weight:700;letter-spacing:0.1em;color:{{ aBright }};margin-bottom:6px">FFT</div>
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 8px">
+                      <sc-for list="{{ fftInfo }}" as="r" hint-placeholder-count="4">
+                        <span style="font-family:'Archivo';font-size:9px;color:#8a8070">{{ r.k }}</span><span style="font-family:'Archivo';font-size:9px;font-weight:600;color:{{ nInk }};text-align:right">{{ r.v }}</span>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div style="flex:1;background:{{ panelDark }};border-radius:8px;padding:8px 10px">
+                    <div style="font-family:'Archivo';font-size:8.5px;font-weight:700;letter-spacing:0.1em;color:{{ aBright }};margin-bottom:6px">NOISE</div>
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 8px">
+                      <sc-for list="{{ noiseInfo }}" as="r" hint-placeholder-count="4">
+                        <span style="font-family:'Archivo';font-size:9px;color:#8a8070">{{ r.k }}</span><span style="font-family:'Archivo';font-size:9px;font-weight:600;color:{{ nInk }};text-align:right">{{ r.v }}</span>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- SPECTRAL: EQ curve -->
+              <sc-if value="{{ isSpectral }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-family:'Archivo';font-size:11px;font-weight:700;letter-spacing:0.08em;color:{{ presetColor }}">{{ presetNameUpper }}</span><span style="font-family:'Archivo';font-size:9px;color:#6f6657">20Hz — 20kHz</span></div>
+                <svg width="338" height="150" viewBox="0 0 338 150" style="display:block">
+                  <line x1="0" y1="82" x2="338" y2="82" stroke="rgba(255,240,210,0.12)" stroke-dasharray="3 4" />
+                  <line x1="0" y1="56" x2="338" y2="56" stroke="rgba(255,240,210,0.05)" /><line x1="0" y1="108" x2="338" y2="108" stroke="rgba(255,240,210,0.05)" />
+                  <g stroke="rgba(255,240,210,0.05)"><line x1="84" y1="10" x2="84" y2="142" /><line x1="169" y1="10" x2="169" y2="142" /><line x1="253" y1="10" x2="253" y2="142" /></g>
+                  <path d="{{ eqArea }}" fill="url(#dk-eq)" />
+                  <path d="{{ eqLine }}" fill="none" stroke="{{ aBright }}" stroke-width="2.2" stroke-linejoin="round" />
+                  <sc-for list="{{ eqDots }}" as="d" hint-placeholder-count="5">
+                    <g onPointerDown="{{ d.onDown }}" data-knob-key="{{ d.qk }}" data-knob-min="{{ d.qmin }}" data-knob-max="{{ d.qmax }}" data-knob-step="{{ d.qstep }}" style="cursor:grab;touch-action:none">
+                      <circle cx="{{ d.cx }}" cy="{{ d.cy }}" r="14" fill="transparent" />
+                      <circle cx="{{ d.cx }}" cy="{{ d.cy }}" r="{{ d.r }}" fill="{{ panelBg }}" stroke="{{ d.fill }}" stroke-width="{{ d.sw }}" />
+                      <text x="{{ d.cx }}" y="{{ d.cy }}" font-family="Archivo" font-size="7" font-weight="700" fill="{{ d.numColor }}" text-anchor="middle" dominant-baseline="central" style="pointer-events:none">{{ d.num }}</text>
+                    </g>
+                  </sc-for>
+                </svg>
+                <div style="display:flex;justify-content:space-between;font-family:'Archivo';font-size:8.5px;color:{{ nInk2 }};padding:0 2px"><sc-for list="{{ eqAxis }}" as="t" hint-placeholder-count="5"><span>{{ t.label }}</span></sc-for></div>
+              </sc-if>
+
+              <!-- DYNAMICS: multiband -->
+              <sc-if value="{{ isDynamics }}" hint-placeholder-val="{{ true }}">
+                <div style="height:100%;box-sizing:border-box;display:flex;flex-direction:column;border-radius:12px;padding:13px 14px 15px;{{ insetBg }}">
+                <span style="font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.1em;color:#8a8070">MULTIBAND · GAIN REDUCTION</span>
+                <div style="flex:1;display:flex;gap:14px;justify-content:center;align-items:center;margin-top:10px">
+                  <sc-for list="{{ dynBars }}" as="b" hint-placeholder-count="3">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:1">
+                      <div style="position:relative;width:42px;height:84px;background:rgba(0,0,0,0.3);border-radius:7px;overflow:hidden;display:flex;align-items:flex-start;justify-content:center;box-shadow:inset 0 2px 5px rgba(0,0,0,0.5)">
+                        <div style="width:100%;height:{{ b.fill }};background:linear-gradient(180deg,{{ b.color }},rgba(0,0,0,0))"></div>
+                      </div>
+                      <span style="font-family:'Archivo';font-size:12px;font-weight:700;color:{{ b.color }}">{{ b.val }}</span>
+                      <span style="font-family:'Archivo';font-size:9px;letter-spacing:0.06em;color:#8a8070">{{ b.label }}</span>
+                      <svg width="44" height="44" viewBox="0 0 56 56" onPointerDown="{{ b.knob.onDown }}" data-knob-key="{{ b.knob.fk }}" data-knob-min="{{ b.knob.kmin }}" data-knob-max="{{ b.knob.kmax }}" data-knob-step="{{ b.knob.kstep }}" style="touch-action:none;display:block;{{ b.knob.knobStyle }}">
+                        <path d="{{ rotTrack }}" fill="none" stroke="#cdbfa4" stroke-width="3.8" stroke-linecap="round" />
+                        <path d="{{ b.knob.arc }}" fill="none" stroke="{{ b.color }}" stroke-width="3.8" stroke-linecap="round" />
+                        <circle cx="28" cy="28" r="17" fill="url(#dk-cap)" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+                        <ellipse cx="28" cy="23" rx="11" ry="6" fill="rgba(255,245,225,0.07)" />
+                        <line x1="{{ b.knob.px1 }}" y1="{{ b.knob.py1 }}" x2="{{ b.knob.px2 }}" y2="{{ b.knob.py2 }}" stroke="#f3ecdd" stroke-width="2.2" stroke-linecap="round" />
+                      </svg>
+                    </div>
+                  </sc-for>
+                </div>
+                </div>
+              </sc-if>
+
+              <!-- STEREO: width field -->
+              <sc-if value="{{ isStereo }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;height:100%">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><span style="font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.1em;color:#8a8070">STEREO FIELD · SPACE</span><span style="font-family:'Archivo';font-size:12px;font-weight:700;color:{{ aBright }}">{{ stereoW }}</span></div>
+                  <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center">
+                    <svg width="100%" height="100%" viewBox="0 0 338 150" preserveAspectRatio="xMidYMid meet" style="display:block">
+                      <line x1="169" y1="8" x2="169" y2="142" stroke="rgba(255,240,210,0.12)" stroke-dasharray="3 4" />
+                      <line x1="24" y1="75" x2="314" y2="75" stroke="rgba(255,240,210,0.08)" />
+                      <sc-for list="{{ stDelay }}" as="d" hint-placeholder-count="0">
+                        <ellipse cx="{{ d.cxL }}" cy="75" rx="{{ stereoRx }}" ry="44" fill="none" stroke="{{ aBright }}" stroke-width="1.1" opacity="{{ d.op }}" />
+                        <ellipse cx="{{ d.cxR }}" cy="75" rx="{{ stereoRx }}" ry="44" fill="none" stroke="{{ aBright }}" stroke-width="1.1" opacity="{{ d.op }}" />
+                      </sc-for>
+                      <sc-for list="{{ stReverb }}" as="r" hint-placeholder-count="0">
+                        <ellipse cx="169" cy="75" rx="{{ r.rx }}" ry="{{ r.ry }}" fill="none" stroke="{{ aMain }}" stroke-width="1.4" opacity="{{ r.op }}" />
+                      </sc-for>
+                      <ellipse cx="169" cy="75" rx="{{ stereoRx }}" ry="44" fill="{{ ellipseFill }}" stroke="{{ aBright }}" stroke-width="1.8" />
+                      <sc-if value="{{ stMonoOn }}" hint-placeholder-val="{{ false }}">
+                        <ellipse cx="169" cy="75" rx="{{ stMonoRx }}" ry="30" fill="{{ aMain }}" opacity="0.32" stroke="{{ aBright }}" stroke-width="1" stroke-dasharray="2 2" />
+                      </sc-if>
+                      <sc-if value="{{ stCompatOn }}" hint-placeholder-val="{{ false }}">
+                        <line x1="169" y1="29" x2="169" y2="121" stroke="{{ foldColor }}" stroke-width="2.4" opacity="0.9" />
+                        <circle cx="169" cy="29" r="2.4" fill="{{ foldColor }}" /><circle cx="169" cy="121" r="2.4" fill="{{ foldColor }}" />
+                        <text x="175" y="34" font-family="Archivo" font-size="8" fill="{{ foldColor }}">mono fold</text>
+                      </sc-if>
+                      <text x="28" y="79" font-family="Archivo" font-size="11" fill="#8a8070">L</text>
+                      <text x="300" y="79" font-family="Archivo" font-size="11" fill="#8a8070">R</text>
+                      <circle cx="169" cy="75" r="3" fill="{{ aBright }}" />
+                    </svg>
+                  </div>
+                  <div style="background:rgba(0,0,0,0.18);border-radius:7px;padding:7px 10px;margin-top:8px;opacity:{{ compatDim }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                      <span style="font-family:'Archivo';font-size:9px;font-weight:700;letter-spacing:0.08em;color:#8a8070">MONO COMPAT · CORRELATION</span>
+                      <span style="font-family:'Archivo';font-size:9px;color:#8a8070">fold loss <span style="font-weight:700;color:{{ stCompatColor }}">{{ stLossLabel }}</span></span>
+                    </div>
+                    <div style="position:relative;height:7px;background:rgba(0,0,0,0.35);border-radius:4px">
+                      <div style="position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:rgba(255,240,210,0.25)"></div>
+                      <div style="position:absolute;top:50%;left:{{ stCorrX }};width:9px;height:9px;border-radius:50%;background:{{ stCompatColor }};transform:translate(-50%,-50%);box-shadow:0 0 7px {{ stCompatColor }}"></div>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+                      <span style="font-family:'Archivo';font-size:8px;color:#6f6657">-1 · out of phase</span>
+                      <span style="font-family:'Archivo';font-size:9px;font-weight:700;color:{{ stCompatColor }}">{{ stCompatStatus }} · {{ stCorrLabel }}</span>
+                      <span style="font-family:'Archivo';font-size:8px;color:#6f6657">mono +1</span>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">
+                    <div style="display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,0.18);border-radius:7px;padding:7px 9px">
+                      <div style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;border:1.4px solid {{ aMain }};box-sizing:border-box;flex:none"></span><span style="font-family:'Archivo';font-size:9px;color:#8a8070">Reverb</span></div>
+                      <span style="font-family:'Archivo';font-size:12px;font-weight:700;color:{{ aBright }}">{{ stReverbLabel }}</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,0.18);border-radius:7px;padding:7px 9px">
+                      <div style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:7px;border-radius:50%;border:1.1px solid {{ aBright }};box-sizing:border-box;opacity:0.6;flex:none"></span><span style="font-family:'Archivo';font-size:9px;color:#8a8070">Delay</span></div>
+                      <span style="font-family:'Archivo';font-size:12px;font-weight:700;color:{{ aBright }}">{{ stDelayLabel }}</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,0.18);border-radius:7px;padding:7px 9px">
+                      <div style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:{{ aMain }};opacity:0.5;flex:none"></span><span style="font-family:'Archivo';font-size:9px;color:#8a8070">Bass Mono</span></div>
+                      <span style="font-family:'Archivo';font-size:12px;font-weight:700;color:{{ bassLegendColor }}">{{ stMonoVal }}</span>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- LOUDNESS: meter -->
+              <sc-if value="{{ isLoudness }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.1em;color:#8a8070">INTEGRATED LOUDNESS</span><span style="font-family:'Archivo';font-size:12px;font-weight:700;color:{{ aBright }}">{{ loudTargetLabel }}</span></div>
+                <div style="margin-top:10px;position:relative;height:16px;background:{{ panelDark }};border-radius:5px;overflow:hidden">
+                  <div style="position:absolute;inset:0;background:{{ loudGrad }}"></div>
+                  <div style="position:absolute;top:0;bottom:0;left:{{ loudFill }};right:0;background:rgba(6,4,2,0.9)"></div>
+                  <div style="position:absolute;top:-4px;bottom:-4px;left:{{ loudTargetX }};width:2px;background:#f3ecdd;box-shadow:0 0 6px rgba(243,236,221,0.7)"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-family:'Archivo';font-size:8.5px;color:{{ nInk2 }};margin-top:5px"><span>-30</span><span>-23</span><span>-14</span><span>-9</span><span>0</span></div>
+                <div style="display:flex;gap:10px;margin-top:10px">
+                  <div style="flex:1;background:{{ panelDark }};border-radius:8px;padding:7px 11px;opacity:{{ tpDim }}"><div style="font-family:'Archivo';font-size:9px;color:#8a8070;letter-spacing:0.04em">TRUE PEAK</div><div style="font-family:'Archivo';font-size:16px;font-weight:700;color:{{ nInk }};margin-top:3px">{{ loudCeiling }}</div></div>
+                  <div style="flex:1;background:{{ panelDark }};border-radius:8px;padding:7px 11px"><div style="font-family:'Archivo';font-size:9px;color:#8a8070;letter-spacing:0.04em">LIMITER</div><div style="font-family:'Archivo';font-size:16px;font-weight:700;color:{{ nInk }};margin-top:3px">{{ loudMode }}</div></div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:8px">
+                  <div style="flex:none;width:138px;background:{{ panelDark }};border-radius:8px;padding:7px 9px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px"><span style="font-family:'Archivo';font-size:9px;font-weight:700;letter-spacing:0.06em;color:#8a8070">SATURATION</span><span style="font-family:'Archivo';font-size:11px;font-weight:700;color:{{ satWarnColor }}">{{ satLabel }}</span></div>
+                    <svg width="100%" height="56" viewBox="0 0 160 92" preserveAspectRatio="xMidYMid meet" style="display:block">
+                      <line x1="80" y1="8" x2="80" y2="84" stroke="rgba(255,240,210,0.1)" />
+                      <line x1="6" y1="46" x2="154" y2="46" stroke="rgba(255,240,210,0.1)" />
+                      <path d="{{ satLine }}" stroke="rgba(255,240,210,0.18)" stroke-width="1" stroke-dasharray="3 3" />
+                      <path d="{{ satPath }}" fill="none" stroke="{{ satWarnColor }}" stroke-width="2" />
+                    </svg>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,240,210,0.08)"><span style="font-family:'Archivo';font-size:8.5px;color:#8a8070">THD <span style="font-weight:700;color:{{ satWarnColor }}">{{ satThd }}</span></span><span style="font-family:'Archivo';font-size:8.5px;font-weight:700;letter-spacing:0.04em;color:{{ satWarnColor }}">{{ satThdStatus }}</span></div>
+                  </div>
+                  <div style="flex:1;background:{{ panelDark }};border-radius:8px;padding:8px 11px;display:flex;flex-direction:column">
+                    <span style="font-family:'Archivo';font-size:9px;font-weight:700;letter-spacing:0.06em;color:#8a8070;margin-bottom:6px">ADDED HARMONICS</span>
+                    <div style="flex:1;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;min-height:46px">
+                      <sc-for list="{{ satHarm }}" as="h" hint-placeholder-count="4">
+                        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+                          <div style="width:100%;border-radius:2px 2px 0 0;height:{{ h.h }};background:{{ satWarnColor }}"></div>
+                          <span style="font-family:'Archivo';font-size:8px;color:#8a8070;margin-top:3px">{{ h.label }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <span style="font-family:'Archivo';font-size:8px;color:#8a8070;margin-top:4px">even = warmth · odd = edge</span>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- EXPORT: artwork + output -->
+              <sc-if value="{{ isExport }}" hint-placeholder-val="{{ true }}">
+                <span style="font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.1em;color:#8a8070">ALBUM ARTWORK</span>
+                <div style="display:flex;gap:13px;margin-top:12px">
+                  <div style="width:98px;height:98px;flex:none;border-radius:9px;border:1.5px dashed rgba(255,240,210,0.22);background:{{ panelDark }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#8a8070"><svg width="24" height="24" viewBox="0 0 24 24"><use href="#dk-note"></use></svg><span style="font-family:'Archivo';font-size:8.5px;letter-spacing:0.04em">Drop art</span></div>
+                  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:9px">
+                    <div style="background:{{ panelDark }};border-radius:8px;padding:9px 11px"><div style="font-family:'Archivo';font-size:9px;color:#8a8070;letter-spacing:0.04em">OUTPUT FORMAT</div><div style="font-family:'Archivo';font-size:14px;font-weight:700;color:{{ nInk }};margin-top:2px">{{ exportFormat }}</div></div>
+                    <div style="background:{{ panelDark }};border-radius:8px;padding:9px 11px"><div style="font-family:'Archivo';font-size:9px;color:#8a8070;letter-spacing:0.04em">DESTINATION</div><div style="font-family:'Archivo';font-size:11px;color:{{ nInk2 }};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">~/Masters/{{ exportAlbum }}</div></div>
+                  </div>
+                </div>
+              </sc-if>
+
+            </div>
+          </div>
+
+          <!-- col 3: controls -->
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+            <div style="font-family:'Archivo';font-size:10px;font-weight:700;letter-spacing:0.14em;color:#a99f8a;margin-bottom:11px">PARAMETERS</div>
+
+            <sc-if value="{{ genCtrl }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:none;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px 22px;align-content:flex-start">
+                <sc-for list="{{ controls }}" as="c" hint-placeholder-count="6">
+                  <div style="{{ c.wrapStyle }}">
+                    <sc-if value="{{ c.isRot }}" hint-placeholder-val="{{ true }}">
+                      <div style="text-align:center;font-family:'Archivo';font-size:9.5px;color:#8a8070;white-space:nowrap;margin-bottom:5px">{{ c.label }}</div>
+                      <svg width="54" height="54" viewBox="0 0 56 56" onPointerDown="{{ c.onDown }}" data-knob-key="{{ c.fk }}" data-knob-min="{{ c.kmin }}" data-knob-max="{{ c.kmax }}" data-knob-step="{{ c.kstep }}" style="touch-action:none;display:block;margin:0 auto;{{ c.knobStyle }}">
+                        <path d="{{ rotTrack }}" fill="none" stroke="#cdbfa4" stroke-width="3.2" stroke-linecap="round" />
+                        <path d="{{ c.arc }}" fill="none" stroke="{{ c.arcColor }}" stroke-width="3.2" stroke-linecap="round" />
+                        <circle cx="28" cy="28" r="17" fill="url(#dk-cap)" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+                        <ellipse cx="28" cy="23" rx="11" ry="6" fill="rgba(255,245,225,0.07)" />
+                        <line x1="{{ c.px1 }}" y1="{{ c.py1 }}" x2="{{ c.px2 }}" y2="{{ c.py2 }}" stroke="#f3ecdd" stroke-width="2.2" stroke-linecap="round" />
+                      </svg>
+                      <div style="text-align:center;font-family:'Archivo';font-size:12px;font-weight:700;color:{{ c.valColor }};margin-top:5px">{{ c.display }} <span style="font-family:'Archivo';font-size:9.5px;font-weight:400;color:#8a8070">{{ c.unitText }}</span></div>
+                    </sc-if>
+
+                    <sc-if value="{{ c.isSeg }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;gap:11px">
+                        <span style="font-family:'Archivo';font-size:9.5px;color:#8a8070;white-space:nowrap">{{ c.label }}</span>
+                        <div style="display:flex;gap:3px;background:{{ paperCtl }};border-radius:8px;padding:3px">
+                          <sc-for list="{{ c.opts }}" as="o" hint-placeholder-count="3">
+                            <div onClick="{{ o.onSel }}" style="{{ o.style }}">{{ o.label }}</div>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ c.isSw }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;gap:11px">
+                        <span style="font-family:'Archivo';font-size:9.5px;color:#8a8070;line-height:1.2;width:{{ c.labelW }};flex:none;display:flex;flex-direction:column">{{ c.labelL1 }}<sc-if value="{{ c.twoLine }}" hint-placeholder-val="{{ false }}"><span>{{ c.labelL2 }}</span></sc-if></span>
+                        <div onClick="{{ c.onToggle }}" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                          <div style="{{ c.swTrack }}"><div style="{{ c.swKnob }}"></div></div>
+                          <span style="font-family:'Archivo';font-size:10px;font-weight:600;color:{{ c.subColor }}">{{ c.subText }}</span>
+                        </div>
+                      </div>
+                      <sc-if value="{{ c.hasBelow }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;align-items:center;gap:11px;margin-top:13px;{{ c.belowStyle }}">
+                          <span style="font-family:'Archivo';font-size:9.5px;color:#8a8070;line-height:1.25;text-align:left;width:46px;flex:none">Noise<br />Depth</span>
+                          <div>
+                            <div style="display:flex;gap:3px;background:{{ paperCtl }};border-radius:8px;padding:3px">
+                              <sc-for list="{{ c.belowOpts }}" as="o" hint-placeholder-count="3">
+                                <div onClick="{{ o.onSel }}" style="{{ o.style }}">{{ o.label }}</div>
+                              </sc-for>
+                            </div>
+                            <div style="font-family:'Archivo';font-size:9.5px;color:#8a8070;text-align:center;margin-top:5px">{{ c.belowDesc }}</div>
+                          </div>
+                        </div>
+                      </sc-if>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ isInput }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-top:13px;border-top:1px solid rgba(58,52,43,0.14);padding-top:11px">
+                  <div style="font-family:'Archivo';font-size:10px;font-weight:700;letter-spacing:0.14em;color:#a99f8a;margin-bottom:9px">BATCH INFO</div>
+                  <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center">
+                    <div style="display:flex;align-items:center;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" style="flex:none;color:{{ aMain }}"><use href="#dk-note"></use></svg><span style="font-family:'Archivo';font-size:10.5px;color:{{ pInk2 }}">Total tracks</span></div>
+                    <span style="font-family:'Archivo';font-size:13px;font-weight:700;color:{{ pInk }}">{{ batchCount }} files · {{ batchSize }}</span>
+                    <div style="display:flex;align-items:center;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" style="flex:none;color:{{ aMain }}"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.4h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" /></svg><span style="font-family:'Archivo';font-size:10.5px;color:{{ pInk2 }}">Working folder</span></div>
+                    <span style="font-family:'Archivo';font-size:12px;font-weight:500;color:{{ pInk }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ workFolder }}</span>
+                    <div style="display:flex;align-items:center;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" style="flex:none;color:{{ aMain }}"><use href="#dk-export"></use></svg><span style="font-family:'Archivo';font-size:10.5px;color:{{ pInk2 }}">Decode format</span></div>
+                    <span style="font-family:'Archivo';font-size:12px;font-weight:500;color:{{ pInk }}">PCM {{ inputFmt }}</span>
+                  </div>
+
+                </div>
+
+                <div style="margin-top:12px;border-top:1px solid rgba(58,52,43,0.14);padding-top:11px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+                    <span style="font-family:'Archivo';font-size:10px;font-weight:700;letter-spacing:0.14em;color:#a99f8a">NOW SELECTED</span>
+                    <span style="font-family:'Archivo';font-size:10.5px;color:{{ pInk2 }}">{{ sel.dur }} · {{ sel.size }}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;color:{{ aInk }};background:{{ aMain }}"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#dk-note"></use></svg></div>
+                    <span style="font-family:'Archivo';font-size:14px;font-weight:600;color:{{ pInk }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sel.name }}</span>
+                    <div style="flex:1"></div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+                      <sc-for list="{{ selChips }}" as="ch" hint-placeholder-count="3">
+                        <span style="font-family:'Archivo';font-size:10px;font-weight:600;color:{{ pSeg }};background:{{ paperCtl }};border-radius:6px;padding:5px 10px;white-space:nowrap">{{ ch.label }}</span>
+                      </sc-for>
+                      <span style="font-family:'Archivo';font-size:10px;font-weight:700;color:{{ aMain }};background:{{ paperCtl }};border-radius:6px;padding:5px 10px;white-space:nowrap">{{ sel.lufs }} LUFS</span>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{ isDynamics }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:12px;flex:1;border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;justify-content:space-around;gap:14px;{{ insetBg }}">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div style="flex:none;display:flex;flex-direction:column;align-items:center">
+                    <svg width="48" height="48" viewBox="0 0 56 56" onPointerDown="{{ dynTrans.onDown }}" data-knob-key="{{ dynTrans.fk }}" data-knob-min="{{ dynTrans.kmin }}" data-knob-max="{{ dynTrans.kmax }}" data-knob-step="{{ dynTrans.kstep }}" style="touch-action:none;display:block;{{ dynTrans.knobStyle }}">
+                      <path d="{{ rotTrack }}" fill="none" stroke="#cdbfa4" stroke-width="3.6" stroke-linecap="round" />
+                      <path d="{{ dynTrans.arc }}" fill="none" stroke="{{ dynTrans.arcColor }}" stroke-width="3.6" stroke-linecap="round" />
+                      <circle cx="28" cy="28" r="17" fill="url(#dk-cap)" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+                      <ellipse cx="28" cy="23" rx="11" ry="6" fill="rgba(255,245,225,0.07)" />
+                      <line x1="{{ dynTrans.px1 }}" y1="{{ dynTrans.py1 }}" x2="{{ dynTrans.px2 }}" y2="{{ dynTrans.py2 }}" stroke="#f3ecdd" stroke-width="2.2" stroke-linecap="round" />
+                    </svg>
+                    <div style="font-family:'Archivo';font-size:8.5px;color:#8a8070;margin-top:3px">Transient</div>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px"><span style="font-family:'Archivo';font-size:9px;font-weight:700;letter-spacing:0.1em;color:#8a8070">TRANSIENT</span><span style="font-family:'Archivo';font-size:11px;font-weight:700;color:{{ aBright }}">{{ transLabel }}</span></div>
+                    <svg width="100%" height="50" viewBox="0 0 212 54" preserveAspectRatio="none" style="display:block">
+                      <line x1="0" y1="27" x2="212" y2="27" stroke="rgba(255,240,210,0.12)" stroke-dasharray="2 3" />
+                      <path d="{{ transPath }}" fill="{{ aMain }}" opacity="0.5" />
+                      <path d="{{ transPath }}" fill="none" stroke="{{ aBright }}" stroke-width="1.3" />
+                    </svg>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div style="flex:none;display:flex;flex-direction:column;align-items:center">
+                    <svg width="48" height="48" viewBox="0 0 56 56" onPointerDown="{{ dynExc.onDown }}" data-knob-key="{{ dynExc.fk }}" data-knob-min="{{ dynExc.kmin }}" data-knob-max="{{ dynExc.kmax }}" data-knob-step="{{ dynExc.kstep }}" style="touch-action:none;display:block;{{ dynExc.knobStyle }}">
+                      <path d="{{ rotTrack }}" fill="none" stroke="#cdbfa4" stroke-width="3.6" stroke-linecap="round" />
+                      <path d="{{ dynExc.arc }}" fill="none" stroke="{{ dynExc.arcColor }}" stroke-width="3.6" stroke-linecap="round" />
+                      <circle cx="28" cy="28" r="17" fill="url(#dk-cap)" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+                      <ellipse cx="28" cy="23" rx="11" ry="6" fill="rgba(255,245,225,0.07)" />
+                      <line x1="{{ dynExc.px1 }}" y1="{{ dynExc.py1 }}" x2="{{ dynExc.px2 }}" y2="{{ dynExc.py2 }}" stroke="#f3ecdd" stroke-width="2.2" stroke-linecap="round" />
+                    </svg>
+                    <div style="font-family:'Archivo';font-size:8.5px;color:#8a8070;margin-top:3px">Exciter</div>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px"><span style="font-family:'Archivo';font-size:9px;font-weight:700;letter-spacing:0.1em;color:#8a8070">EXCITER · HARMONICS</span><span style="font-family:'Archivo';font-size:11px;font-weight:700;color:{{ aBright }}">{{ exLabel }}</span></div>
+                    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:5px;height:46px">
+                      <sc-for list="{{ exciterBars }}" as="h" hint-placeholder-count="8">
+                        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+                          <div style="{{ h.barStyle }}"></div>
+                          <span style="font-family:'Archivo';font-size:7px;color:#8a8070;margin-top:3px">{{ h.label }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isSpectral }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+                <span style="font-family:'Archivo';font-size:9.5px;color:#8a8070">Preset · <span style="font-weight:700;color:{{ presetColor }}">{{ presetName }}</span></span>
+                <button onClick="{{ toggleAdv }}" style="{{ advBtnStyle }}">{{ advLabel }}</button>
+              </div>
+
+              <sc-if value="{{ eqShowPresets }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:9px">
+                  <sc-for list="{{ presetCards }}" as="p" hint-placeholder-count="5">
+                    <div onClick="{{ p.onSel }}" style="{{ p.cardStyle }}">
+                      <span style="{{ p.dotStyle }}"></span>
+                      <span style="font-family:'Archivo';font-size:12.5px;font-weight:700;color:{{ p.nameColor }}">{{ p.name }}</span>
+                      <span style="font-family:'Archivo';font-size:8.5px;color:#8a8070;text-align:center;line-height:1.3">{{ p.desc }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ eqAdvanced }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:7px;justify-content:space-between">
+                  <sc-for list="{{ eqColumns }}" as="col" hint-placeholder-count="5">
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 3px 7px;border-radius:11px;background:rgba(58,52,43,0.05);box-shadow:inset 0 2px 5px rgba(58,52,43,0.2),inset 0 -1px 0 rgba(255,255,255,0.5);border:1px solid rgba(58,52,43,0.08)">
+                      <div style="display:flex;align-items:center;gap:4px;margin-bottom:1px"><span style="width:6px;height:6px;border-radius:50%;background:{{ col.color }};flex:none"></span><span style="font-family:'Archivo';font-size:8.5px;font-weight:700;color:{{ pInk }}">{{ col.num }}</span><span style="font-family:'Archivo';font-size:7.5px;color:#8a8070;white-space:nowrap">{{ col.type }}</span></div>
+                      <sc-for list="{{ col.ctls }}" as="c" hint-placeholder-count="3">
+                        <div style="display:flex;flex-direction:column;align-items:center">
+                          <svg width="37" height="37" viewBox="0 0 56 56" onPointerDown="{{ c.onDown }}" data-knob-key="{{ c.fk }}" data-knob-min="{{ c.kmin }}" data-knob-max="{{ c.kmax }}" data-knob-step="{{ c.kstep }}" style="touch-action:none;display:block;{{ c.knobStyle }}">
+                            <path d="{{ rotTrack }}" fill="none" stroke="#cdbfa4" stroke-width="4" stroke-linecap="round" />
+                            <path d="{{ c.arc }}" fill="none" stroke="{{ c.arcColor }}" stroke-width="4" stroke-linecap="round" />
+                            <circle cx="28" cy="28" r="17" fill="url(#dk-cap)" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+                            <ellipse cx="28" cy="23" rx="11" ry="6" fill="rgba(255,245,225,0.07)" />
+                            <line x1="{{ c.px1 }}" y1="{{ c.py1 }}" x2="{{ c.px2 }}" y2="{{ c.py2 }}" stroke="#f3ecdd" stroke-width="2.4" stroke-linecap="round" />
+                          </svg>
+                          <div style="text-align:center;font-family:'Archivo';font-size:9.5px;font-weight:700;color:{{ c.valColor }};line-height:1.1">{{ c.display }} <span style="font-family:'Archivo';font-size:7.5px;font-weight:400;color:#8a8070">{{ c.unitText }}</span></div>
+                          <div style="text-align:center;font-family:'Archivo';font-size:7.5px;color:#8a8070;line-height:1">{{ c.label }}</div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{ isExport }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;align-content:start;overflow-y:auto">
+                <sc-for list="{{ metaFields }}" as="f" hint-placeholder-count="5">
+                  <div style="{{ f.wrap }}">
+                    <div style="font-family:'Archivo';font-size:9.5px;color:#8a8070;margin-bottom:5px">{{ f.label }}</div>
+                    <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ true }}">
+                      <input class="dk-in" value="{{ f.value }}" onInput="{{ f.onInput }}" placeholder="{{ f.ph }}" style="width:100%;box-sizing:border-box;background:{{ paperInput }};border:1px solid #cdbfa4;border-radius:7px;padding:8px 10px;color:{{ pInk }};font-size:12.5px;outline:none" />
+                    </sc-if>
+                    <sc-if value="{{ f.isSeg }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;gap:3px;background:{{ paperCtl }};border-radius:8px;padding:3px">
+                        <sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="3">
+                          <div onClick="{{ o.onSel }}" style="{{ o.style }}">{{ o.label }}</div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <!-- footer -->
+      <div style="height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 15px;background:#13171c;border-top:1px solid #0a0d10">
+        <span style="font-family:'Archivo';font-size:10px;color:#5e6b73">Signal flows left → right · {{ activeCount }}/7 stages engaged</span>
+        <span style="font-family:'Archivo';font-size:10px;color:#5e6b73">{{ batchCount }} files queued · {{ batchSize }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1252,&quot;height&quot;:720},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Teal&quot;,&quot;options&quot;:[&quot;Teal&quot;,&quot;Sunset&quot;,&quot;Violet&quot;,&quot;Crimson&quot;,&quot;Teal Light&quot;,&quot;Sunset Light&quot;,&quot;Violet Light&quot;,&quot;Crimson Light&quot;],&quot;tsType&quot;:&quot;string&quot;},&quot;preset&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;-14 LUFS&quot;,&quot;options&quot;:[&quot;-14 LUFS&quot;,&quot;-9 LUFS&quot;,&quot;-1 dBFS&quot;]}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.ROMAN=['I','II','III','IV','V','VI','VII'];
+    this.MODS=[
+      {id:'input',short:'Input',name:'Input',icon:'input',desc:'Load files, batch a folder and convert to PCM before the chain begins.',viz:'BATCH QUEUE'},
+      {id:'pre',short:'Pre-Proc',name:'Pre Processing',icon:'pre',desc:'Clean up the source — denoise, fades and set the loudness targets.',viz:'3D SPECTRUM · TIME × FREQ × LEVEL'},
+      {id:'spectral',short:'EQ',name:'Spectral EQ',icon:'spectral',desc:'Air and tone balance · Min-φ Equalization',viz:'SPECTRAL ANALYSIS'},
+      {id:'dynamics',short:'Dynamics',name:'Dynamics',icon:'dynamics',desc:'Multiband compression with transient shaping and exciter.',viz:'DYNAMIC PROCESSING'},
+      {id:'stereo',short:'Stereo',name:'Stereo Image',icon:'stereo',desc:'Width, bass-mono and a touch of space.',viz:'STEREO ENHANCEMENT'},
+      {id:'loudness',short:'Loudness',name:'Loudness / Limiter',icon:'loudness',desc:'True-peak limiting and LUFS maximization with saturation.',viz:'LOUDNESS / LIMITER'},
+      {id:'export',short:'Export',name:'Export',icon:'export',desc:'Embed metadata, artwork and choose the output format.',viz:'EXPORT'},
+    ];
+    this.CTRL={
+      input:[
+        {key:'source',type:'seg',label:'Source',opts:['Files','Folder']},
+        {key:'bit',type:'seg',label:'PCM',opts:['16','24','32f']},
+        {key:'rate',type:'seg',label:'Rate',opts:['44.1k','48k','96k']},
+        {key:'recursive',type:'sw',label:'Recursive'},
+        {key:'normimp',type:'sw',label:'Normalize'},
+      ],
+      pre:[
+        {key:'denoise',type:'sw',label:'Denoise'},
+        {key:'noiseDepth',type:'seg',label:'Noise Depth',opts:['1','2','3']},
+        {key:'denoiseAmt',type:'rot',label:'Noise Reduction',min:0,max:100,step:1,dec:0},
+        {key:'fadein',type:'rot',label:'Fade In',min:0,max:2000,step:10,dec:0,k:true},
+        {key:'fadeout',type:'rot',label:'Fade Out',min:0,max:4000,step:10,dec:0,k:true},
+      ],
+      spectral:[],
+      dynamics:[
+        {key:'low',type:'rot',label:'Low',min:-18,max:0,step:0.1,dec:1},
+        {key:'mid',type:'rot',label:'Mid',min:-18,max:0,step:0.1,dec:1},
+        {key:'high',type:'rot',label:'High',min:-18,max:0,step:0.1,dec:1},
+        {key:'ratio',type:'seg',label:'Ratio',opts:['2:1','4:1','8:1']},
+        {key:'transient',type:'rot',label:'Transient',min:-50,max:50,step:1,dec:0,signed:true},
+        {key:'exciter',type:'rot',label:'Exciter',min:0,max:100,step:1,dec:0},
+      ],
+      stereo:[
+        {key:'width',type:'rot',label:'Width',min:0,max:200,step:1,dec:0},
+        {key:'reverb',type:'rot',label:'Reverb',min:0,max:30,step:1,dec:0},
+        {key:'delay',type:'rot',label:'Delay',min:0,max:30,step:1,dec:0},
+        {key:'crossover',type:'rot',label:'Bass',min:60,max:300,step:5,dec:0},
+        {key:'bassmono',type:'sw',label:'Bass Mono'},
+        {key:'mono',type:'sw',label:'Mono Compatibility'},
+      ],
+      loudness:[
+        {key:'ceiling',type:'rot',label:'True Peak',min:-3,max:0,step:0.1,dec:1,warnAbove:-1,warnArc:'#f6465d',warnVal:'#e0344b'},
+        {key:'target',type:'rot',label:'LUFS',min:-24,max:-6,step:1,dec:0,warnAbove:-14},
+        {key:'sat',type:'rot',label:'Saturate',min:0,max:100,step:1,dec:0},
+        {key:'limiter',type:'seg',label:'Limiter',opts:['Clear','Punchy','Loud']},
+        {key:'tplimit',type:'sw',label:'TP Limit'},
+      ],
+      export:[],
+    };
+    // 5-band parametric EQ
+    this.EQBANDS=[
+      {type:'L-Shelf',col:'#7cc4ff',fmin:20,fmax:240,fstep:1},
+      {type:'Bell',col:'#9ad29a',fmin:80,fmax:600,fstep:2},
+      {type:'Bell',col:'#e8d36a',fmin:300,fmax:3000,fstep:10},
+      {type:'Bell',col:'#e0a046',fmin:2000,fmax:9000,fstep:20},
+      {type:'H-Shelf',col:'#f06a6a',fmin:6000,fmax:20000,fstep:50},
+    ];
+    this.EQPRESET_ORDER=['Normal','Pop','Dance','Classic','User'];
+    this.EQPRESETS={
+      Normal:{color:'#6f6657',desc:'Flat reference',f:[60,250,1000,4000,12000],g:[0,0,0,0,0],q:[0.71,1.0,1.0,1.2,0.71]},
+      Pop:{color:'#e0568f',desc:'Bright vocal lift',f:[80,300,1200,5000,12000],g:[2,-2,0,3,4],q:[0.71,1.2,1.0,1.0,0.71]},
+      Dance:{color:'#3fb6d6',desc:'Big low & air',f:[60,250,900,4500,13000],g:[5,-1,-2,2,5],q:[0.71,1.4,1.0,1.0,0.71]},
+      Classic:{color:'#c79a3f',desc:'Warm & smooth',f:[70,220,1000,3500,11000],g:[1,1,0,-1,2],q:[0.71,0.9,1.0,1.0,0.71]},
+      User:{color:'#9a6fd0',desc:'Your settings',f:[60,250,1000,4000,12000],g:[0,-3,0,1,4],q:[0.71,1.0,1.0,1.2,0.71]},
+    };
+    this.UNITS={
+      'pre.denoiseAmt':'%','pre.fadein':'ms','pre.fadeout':'ms','pre.lufs':'LUFS','pre.tp':'dBTP',
+      'dynamics.low':'dB','dynamics.mid':'dB','dynamics.high':'dB','dynamics.transient':'%','dynamics.exciter':'%',
+      'stereo.width':'%','stereo.reverb':'%','stereo.delay':'%','stereo.crossover':'Hz',
+      'loudness.ceiling':'dB','loudness.target':'LUFS','loudness.sat':'%',
+    };
+    for(let n=0;n<5;n++) this.UNITS['spectral.g'+n]='dB';
+    this.META=[
+      {key:'album',type:'text',label:'Album title',ph:'Untitled Master'},
+      {key:'artist',type:'text',label:'Artist / Composer',ph:'—'},
+      {key:'year',type:'text',label:'Year',ph:'2026'},
+      {key:'genre',type:'text',label:'Genre',ph:'—'},
+      {key:'format',type:'seg',label:'Format',opts:['WAV','MP3 320','FLAC']},
+    ];
+    let d='M -20 '+(110).toFixed(1);
+    for(let x=0;x<=1228;x+=30){d+=' L '+x+' '+(106+12*Math.sin(x/100)).toFixed(1);}
+    this.RIBBON=d;
+    this.FILES=[
+      {name:'01 Sunrise Avenue.wav',size:'48.2 MB',fmt:'WAV',dur:'3:42',sr:'48.0 kHz',depth:'24-bit',ch:'Stereo',lufs:'-16.2'},
+      {name:'02 Tidal.mp3',size:'9.1 MB',fmt:'MP3 320',dur:'3:58',sr:'44.1 kHz',depth:'16-bit',ch:'Stereo',lufs:'-9.4'},
+      {name:'03 Ember Glow.wav',size:'52.7 MB',fmt:'WAV',dur:'4:05',sr:'48.0 kHz',depth:'24-bit',ch:'Stereo',lufs:'-18.7'},
+      {name:'04 Northbound.aiff',size:'61.0 MB',fmt:'AIFF',dur:'4:44',sr:'48.0 kHz',depth:'24-bit',ch:'Stereo',lufs:'-14.1'},
+      {name:'05 Paper Moon.flac',size:'27.4 MB',fmt:'FLAC',dur:'3:21',sr:'44.1 kHz',depth:'16-bit',ch:'Stereo',lufs:'-12.8'},
+      {name:'06 Last Light.mp3',size:'8.6 MB',fmt:'MP3 320',dur:'3:46',sr:'44.1 kHz',depth:'16-bit',ch:'Mono',lufs:'-11.5'},
+      {name:'07 Afterglow.wav',size:'44.9 MB',fmt:'WAV',dur:'3:33',sr:'48.0 kHz',depth:'24-bit',ch:'Stereo',lufs:'-15.3'},
+    ];
+    this.state={
+      open:0, curFile:0, winX:0, winY:0, openMenu:null, eqAdvanced:false,
+      enabled:{input:true,pre:true,spectral:true,dynamics:true,stereo:true,loudness:true,export:true},
+      vals:{
+        'input.source':'Files','input.bit':'24','input.rate':'48k','input.recursive':true,'input.normimp':false,
+        'pre.denoise':true,'pre.noiseDepth':'2','pre.denoiseAmt':35,'pre.fadein':20,'pre.fadeout':600,'pre.lufs':-14,'pre.tp':-1,'pre.rms':-12,
+        'spectral.band':'2','spectral.preset':'Normal',
+        'spectral.f0':60,'spectral.g0':0,'spectral.q0':0.71,
+        'spectral.f1':250,'spectral.g1':0,'spectral.q1':1.0,
+        'spectral.f2':1000,'spectral.g2':0,'spectral.q2':1.0,
+        'spectral.f3':4000,'spectral.g3':0,'spectral.q3':1.2,
+        'spectral.f4':12000,'spectral.g4':0,'spectral.q4':0.71,
+        'dynamics.low':-4,'dynamics.mid':-2,'dynamics.high':-3,'dynamics.ratio':'4:1','dynamics.transient':15,'dynamics.exciter':25,
+        'stereo.width':120,'stereo.reverb':8,'stereo.delay':5,'stereo.crossover':120,'stereo.bassmono':true,'stereo.mono':true,
+        'loudness.ceiling':-1,'loudness.target':-14,'loudness.sat':20,'loudness.limiter':'Punchy','loudness.tplimit':true,
+        'export.album':'','export.artist':'','export.year':'','export.genre':'','export.format':'WAV',
+      },
+    };
+  }
+
+  setQueueRef=(el)=>{ this.queueEl=el; if(el) requestAnimationFrame(()=>this.checkQueue()); };
+  checkQueue=()=>{ const el=this.queueEl; if(!el)return; const more=(el.scrollHeight-el.scrollTop-el.clientHeight)>2; const less=el.scrollTop>2; if(more!==this.state.queueMore||less!==this.state.queueLess)this.setState({queueMore:more,queueLess:less}); };
+  onQueueScroll=()=>this.checkQueue();
+  scrollQueueDown=()=>{ const el=this.queueEl; if(el)el.scrollBy({top:120,behavior:'smooth'}); };
+  scrollQueueUp=()=>{ const el=this.queueEl; if(el)el.scrollBy({top:-120,behavior:'smooth'}); };
+  setVal(k,v){
+    const extra=(/^spectral\.[fgq]\d/.test(k))?{'spectral.preset':'User'}:null;
+    this.setState(s=>({vals:{...s.vals,[k]:v,...(extra||{})}}));
+  }
+  applyPreset=(name)=>{
+    const p=this.EQPRESETS[name]; if(!p)return;
+    const patch={'spectral.preset':name};
+    for(let n=0;n<5;n++){ patch['spectral.f'+n]=p.f[n]; patch['spectral.g'+n]=p.g[n]; patch['spectral.q'+n]=p.q[n]; }
+    this.setState(s=>({vals:{...s.vals,...patch}}));
+  };
+  toggleAdv=()=>this.setState(s=>({eqAdvanced:!s.eqAdvanced}));
+  fmt(def,v){let s=Number(v).toFixed(def.dec||0);if((def.k||def.khz)&&Math.abs(v)>=1000)s=(v/1000).toFixed(1);else if(def.signed&&v>0)s='+'+s;return s;}
+  eqBand(){ return Math.max(0,Math.min(4,parseInt(this.state.vals['spectral.band']||'1',10)-1)); }
+  nyquist(){ const m={'44.1k':22050,'48k':24000,'96k':48000}; return m[this.state.vals['input.rate']]||24000; }
+  bandFmax(n,nyq){ nyq=nyq||this.nyquist(); return n===4?nyq:Math.min(this.EQBANDS[n].fmax,nyq); }
+  eqDefs(){
+    const nyq=this.nyquist(), defs=[];
+    this.EQBANDS.forEach((bd,n)=>{
+      defs.push({key:'f'+n,type:'rot',label:'Freq',min:bd.fmin,max:this.bandFmax(n,nyq),step:bd.fstep,dec:0,khz:true,band:n});
+      defs.push({key:'g'+n,type:'rot',label:'Gain',min:-12,max:12,step:0.1,dec:1,signed:true,band:n});
+      defs.push({key:'q'+n,type:'rot',label:'Q',min:0.2,max:8,step:0.1,dec:1,band:n});
+    });
+    return defs;
+  }
+  eqNodeDown=(n)=>(e)=>{
+    e.preventDefault(); e.stopPropagation();
+    const svg=e.currentTarget.ownerSVGElement||(e.currentTarget.closest&&e.currentTarget.closest('svg'));
+    const bd=this.EQBANDS[n], nyq=this.nyquist(), fmax=this.bandFmax(n,nyq);
+    const apply=(cx,cy)=>{
+      const rect=svg.getBoundingClientRect();
+      const x=Math.max(0,Math.min(1,(cx-rect.left)/rect.width));
+      const y=(cy-rect.top)/rect.height*150;
+      let f=20*Math.pow(nyq/20,x);
+      f=Math.max(bd.fmin,Math.min(fmax,f));
+      if(bd.fstep) f=Math.round(f/bd.fstep)*bd.fstep;
+      let g=(82-y)/2.6; g=Math.max(-12,Math.min(12,Math.round(g*10)/10));
+      this.setState(s=>({vals:{...s.vals,['spectral.f'+n]:Number(f.toFixed(0)),['spectral.g'+n]:g,'spectral.band':String(n+1),'spectral.preset':'User'}}));
+    };
+    apply(e.clientX,e.clientY);
+    const mv=(ev)=>apply(ev.clientX,ev.clientY);
+    const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);};
+    window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);
+  };
+  eqResp(f){
+    const v=this.state.vals; let tot=0;
+    for(let n=0;n<5;n++){
+      const g=v['spectral.g'+n], f0=v['spectral.f'+n], q=v['spectral.q'+n], t=this.EQBANDS[n].type;
+      if(t==='L-Shelf') tot+=g/(1+Math.pow(f/f0,2.2));
+      else if(t==='H-Shelf') tot+=g/(1+Math.pow(f0/f,2.2));
+      else tot+=g*Math.exp(-Math.pow(Math.log(f/f0),2)/(2*Math.pow(0.6/q,2)));
+    }
+    return tot;
+  }
+  polar(r,deg){const a=deg*Math.PI/180;return[28+r*Math.sin(a),28-r*Math.cos(a)];}
+  arc(r,a0,a1){const p0=this.polar(r,a0),p1=this.polar(r,a1);const large=(a1-a0)>180?1:0;return `M ${p0[0].toFixed(2)} ${p0[1].toFixed(2)} A ${r} ${r} 0 ${large} 1 ${p1[0].toFixed(2)} ${p1[1].toFixed(2)}`;}
+  freqToX(f,w){return Math.log10(f/20)/3*w;}
+
+  MENUS={
+    Project:[['New Session','⌘N'],['Open…','⌘O'],['Save Preset','⌘S'],['Import Files…','⌘I'],['__div',''],['Render Batch','⌘R'],['Quit','⌘Q']],
+    Edit:[['Undo','⌘Z'],['Redo','⇧⌘Z'],['__div',''],['Copy Chain','⌘C'],['Paste Chain','⌘V'],['Reset All Pan',''],['Bypass All','⌘B'],['__div',''],['Preferences (Setup)…','⌘,']],
+    Help:[['Documentation',''],['Keyboard Shortcuts','?'],['__div',''],['Check for Updates…',''],['About FocusDAW','']],
+  };
+  toggleMenu=(name)=>(e)=>{
+    e.stopPropagation();
+    this.setState(s=>({openMenu:s.openMenu===name?null:name}));
+    if(!this._menuDocBound){
+      this._menuDocBound=true;
+      this._closeMenu=()=>this.setState({openMenu:null});
+      window.addEventListener('click',this._closeMenu);
+    }
+  };
+  stopProp=(e)=>e.stopPropagation();
+  componentDidMount(){
+    this._onWheel=(e)=>{
+      const k=e.target&&e.target.closest&&e.target.closest('[data-knob-key]');
+      if(!k)return;
+      const fk=k.getAttribute('data-knob-key');
+      if(!fk)return;
+      e.preventDefault();
+      const now=Date.now();
+      if(this._wheelLast&&now-this._wheelLast<70)return;
+      this._wheelLast=now;
+      const min=parseFloat(k.getAttribute('data-knob-min'));
+      const max=parseFloat(k.getAttribute('data-knob-max'));
+      const step=parseFloat(k.getAttribute('data-knob-step'))||1;
+      const dir=e.deltaY<0?1:-1;
+      let v=(this.state.vals[fk]||0)+dir*step;
+      v=Math.max(min,Math.min(max,v));
+      this.setVal(fk,Number(v.toFixed(4)));
+    };
+    window.addEventListener('wheel',this._onWheel,{passive:false});
+    // Native (bundler-agnostic) knob drag — mirrors the wheel handler so it works
+    // identically in the standalone bundle, where React-delegated onPointerDown can be missed.
+    // Capture phase + stopPropagation suppresses the React onPointerDown to avoid double-handling.
+    this._onPdown=(e)=>{
+      if(e.button!=null && e.button!==0) return;
+      const k=e.target&&e.target.closest&&e.target.closest('svg[data-knob-key]');
+      if(!k) return;
+      const fk=k.getAttribute('data-knob-key');
+      if(!fk) return; // fixed/disabled knobs emit an empty key
+      e.preventDefault(); e.stopPropagation();
+      const min=parseFloat(k.getAttribute('data-knob-min'));
+      const max=parseFloat(k.getAttribute('data-knob-max'));
+      const step=parseFloat(k.getAttribute('data-knob-step'))||0;
+      const sy=e.clientY, start=this.state.vals[fk];
+      const mv=(ev)=>{let v=start+(sy-ev.clientY)/140*(max-min);v=Math.max(min,Math.min(max,v));if(step)v=Math.round(v/step)*step;this.setVal(fk,Number(v.toFixed(4)));};
+      const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);};
+      window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);
+    };
+    window.addEventListener('pointerdown',this._onPdown,true);
+  }
+  componentWillUnmount(){ if(this._closeMenu) window.removeEventListener('click',this._closeMenu); if(this._onWheel) window.removeEventListener('wheel',this._onWheel,{passive:false}); if(this._onPdown) window.removeEventListener('pointerdown',this._onPdown,true); }
+
+  onTitleDown=(e)=>{
+    if(e.target.closest&&e.target.closest('.tb-win'))return;
+    const sx=e.clientX,sy=e.clientY,ox=this.state.winX,oy=this.state.winY;
+    const mv=(ev)=>this.setState({winX:ox+ev.clientX-sx,winY:oy+ev.clientY-sy});
+    const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);};
+    window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);
+  };
+  rotDown=(k,min,max,step)=>(e)=>{
+    e.preventDefault();e.stopPropagation();
+    const sy=e.clientY,start=this.state.vals[k];
+    const mv=(ev)=>{let v=start+(sy-ev.clientY)/140*(max-min);v=Math.max(min,Math.min(max,v));if(step)v=Math.round(v/step)*step;this.setVal(k,Number(v.toFixed(4)));};
+    const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);};
+    window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);
+  };
+
+  renderVals(){
+    const THEMES={
+      Teal:{aMain:'#16a394',aBright:'#3fd6c2',aGlow:'#baf6ec',aInk:'#0c2b27',eqA:'rgba(22,163,148,0.38)',eqB:'rgba(22,163,148,0)',glow:'rgba(63,214,194,0.3)',ell:'rgba(22,163,148,0.16)',
+        deskA:'#1c2128',deskB:'#11151a',gA:'rgba(232,180,90,0.2)',gB:'rgba(232,180,90,0.03)',page:'#0c0f12',frame:'#15191e',
+        paperA:'#f3ecdd',paperB:'#e9e0cd',panel:'#2a2620',panelDark:'#1c1a15',paperCtl:'#ddd2bb',paperInput:'#f7f1e5',notch:'#efe7d6',
+        cardA:'#e7ddca',cardB:'#d9cfb8',cardSelA:'#fbf6ea',cardSelB:'#efe6d3',
+        pInk:'#2a2620',pInk2:'#6f6657',pNum:'#3a342b',pSeg:'#5a5347',nInk:'#e3dccc',nInk2:'#9a8f7a'},
+      Sunset:{aMain:'#cf7d2c',aBright:'#f2a948',aGlow:'#ffe2ad',aInk:'#2c1804',eqA:'rgba(207,125,44,0.38)',eqB:'rgba(207,125,44,0)',glow:'rgba(242,169,72,0.34)',ell:'rgba(207,125,44,0.18)',
+        deskA:'#241a12',deskB:'#140d08',gA:'rgba(242,169,72,0.22)',gB:'rgba(242,169,72,0.04)',page:'#0d0906',frame:'#1a120b',
+        paperA:'#f6efdf',paperB:'#ece0c8',panel:'#2b2017',panelDark:'#1e1610',paperCtl:'#e0d2b4',paperInput:'#faf3e4',notch:'#f3e9d2',
+        cardA:'#ece0c8',cardB:'#ddccab',cardSelA:'#fdf7e9',cardSelB:'#f2e7cf',
+        pInk:'#2a2620',pInk2:'#6f6657',pNum:'#3a342b',pSeg:'#5a5347',nInk:'#e3dccc',nInk2:'#9a8f7a'},
+      Violet:{aMain:'#8b51c4',aBright:'#c081ec',aGlow:'#eccaff',aInk:'#1d0a2c',eqA:'rgba(139,81,196,0.38)',eqB:'rgba(139,81,196,0)',glow:'rgba(192,129,236,0.34)',ell:'rgba(139,81,196,0.18)',
+        deskA:'#1c1a26',deskB:'#100e18',gA:'rgba(192,129,236,0.18)',gB:'rgba(192,129,236,0.03)',page:'#0b0a10',frame:'#16131e',
+        paperA:'#ece8f0',paperB:'#ddd6e6',panel:'#272231',panelDark:'#1a1722',paperCtl:'#d6cee2',paperInput:'#f6f3fa',notch:'#ece4f4',
+        cardA:'#ddd6e6',cardB:'#cdc4da',cardSelA:'#f5f1fa',cardSelB:'#e7e0f0',
+        pInk:'#2a2620',pInk2:'#6f6657',pNum:'#3a342b',pSeg:'#5a5347',nInk:'#e3dccc',nInk2:'#9a8f7a'},
+      Crimson:{aMain:'#c23a52',aBright:'#f06a82',aGlow:'#ffc9d3',aInk:'#2b0a12',eqA:'rgba(194,58,82,0.38)',eqB:'rgba(194,58,82,0)',glow:'rgba(240,106,130,0.32)',ell:'rgba(194,58,82,0.18)',
+        deskA:'#241419',deskB:'#140a0d',gA:'rgba(240,106,130,0.18)',gB:'rgba(240,106,130,0.03)',page:'#0f0809',frame:'#1b1013',
+        paperA:'#f5e8ea',paperB:'#e9d6da',panel:'#2b1c20',panelDark:'#1e1316',paperCtl:'#e0cace',paperInput:'#fbf0f1',notch:'#f4e2e5',
+        cardA:'#e9d6da',cardB:'#dcc3c9',cardSelA:'#fcf0f2',cardSelB:'#f2dee2',
+        pInk:'#2a2620',pInk2:'#6f6657',pNum:'#3a342b',pSeg:'#5a5347',nInk:'#e3dccc',nInk2:'#9a8f7a'},
+      'Teal Light':{aMain:'#0f8a7d',aBright:'#13a596',aGlow:'#6fd9cb',aInk:'#eafbf7',eqA:'rgba(15,138,125,0.34)',eqB:'rgba(15,138,125,0)',glow:'rgba(15,138,125,0.3)',ell:'rgba(15,138,125,0.18)',
+        deskA:'#dde2e6',deskB:'#c8d0d6',gA:'rgba(15,138,125,0.12)',gB:'rgba(15,138,125,0.02)',page:'#eef1f3',frame:'#e6eaed',
+        paperA:'#26221b',paperB:'#1c1914',panel:'#efe7d6',panelDark:'#e0d6c0',paperCtl:'#39342a',paperInput:'#2e2a22',notch:'#26221b',
+        cardA:'#2a261e',cardB:'#201c15',cardSelA:'#322c22',cardSelB:'#272219',
+        pInk:'#f2ede1',pInk2:'#b3a890',pNum:'#7d7361',pSeg:'#d8cdb6',nInk:'#2a2620',nInk2:'#6f6657'},
+      'Sunset Light':{aMain:'#bf6d1f',aBright:'#d98a2e',aGlow:'#f0bd6e',aInk:'#fdf3e4',eqA:'rgba(191,109,31,0.34)',eqB:'rgba(191,109,31,0)',glow:'rgba(191,109,31,0.3)',ell:'rgba(191,109,31,0.18)',
+        deskA:'#ece3d4',deskB:'#ddd0bb',gA:'rgba(191,109,31,0.14)',gB:'rgba(191,109,31,0.03)',page:'#f6efe2',frame:'#efe6d6',
+        paperA:'#241a12',paperB:'#1a1109',panel:'#f6efdf',panelDark:'#e9dcc2',paperCtl:'#3a2c1d',paperInput:'#2e2114',notch:'#241a12',
+        cardA:'#281d14',cardB:'#1f160d',cardSelA:'#312418',cardSelB:'#261c12',
+        pInk:'#f6efdf',pInk2:'#c2b495',pNum:'#857458',pSeg:'#ddccab',nInk:'#241a12',nInk2:'#6f6657'},
+      'Violet Light':{aMain:'#7a3fb3',aBright:'#9457cc',aGlow:'#c79be8',aInk:'#f5effb',eqA:'rgba(122,63,179,0.34)',eqB:'rgba(122,63,179,0)',glow:'rgba(122,63,179,0.3)',ell:'rgba(122,63,179,0.18)',
+        deskA:'#e3e0ea',deskB:'#d0cadc',gA:'rgba(122,63,179,0.12)',gB:'rgba(122,63,179,0.02)',page:'#efedf4',frame:'#e7e3ee',
+        paperA:'#1c1a26',paperB:'#13111c',panel:'#ece8f0',panelDark:'#dad3e4',paperCtl:'#322d3d',paperInput:'#272231',notch:'#1c1a26',
+        cardA:'#211e2c',cardB:'#181522',cardSelA:'#282336',cardSelB:'#1e1a28',
+        pInk:'#ece8f0',pInk2:'#b0a8c0',pNum:'#7a7090',pSeg:'#cdc4da',nInk:'#1c1a26',nInk2:'#6f6657'},
+      'Crimson Light':{aMain:'#b02f47',aBright:'#cf4862',aGlow:'#ec8298',aInk:'#fcedef',eqA:'rgba(176,47,71,0.34)',eqB:'rgba(176,47,71,0)',glow:'rgba(176,47,71,0.3)',ell:'rgba(176,47,71,0.18)',
+        deskA:'#ece2e4',deskB:'#ddc9ce',gA:'rgba(176,47,71,0.12)',gB:'rgba(176,47,71,0.02)',page:'#f4edee',frame:'#ece2e4',
+        paperA:'#241419',paperB:'#190d10',panel:'#f5e8ea',panelDark:'#e6d2d6',paperCtl:'#3a2a2e',paperInput:'#2e1c20',notch:'#241419',
+        cardA:'#281a1e',cardB:'#1f1316',cardSelA:'#312226',cardSelB:'#26181c',
+        pInk:'#f5e8ea',pInk2:'#c0a8ad',pNum:'#8a7076',pSeg:'#dcc3c9',nInk:'#241419',nInk2:'#6f6657'},
+    };
+    const pal=THEMES[this.props.theme]||THEMES.Teal;
+    const accent=pal.aMain;
+    const preset=this.props.preset||'-14 LUFS';
+    const {open,vals,enabled,curFile}=this.state;
+    const act=this.MODS[open];
+    const statMap={
+      input:vals['input.bit']+'-bit '+vals['input.rate'],
+      pre:vals['pre.lufs']+' LUFS',
+      spectral:'5-band',
+      dynamics:vals['dynamics.ratio'],
+      stereo:vals['stereo.width']+'% W',
+      loudness:vals['loudness.target']+' LUFS',
+      export:vals['export.format'],
+    };
+
+    const modules=this.MODS.map((m,i)=>{
+      const sel=open===i,on=enabled[m.id];
+      return {...m,roman:this.ROMAN[i],
+        stat:on?statMap[m.id]:'bypassed',
+        statColor:sel?accent:'#8a8070',
+        cardStyle:`width:100%;height:135px;box-sizing:border-box;border-radius:10px;cursor:pointer;position:relative;display:flex;flex-direction:column;padding:10px 9px 11px;`
+          +(sel?`background:linear-gradient(180deg,${pal.cardSelA},${pal.cardSelB});transform:translateY(-4px);box-shadow:0 16px 30px -12px rgba(0,0,0,0.7),0 0 0 2px ${accent},0 0 22px ${pal.glow};`
+                :`background:linear-gradient(180deg,${pal.cardA},${pal.cardB});box-shadow:0 9px 20px -10px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.4);`)
+          +(on?'':'opacity:0.5;'),
+        iconStyle:`width:21px;height:21px;border-radius:6px;display:grid;place-items:center;`+(sel?`color:#f3ecdd;background:${accent};`:`color:${pal.pInk2};background:rgba(127,127,127,0.12);`),
+        ledStyle:`width:9px;height:9px;border-radius:50%;cursor:pointer;`+(on?`background:${accent};box-shadow:0 0 7px ${accent};`:'background:transparent;border:1.5px solid #a99f8a;'),
+        numStyle:`flex:1;display:flex;align-items:center;justify-content:center;font-family:'Spectral',serif;font-size:35px;font-weight:600;line-height:1;color:${sel?accent:pal.pNum};text-shadow:0 1px 0 rgba(255,255,255,0.55);`,
+        nameColor:sel?pal.pInk:pal.pInk2,
+        colStyle:`flex:1;min-width:0;max-width:139px;display:flex;flex-direction:column;align-items:stretch;gap:8px`,
+        bypLabel:on?'● ON':'BYPASS',
+        bypBtnStyle:`width:100%;box-sizing:border-box;padding:6px 0;border:none;border-radius:7px;font-family:'Archivo';font-size:8.5px;font-weight:700;letter-spacing:0.12em;cursor:pointer;`
+          +((m.id==='input'||m.id==='export')?'visibility:hidden;pointer-events:none;':'')
+          +(on?`color:${accent};text-shadow:0 0 6px ${pal.glow},0 0 12px ${pal.glow};background:${pal.paperCtl};box-shadow:inset 0 0 0 1px ${accent},0 0 10px ${pal.glow};`:`color:${pal.pInk2};background:${pal.paperCtl};box-shadow:inset 0 0 0 1px rgba(127,127,127,0.18);`),
+        tapStyle:`position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:10px;height:10px;border-radius:50%;background:${sel?pal.aGlow:'rgba(58,52,43,0.25)'};`+(sel?`box-shadow:0 0 10px ${accent};animation:dkpulse 1.4s ease-in-out infinite;`:''),
+        onSelect:()=>this.setState({open:i}),
+        onToggle:(e)=>{e.stopPropagation();this.setState(st=>({enabled:{...st.enabled,[m.id]:!st.enabled[m.id]}}));},
+      };
+    });
+
+    const defs=act.id==='spectral'?this.eqDefs():(this.CTRL[act.id]||[]);
+    // saturation THD status color (shared by knob + viz)
+    const _satV=vals['loudness.sat']/100;
+    const _hv=[2,3,4,5].map(k=>{const base=_satV*(k%2===0?0.9:0.55)/Math.pow(k-1,0.7);return Math.max(0.03,Math.min(1,base));});
+    const _thd=(Math.sqrt((_hv[0]+_hv[2])*(_hv[0]+_hv[2])*0.55+(_hv[1]+_hv[3])*(_hv[1]+_hv[3])*1.0))*7.5*(0.4+_satV*0.9);
+    const satCol=_thd>=3?'#e6502e':(_thd>=1?'#e6c23c':accent);
+    let controls=defs.map(def=>{
+      const fk=act.id+'.'+def.key,raw=vals[fk];
+      const _l1=def.label.split(' ')[0], _l2=def.label.substring(_l1.length+1);
+      const base={key:def.key,label:def.label,labelL1:_l1,labelL2:_l2,twoLine:_l2.length>0,labelW:(def.type==='sw'&&act.id==='stereo')?'66px':'46px',isRot:false,isSeg:false,isSw:false,wrapStyle:(def.type==='sw'&&act.id==='stereo')?'flex:none;flex-basis:100%':'flex:none'};
+      if(def.type==='rot'){
+        const frac=(raw-def.min)/(def.max-def.min);const a1=-135+frac*270;
+        const p1=this.polar(8,a1),p2=this.polar(16,a1);
+        const warn=def.warnAbove!=null && raw>def.warnAbove;
+        const fixed=(fk==='spectral.q0'||fk==='spectral.q4')||(fk==='stereo.crossover'&&!vals['stereo.bassmono'])||(fk==='loudness.ceiling'&&!vals['loudness.tplimit']);
+        let u=this.UNITS[fk];
+        if(def.k&&u==='ms'&&Math.abs(raw)>=1000)u='sec';
+        if(def.khz)u=Math.abs(raw)>=1000?'kHz':'Hz';
+        return {...base,isRot:true,display:this.fmt(def,raw),unitText:u||'',
+          label:def.label,
+          arc:Math.abs(a1+135)<0.5?'':this.arc(22,-135,a1),
+          arcColor:fk==='loudness.sat'?satCol:(warn?(def.warnArc||'#f5c542'):(fixed?'#9a907c':accent)),
+          valColor:fk==='loudness.sat'?satCol:(warn?(def.warnVal||'#d98a1f'):(fixed?'#9a907c':pal.pInk)),
+          px1:p1[0].toFixed(2),py1:p1[1].toFixed(2),px2:p2[0].toFixed(2),py2:p2[1].toFixed(2),
+          fk:fixed?'':fk,kmin:def.min,kmax:def.max,kstep:def.step||1,
+          knobStyle:fixed?'cursor:not-allowed;opacity:0.42;':'cursor:ns-resize;',
+          onDown:fixed?(e=>{e.preventDefault();e.stopPropagation();}):this.rotDown(fk,def.min,def.max,def.step)};
+      }
+      if(def.type==='seg'){
+        return {...base,isSeg:true,opts:def.opts.map(o=>({label:o,onSel:()=>this.setVal(fk,o),
+          style:`text-align:center;font-family:'Archivo';font-size:10px;font-weight:600;padding:6px 9px;border-radius:6px;cursor:pointer;white-space:nowrap;`+(raw===o?`color:#f3ecdd;background:${accent};`:`color:${pal.pSeg};`)}))};
+      }
+      const on=!!raw;
+      return {...base,isSw:true,subText:on?'ON':'OFF',subColor:on?accent:'#a99f8a',onToggle:()=>this.setVal(fk,!on),
+        swTrack:`width:34px;height:19px;border-radius:10px;flex:none;position:relative;background:${on?accent:'#cdbfa4'};`,
+        swKnob:`position:absolute;top:2px;left:${on?17:2}px;width:15px;height:15px;border-radius:50%;background:#fbf6ea;transition:left .12s;box-shadow:0 1px 2px rgba(0,0,0,0.3);`};
+    });
+    // stack Noise Depth segment directly under the Denoise switch
+    const _nd=controls.find(c=>c.key==='noiseDepth'), _dn=controls.find(c=>c.key==='denoise');
+    if(_nd&&_dn){ _dn.hasBelow=true; _dn.belowLabel=_nd.label; _dn.belowOpts=_nd.opts; _dn.belowDesc=({'1':'Original','2':'Normal','3':'Deep noise'})[vals['pre.noiseDepth']]||''; _dn.belowDisabled=!vals['pre.denoise']; _dn.belowStyle='transition:opacity .15s;'+(vals['pre.denoise']?'opacity:1;':'opacity:0.4;pointer-events:none;'); controls=controls.filter(c=>c!==_nd); }
+    let dynLow=null,dynMid=null,dynHigh=null,dynTrans=null,dynExc=null;
+    if(act.id==='dynamics'){
+      dynLow=controls.find(c=>c.key==='low'); dynMid=controls.find(c=>c.key==='mid'); dynHigh=controls.find(c=>c.key==='high');
+      dynTrans=controls.find(c=>c.key==='transient'); dynExc=controls.find(c=>c.key==='exciter');
+      controls=controls.filter(c=>['low','mid','high','transient','exciter'].indexOf(c.key)<0);
+    }
+
+    const metaFields=this.META.map(def=>{
+      const fk='export.'+def.key,raw=vals[fk];
+      if(def.type==='text') return {label:def.label,isText:true,isSeg:false,value:raw||'',ph:def.ph,wrap:def.key==='album'?'grid-column:span 2;':'',onInput:(e)=>this.setVal(fk,e.target.value)};
+      return {label:def.label,isText:false,isSeg:true,wrap:'grid-column:span 2;',
+        opts:def.opts.map(o=>({label:o,onSel:()=>this.setVal(fk,o),
+          style:`flex:1;text-align:center;font-family:'Archivo';font-size:10px;font-weight:600;padding:7px 4px;border-radius:6px;cursor:pointer;`+(raw===o?`color:#f3ecdd;background:${accent};`:`color:${pal.pSeg};`)}))};
+    });
+
+    // ---- viz ----
+    let isInput=false,isPre=false,isSpectral=false,isDynamics=false,isStereo=false,isLoudness=false,isExport=false;
+    let eqColumns=[];
+    const eqPresetName=vals['spectral.preset']||'Normal';
+    const eqPresetColor=(this.EQPRESETS[eqPresetName]||this.EQPRESETS.Normal).color;
+    let eqPresetCards=[];
+    if(act.id==='spectral'){
+      eqColumns=this.EQBANDS.map((bd,n)=>({num:n+1,type:bd.type,color:bd.col,
+        ctls:[controls[n*3],controls[n*3+1],controls[n*3+2]]}));
+      eqPresetCards=this.EQPRESET_ORDER.map(name=>{
+        const p=this.EQPRESETS[name], on=name===eqPresetName;
+        return {name,desc:p.desc,nameColor:on?p.color:pal.pInk,
+          dotStyle:`width:9px;height:9px;border-radius:50%;background:${p.color};`+(on?`box-shadow:0 0 8px ${p.color};`:'opacity:0.85;'),
+          cardStyle:`flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:11px;cursor:pointer;background:${on?'rgba(58,52,43,0.05)':'transparent'};box-shadow:inset 0 0 0 ${on?2:1.5}px ${on?p.color:'rgba(58,52,43,0.16)'}${on?',0 4px 14px -6px '+p.color:''};`,
+          onSel:()=>this.applyPreset(name)};
+      });
+    }
+    let transPath='',transLabel='',exciterBars=[],exLabel='';
+    let stReverb=[],stReverbLabel='',stDelay=[],stDelayLabel='',stMonoOn=false,stMonoRx='20',stMonoLabel='',stMonoVal='';
+    let stCompatOn=false,stCorr=1,stCorrX='100%',stCompatStatus='',stCompatColor='#8a8070',stCorrLabel='',stLossLabel='';
+    let preTargets=[],eqLine='',eqArea='',eqDots=[],eqAxis=[],dynBars=[],stereoRx=70,stereoW='100%',
+        loudFill='50%',loudTargetX='50%',loudTargetLabel='-14 LUFS',loudCeiling='-1.0 dB',loudMode='Punchy',tpDim='1',
+        satPath='',satLine='',satLabel='',satDrive='',satHarm=[],satThd='0.0%',satThdStatus='GENTLE',satWarnColor='#46c06a',
+        exportFormat='WAV',exportAlbum='Untitled Master',
+        waterfall=[],fftInfo=[],noiseInfo=[];
+    const id=act.id;
+    if(id==='input') isInput=true;
+    else if(id==='pre'){isPre=true;
+      // 3D waterfall: time (depth) × frequency (x) × level (height)
+      const NT=11,NF=46,oX=14,plotW=300,svgH=150,baseY=128,skewX=2.6,skewY=8,amp=34;
+      const nrOn=!!vals['pre.denoise'], nr=nrOn?(vals['pre.denoiseAmt']/100):0;
+      const field=(i,t)=>{
+        const f=i/(NF-1);
+        let h=0.12+0.50*Math.exp(-Math.pow((f-0.06-0.008*t)/0.05,2));
+        h+=0.34*Math.exp(-Math.pow((f-0.30+0.012*t)/0.10,2));
+        h+=0.18*Math.exp(-Math.pow((f-0.62)/0.16,2))*(0.6+0.4*Math.sin(t*0.7));
+        h+=0.06*Math.sin(f*40+t)*Math.exp(-f*0.8);
+        h+=0.05*Math.sin(f*120+t*2.0);
+        if(f>0.5) h*=(1-0.55*nr*(f-0.5)/0.5);
+        return Math.max(0.02,Math.min(1,h));
+      };
+      for(let t=NT-1;t>=0;t--){
+        const by=baseY - t*skewY;
+        let line='';
+        for(let i=0;i<NF;i++){
+          const x=oX + (i/(NF-1))*plotW + t*skewX;
+          const y=by - field(i,t)*amp;
+          line+=(i===0?'M ':'L ')+x.toFixed(1)+' '+y.toFixed(1)+' ';
+        }
+        const x0=(oX + t*skewX).toFixed(1), x1=(oX+plotW+t*skewX).toFixed(1);
+        const depth=t/(NT-1);
+        waterfall.push({line:line.trim(),area:line+`L ${x1} ${by.toFixed(1)} L ${x0} ${by.toFixed(1)} Z`,
+          sop:(0.92-depth*0.6).toFixed(2),fop:(0.20-depth*0.15).toFixed(2)});
+      }
+      const floor=(-62-nr*8).toFixed(0), snr=(48+nr*9).toFixed(0);
+      fftInfo=[{k:'FFT Size',v:'4096'},{k:'Window',v:'Hann'},{k:'Overlap',v:'75%'},{k:'Bin',v:'11.7 Hz'}];
+      noiseInfo=[{k:'Floor',v:floor+' dBFS'},{k:'SNR',v:snr+' dB'},{k:'Profile',v:nrOn?'Hiss · Hum':'—'},{k:'Reduction',v:nrOn?Math.round(nr*100)+'%':'off'}];
+    }
+    else if(id==='spectral'){isSpectral=true;
+      const W=338,mid=82,pxDb=2.6,N=90,bAct=this.eqBand();
+      const nyq=this.nyquist(), dec=Math.log10(nyq/20);
+      const fx=(f)=>Math.log10(Math.max(20,f)/20)/dec*W;
+      const yOf=(g)=>Math.max(12,Math.min(142,mid-g*pxDb));
+      let d='';
+      for(let i=0;i<N;i++){
+        const f=20*Math.pow(nyq/20,i/(N-1));
+        const x=fx(f), y=yOf(this.eqResp(f));
+        d+=(i===0?'M ':'L ')+x.toFixed(1)+' '+y.toFixed(1)+' ';
+      }
+      eqLine=d.trim();
+      eqArea=eqLine+` L ${W} 150 L 0 150 Z`;
+      eqDots=this.EQBANDS.map((bd,n)=>{
+        const f0=vals['spectral.f'+n];
+        return {cx:fx(f0).toFixed(1),cy:yOf(this.eqResp(f0)).toFixed(1),
+          fill:bd.col,sel:n===bAct,r:n===bAct?6.5:4.5,sw:n===bAct?2.6:2,num:String(n+1),
+          numColor:n===bAct?bd.col:'transparent',onDown:this.eqNodeDown(n),
+          qk:'spectral.q'+n,qmin:0.2,qmax:8,qstep:0.1};
+      });
+      eqAxis=[0,1,2,3,4].map(i=>{const f=20*Math.pow(nyq/20,i/4);return {label:f>=1000?(f/1000).toFixed(f>=10000?0:1)+'k':Math.round(f)+''};});
+    }
+    else if(id==='dynamics'){isDynamics=true;
+      const mk=(k,label,c)=>{const v=vals[k];return {label,val:v.toFixed(1),color:c,fill:(Math.abs(v)/18*100).toFixed(0)+'%'};};
+      dynBars=[{...mk('dynamics.low','LOW','#7cc4ff'),knob:dynLow},{...mk('dynamics.mid','MID',pal.aBright),knob:dynMid},{...mk('dynamics.high','HIGH','#e0a046'),knob:dynHigh}];
+      // transient envelope viz
+      const tn=vals['dynamics.transient']/50;
+      const W=212,mid=27,half=22,onsets=[0.07,0.4,0.72],N=100;
+      const ampAt=(xf)=>{let a=0;onsets.forEach(o=>{if(xf>=o){const d=xf-o,dec=0.06*(1-tn*0.45)+0.012;a+=Math.exp(-d/dec)*(1+tn*0.7);}});return Math.max(0,Math.min(1,a));};
+      const pts=[];for(let i=0;i<N;i++){const xf=i/(N-1);pts.push([xf*W,ampAt(xf)]);}
+      let dt='M 0 '+mid;pts.forEach(p=>{dt+=' L '+p[0].toFixed(1)+' '+(mid-p[1]*half).toFixed(1);});
+      for(let i=pts.length-1;i>=0;i--){dt+=' L '+pts[i][0].toFixed(1)+' '+(mid+pts[i][1]*half).toFixed(1);}
+      transPath=dt+' Z';
+      transLabel=(vals['dynamics.transient']>0?'+':'')+vals['dynamics.transient']+'%';
+      // exciter harmonic viz
+      const ex=vals['dynamics.exciter']/100;
+      exciterBars=[1,2,3,4,5,6,7,8].map(k=>{
+        const base=1/Math.pow(k,0.85);
+        const h=k<=2?base:base*(0.22+ex*1.25);
+        const hot=k>=3, col=hot?pal.aBright:'#9a907c';
+        return {label:k===1?'f':k+'×',
+          barStyle:`width:100%;border-radius:2px 2px 0 0;height:${(Math.max(0.04,Math.min(1,h))*100).toFixed(0)}%;background:${col};`+(hot?`box-shadow:0 0 6px ${pal.glow};`:'opacity:0.7;')};
+      });
+      exLabel=vals['dynamics.exciter']+'%';
+    }
+    else if(id==='stereo'){isStereo=true;
+      const w=vals['stereo.width'];stereoRx=Math.max(8,(w/200)*128);stereoW=w+'%';
+      const rev=vals['stereo.reverb'],dly=vals['stereo.delay'],bmono=!!vals['stereo.bassmono'],bfreq=vals['stereo.crossover'],monoOn=!!vals['stereo.mono'];
+      // reverb diffusion rings
+      const rN=Math.min(3,Math.round(rev/8));
+      stReverb=[];for(let i=1;i<=rN;i++){stReverb.push({rx:(stereoRx+i*16).toFixed(1),ry:(42+i*9).toFixed(1),op:((rev/30)*0.34*(1-(i-1)*0.28)).toFixed(3)});}
+      stReverbLabel=rev+'%';
+      // delay echo ghosts (mirrored taps)
+      const dN=Math.min(3,Math.round(dly/8));
+      stDelay=[];for(let i=1;i<=dN;i++){const off=(14+i*12)*(0.5+dly/30);const op=((dly/30)*0.5*(1-(i-1)*0.3)).toFixed(3);stDelay.push({cxL:(169-off).toFixed(1),cxR:(169+off).toFixed(1),op:op});}
+      stDelayLabel=dly+'%';
+      // bass-mono core
+      stMonoOn=bmono;
+      stMonoRx=(14+((bfreq-60)/240)*30).toFixed(1);
+      stMonoLabel=bmono?('BASS < '+bfreq+'Hz'):'BASS off';
+      stMonoVal=bmono?('< '+bfreq+' Hz'):'off';
+      // mono compatibility (full-band fold-down)
+      stCompatOn=monoOn;
+      const corr=Math.max(-1,Math.min(1,1-(w/200)*1.15));
+      const loss=-(Math.max(0,w-90)/110)*4.2;
+      stCorr=corr;
+      stCorrX=(((corr+1)/2)*100).toFixed(1)+'%';
+      stCompatStatus=corr>=0.5?'GOOD':(corr>=0?'CHECK':'RISK');
+      stCompatColor=corr>=0.5?'#46c06a':(corr>=0?'#e6c23c':'#e6502e');
+      stCorrLabel=(corr>=0?'+':'')+corr.toFixed(2);
+      stLossLabel=(loss>-0.05?'0.0':loss.toFixed(1))+' dB';
+    }
+    else if(id==='loudness'){isLoudness=true;
+      const t=vals['loudness.target'];const x=((t+30)/30)*100;loudFill=Math.max(0,Math.min(100,x)).toFixed(1)+'%';loudTargetX=loudFill;
+      loudTargetLabel=t+' LUFS';loudCeiling=vals['loudness.tplimit']?(vals['loudness.ceiling'].toFixed(1)+' dB'):'off';loudMode=vals['loudness.limiter'];tpDim=vals['loudness.tplimit']?'1':'0.4';
+      // saturation transfer curve (soft clip) — W160 H92, origin center
+      const sat=vals['loudness.sat']/100;const drv=1+sat*5;const norm=Math.tanh(drv);
+      const W=160,H=92,cx=W/2,cy=H/2,sx=(W/2-6),sy=(H/2-6);
+      let sp='';for(let i=0;i<=40;i++){const xi=-1+i*0.05;const yo=Math.tanh(xi*drv)/norm;const px=cx+xi*sx,py=cy-yo*sy;sp+=(i===0?'M ':'L ')+px.toFixed(1)+' '+py.toFixed(1)+' ';}
+      satPath=sp.trim();
+      satLine=`M 6 ${(cy+ (1)*sy).toFixed(1)} L ${(W-6)} ${(cy-(1)*sy).toFixed(1)}`;
+      satLabel=vals['loudness.sat']+'%';
+      satDrive=(sat>0?'+':'')+(sat*5).toFixed(1)+' dB drive';
+      // even/odd harmonic content
+      const hv=[2,3,4,5].map(k=>{const base=sat*(k%2===0?0.9:0.55)/Math.pow(k-1,0.7);return Math.max(0.03,Math.min(1,base));});
+      satHarm=[2,3,4,5].map((k,i)=>({label:k+'×',h:(hv[i]*100).toFixed(0)+'%'}));
+      // THD estimate: harmonic energy vs fundamental, odd harmonics weighted harsher
+      const odd=hv[1]+hv[3], even=hv[0]+hv[2];
+      const thd=(Math.sqrt(even*even*0.55+odd*odd*1.0))*7.5*(0.4+sat*0.9);
+      satThd=thd.toFixed(1)+'%';
+      const hot=thd>=3, warm=thd>=1;
+      satThdStatus=hot?'HOT':(warm?'MUSICAL':'GENTLE');
+      satWarnColor=satCol;
+    }
+    else if(id==='export'){isExport=true;exportFormat=vals['export.format'];exportAlbum=vals['export.album']||'Untitled Master';}
+
+    const tgt=vals['loudness.target'],ceil=vals['loudness.ceiling'];
+    const totMB='203.6 MB';
+
+    const openMenu=this.state.openMenu;
+    const menus=Object.keys(this.MENUS).map(name=>{
+      const isOpen=openMenu===name;
+      return {
+        label:name, open:isOpen, onClick:this.toggleMenu(name),
+        btnStyle:`font-family:'Archivo';font-size:11.5px;font-weight:500;color:${isOpen?'#e6f1f4':'#9aa7af'};padding:5px 10px;border-radius:6px;cursor:pointer;background:${isOpen?'#283038':'transparent'};white-space:nowrap`,
+        items:this.MENUS[name].map(([label,key])=>label==='__div'
+          ? {label:'',key:'',style:'height:1px;margin:5px 8px;background:#323b44'}
+          : {label,key,style:`display:flex;align-items:center;justify-content:space-between;gap:24px;font-family:'Archivo';font-size:11.5px;color:#cdd8de;padding:7px 9px;border-radius:5px;cursor:pointer`}),
+      };
+    });
+
+    return {
+      ribbon:this.RIBBON,
+      menus,stopProp:this.stopProp,
+      aMain:pal.aMain,aBright:pal.aBright,aGlow:pal.aGlow,aInk:pal.aInk,
+      eqStopA:pal.eqA,eqStopB:pal.eqB,ellipseFill:pal.ell,
+      preGrad:`linear-gradient(90deg,${pal.aMain},${pal.aBright})`,
+      loudGrad:`linear-gradient(90deg,#0e3496 0%,#1c54be 28%,#2f8f86 47%,#33b06a 53.3%,#46be62 70%,#7cc24a 73%,#e6c23c 76.7%,#ef8a36 80%,#e6502e 83.3%,#cf2a22 90%,#a81414 100%)`,
+      modules,controls,metaFields,files:this.FILES.map((f,i)=>{const on=i===curFile;return {...f,onPick:()=>this.setState({curFile:i}),
+        iconColor:on?pal.aInk:accent,nameColor:on?pal.aInk:pal.nInk,sizeColor:on?pal.aInk:'#8a8070',weight:on?'700':'400',
+        rowStyle:`display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:7px;cursor:pointer;`
+          +(on?`background:${accent};box-shadow:0 0 0 1px ${accent},0 0 12px ${pal.glow};`:`background:${pal.panelDark};`)};}),
+      deskBg:`radial-gradient(130% 96% at 50% -16%,${pal.gA},${pal.gB} 46%,transparent 66%),linear-gradient(180deg,${pal.deskA},${pal.deskB})`,
+      paperBg:`linear-gradient(180deg,${pal.paperA},${pal.paperB})`,
+      panelBg:pal.panel,panelDark:pal.panelDark,paperCtl:pal.paperCtl,paperInput:pal.paperInput,
+      frameBg:pal.frame,pageBg:pal.page,notchColor:pal.notch,deskB:pal.deskB,
+      queueMore:this.state.queueMore,queueLess:this.state.queueLess,setQueueRef:this.setQueueRef,onQueueScroll:this.onQueueScroll,scrollQueueDown:this.scrollQueueDown,scrollQueueUp:this.scrollQueueUp,
+      pInk:pal.pInk,pInk2:pal.pInk2,nInk:pal.nInk,nInk2:pal.nInk2,
+      vizTitle:act.viz,
+      notExport:id!=='export',
+      genCtrl:id!=='export'&&id!=='spectral',
+      isInput,isPre,isSpectral,isDynamics,isStereo,isLoudness,isExport,
+      eqColumns,eqAxis,
+      presetName:eqPresetName,presetNameUpper:eqPresetName.toUpperCase(),presetColor:eqPresetColor,
+      eqShowPresets:!this.state.eqAdvanced,eqAdvanced:this.state.eqAdvanced,
+      toggleAdv:this.toggleAdv,advLabel:this.state.eqAdvanced?'Presets ▴':'Advanced ▾',
+      advBtnStyle:`font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.04em;padding:6px 13px;border-radius:7px;cursor:pointer;border:none;`+(this.state.eqAdvanced?`color:${pal.aInk};background:${accent};`:`color:${pal.pInk};background:${pal.paperCtl};`),
+      presetCards:eqPresetCards,
+      preTargets,waterfall,fftInfo,noiseInfo,eqLine,eqArea,eqDots,dynBars,transPath,transLabel,exciterBars,exLabel,dynTrans,dynExc,
+      vizBg:isDynamics?'transparent':pal.panel,vizShadow:isDynamics?'none':'inset 0 2px 8px rgba(0,0,0,0.4)',vizPad:isDynamics?'14px 14px 0':'14px',
+      insetBg:`background:${pal.panel};box-shadow:inset 0 2px 7px rgba(0,0,0,0.45),inset 0 -1px 0 rgba(255,255,255,0.04);border:1px solid rgba(0,0,0,0.25)`,
+      stereoRx:stereoRx.toFixed(1),stereoW,stReverb,stReverbLabel,stDelay,stDelayLabel,stMonoOn,stMonoRx,stMonoLabel,stMonoVal,monoColor:stMonoOn?pal.aBright:'#8a8070',
+      stCompatOn,stCorrX,stCompatStatus,stCompatColor,stCorrLabel,stLossLabel,compatDim:'1',foldColor:stCompatOn?stCompatColor:'rgba(255,240,210,0.12)',
+      bassLegendColor:stMonoOn?pal.aBright:'#8a8070',
+      loudFill,loudTargetX,loudTargetLabel,loudCeiling,loudMode,tpDim,satPath,satLine,satLabel,satDrive,satHarm,satThd,satThdStatus,satWarnColor,exportFormat,exportAlbum,
+      active:{...act,roman:this.ROMAN[open],
+        bypassLabel:enabled[id]?'● ENGAGED':'○ BYPASSED',
+        bypassStyle:((id==='input'||id==='export')?'display:none;':'')+`font-family:'Archivo';font-size:10px;font-weight:700;letter-spacing:0.06em;padding:8px 14px;border-radius:7px;cursor:pointer;text-align:center;`+(enabled[id]?`color:${pal.aInk};background:${accent};`:`color:#8a8070;background:${pal.paperCtl};`),
+        onToggle:()=>this.setState(st=>({enabled:{...st.enabled,[id]:!st.enabled[id]}})),
+      },
+      rotTrack:this.arc(22,-135,135),
+      notchLeft:`${(34+open*164.57+75.3).toFixed(1)}px`,
+      titleRate:({'44.1k':'44.1 kHz','48k':'48.0 kHz','96k':'96.0 kHz'})[vals['input.rate']]||vals['input.rate'],
+      titleBit:({'16':'16-bit','24':'24-bit','32f':'32-bit float'})[vals['input.bit']]||(vals['input.bit']+'-bit'),
+      titleFormat:vals['export.format'],
+      curFileName:this.FILES[curFile].name,curFileIdx:String(curFile+1).padStart(2,'0'),
+      batchCount:this.FILES.length,batchSize:totMB,
+      prevFile:()=>this.setState(s=>({curFile:(s.curFile-1+this.FILES.length)%this.FILES.length})),
+      nextFile:()=>this.setState(s=>({curFile:(s.curFile+1)%this.FILES.length})),
+      workFolder:vals['input.source']==='Folder'?'~/Sessions/Aurora EP/stems/':'~/Sessions/Aurora EP/ (6 files)',
+      inputFmt:vals['input.bit']+'-bit · '+vals['input.rate'],
+      sel:this.FILES[curFile],
+      selChips:[
+        {label:this.FILES[curFile].fmt},
+        {label:this.FILES[curFile].depth+' · '+this.FILES[curFile].sr},
+        {label:this.FILES[curFile].ch},
+      ],
+      lufsVal:tgt.toFixed(1),tpVal:ceil.toFixed(1),
+      activeCount:Object.values(enabled).filter(Boolean).length,
+      onTitleDown:this.onTitleDown,
+      winStyle:`transform:translate(${this.state.winX}px,${this.state.winY}px)`,
+    };
+  }
+}
+</script>
+</body>
+</html>

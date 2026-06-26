@@ -1,6 +1,8 @@
-// FocusDAW Mastering Desk v0.1.0 - Electron 프리로드 (Phase 0)
+// FocusDAW Mastering Desk - Electron 프리로드
 // contextIsolation 환경에서 렌더러에 최소한의 안전한 API만 노출.
-const { contextBridge, ipcRenderer } = require('electron');
+// v0.1.5: webUtils.getPathForFile 노출 — Electron 32+ 에서 File.path 가 제거되어,
+//         드롭/선택 File 의 실제 디스크 경로는 이 API로만 얻을 수 있음(Working folder 표시용).
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('focusdaw', {
   isElectron: true,
@@ -9,6 +11,14 @@ contextBridge.exposeInMainWorld('focusdaw', {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     node: process.versions.node,
+  },
+  // File → 절대경로 (브라우저엔 없는 Electron 전용 기능)
+  getPathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file) || '';
+    } catch {
+      return '';
+    }
   },
   // 커스텀 타이틀바 윈도우 컨트롤
   win: {

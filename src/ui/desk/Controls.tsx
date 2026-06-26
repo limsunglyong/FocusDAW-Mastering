@@ -96,7 +96,7 @@ function InputPanels({ view }: { view: DeskView }) {
             {view.selChips.map((ch, i) => (
               <span key={i} style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 600, color: pal.pSeg, background: pal.paperCtl, borderRadius: 6, padding: '5px 10px', whiteSpace: 'nowrap' }}>{ch.label}</span>
             ))}
-            <span style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, color: view.accent, background: pal.paperCtl, borderRadius: 6, padding: '5px 10px', whiteSpace: 'nowrap' }}>{view.sel.lufs} LUFS</span>
+            <span style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, color: view.selLufsColor, background: pal.paperCtl, borderRadius: 6, padding: '5px 10px', whiteSpace: 'nowrap' }}>{view.sel.lufs} LUFS</span>
           </div>
         </div>
       </div>

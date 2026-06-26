@@ -34,6 +34,23 @@ body {
   }
 }
 
+@keyframes dkspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* v0.1.5: 로딩 카드의 오디오 웨이브폼 막대 펄스 */
+@keyframes dkwave {
+  0%,
+  100% {
+    transform: scaleY(0.28);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
 .dk-flow {
   stroke-dasharray: 16 26;
   animation: dkflow 1.2s linear infinite;

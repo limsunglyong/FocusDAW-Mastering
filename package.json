@@ -1,7 +1,7 @@
 {
   "name": "focusdaw-mastering-desk",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.7",
   "description": "FocusDAW - Mastering Desk",
   "author": "FocusDAW",
   "type": "module",
@@ -15,7 +15,8 @@
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && node scripts/run-electron.mjs\"",
     "electron:build": "npm run build && electron-builder --win",
     "electron:dir": "npm run build && electron-builder --win --dir",
-    "electron:publish": "npm run build && electron-builder --win --publish always"
+    "electron:publish": "npm run build && electron-builder --win --publish always",
+    "verify": "node scripts/verify-decoder.mjs"
   },
   "dependencies": {
     "electron-updater": "^6.3.9",

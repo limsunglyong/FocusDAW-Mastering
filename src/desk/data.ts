@@ -117,17 +117,9 @@ export const META: MetaDef[] = [
   { key: 'format', type: 'seg', label: 'Format', opts: ['WAV', 'MP3 320', 'FLAC'] },
 ];
 
+// v0.2.0(Phase 1): 표시용 파일 항목 타입. 실제 데이터는 store 의 큐(QueueFile)에서 채운다.
+// (이전 v0.1.x 의 mock FILES 더미 7곡 + TOTAL_MB 는 실제 파일 로딩으로 대체되어 제거됨)
 export type FileItem = { name: string; size: string; fmt: string; dur: string; sr: string; depth: string; ch: string; lufs: string };
-
-export const FILES: FileItem[] = [
-  { name: '01 Sunrise Avenue.wav', size: '48.2 MB', fmt: 'WAV', dur: '3:42', sr: '48.0 kHz', depth: '24-bit', ch: 'Stereo', lufs: '-16.2' },
-  { name: '02 Tidal.mp3', size: '9.1 MB', fmt: 'MP3 320', dur: '3:58', sr: '44.1 kHz', depth: '16-bit', ch: 'Stereo', lufs: '-9.4' },
-  { name: '03 Ember Glow.wav', size: '52.7 MB', fmt: 'WAV', dur: '4:05', sr: '48.0 kHz', depth: '24-bit', ch: 'Stereo', lufs: '-18.7' },
-  { name: '04 Northbound.aiff', size: '61.0 MB', fmt: 'AIFF', dur: '4:44', sr: '48.0 kHz', depth: '24-bit', ch: 'Stereo', lufs: '-14.1' },
-  { name: '05 Paper Moon.flac', size: '27.4 MB', fmt: 'FLAC', dur: '3:21', sr: '44.1 kHz', depth: '16-bit', ch: 'Stereo', lufs: '-12.8' },
-  { name: '06 Last Light.mp3', size: '8.6 MB', fmt: 'MP3 320', dur: '3:46', sr: '44.1 kHz', depth: '16-bit', ch: 'Mono', lufs: '-11.5' },
-  { name: '07 Afterglow.wav', size: '44.9 MB', fmt: 'WAV', dur: '3:33', sr: '48.0 kHz', depth: '24-bit', ch: 'Stereo', lufs: '-15.3' },
-];
 
 export const MENUS: Record<string, [string, string][]> = {
   Project: [['New Session', '⌘N'], ['Open…', '⌘O'], ['Save Preset', '⌘S'], ['Import Files…', '⌘I'], ['__div', ''], ['Render Batch', '⌘R'], ['Quit', '⌘Q']],
@@ -177,5 +169,3 @@ export const DEFAULT_STATE: DeskState = {
     'export.album': '', 'export.artist': '', 'export.year': '', 'export.genre': '', 'export.format': 'WAV',
   },
 };
-
-export const TOTAL_MB = '203.6 MB';

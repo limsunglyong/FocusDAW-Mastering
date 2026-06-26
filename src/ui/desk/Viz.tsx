@@ -2,15 +2,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { css } from '../../desk/css';
 import { useAppStore } from '../../store/appStore';
+import { openAudioFilePicker } from '../../audio/filePicker';
 import { DeskIcon } from '../Icons';
 import { Knob } from './Knob';
 import type { DeskView } from '../../desk/compute';
 
 function InputQueue({ view }: { view: DeskView }) {
   const pickFile = useAppStore((s) => s.pickFile);
+  const removeFile = useAppStore((s) => s.removeFile);
+  const clearFiles = useAppStore((s) => s.clearFiles);
+  const loadFiles = useAppStore((s) => s.loadFiles);
+  const importing = useAppStore((s) => s.importing);
+  const importError = useAppStore((s) => s.importError);
+  const source = useAppStore((s) => s.vals['input.source']);
   const ref = useRef<HTMLDivElement>(null);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const handleImport = async () => {
+    const picked = await openAudioFilePicker({ directory: source === 'Folder' });
+    if (picked.length) await loadFiles(picked);
+  };
 
   const updateScrollState = () => {
     const el = ref.current;
@@ -37,12 +50,60 @@ function InputQueue({ view }: { view: DeskView }) {
   };
 
   return (
-    <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9, flex: 'none' }}>
         <span style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>BATCH QUEUE</span>
-        <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#6f6657' }}>{view.batchCount} · {view.batchSize}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#6f6657' }}>{view.batchCount} · {view.batchSize}</span>
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={importing}
+            style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em', color: view.pal.aInk, background: view.accent, border: 'none', borderRadius: 6, padding: '4px 10px', cursor: importing ? 'wait' : 'pointer', opacity: importing ? 0.6 : 1 }}
+          >
+            {importing ? 'Loading…' : (source === 'Folder' ? '+ Folder' : '+ Import')}
+          </button>
+          {view.batchCount > 0 && (
+            <button
+              type="button"
+              aria-label="Clear queue"
+              title="Clear queue"
+              onClick={() => setConfirmClear(true)}
+              disabled={importing}
+              style={{ width: 22, height: 22, display: 'grid', placeItems: 'center', fontSize: 13, lineHeight: 1, color: '#9aa7af', background: view.pal.panelDark, border: '1px solid rgba(127,127,127,0.22)', borderRadius: 6, cursor: importing ? 'not-allowed' : 'pointer' }}
+            >×</button>
+          )}
+        </div>
       </div>
-      <div style={{ position: 'relative' }}>
+
+      {confirmClear && (
+        <div
+          onClick={() => setConfirmClear(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,11,14,0.7)', backdropFilter: 'blur(2px)' }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ minWidth: 280, padding: '22px 26px', borderRadius: 14, background: 'rgba(20,26,31,0.97)', boxShadow: `0 18px 50px -12px rgba(0,0,0,0.8),0 0 26px ${view.pal.glow}` }}>
+            <div style={{ fontFamily: 'Spectral, serif', fontSize: 17, fontWeight: 600, color: '#efe7d6' }}>Clear queue?</div>
+            <div style={{ fontFamily: 'Archivo', fontSize: 12, color: '#9aa7af', marginTop: 7, lineHeight: 1.5 }}>This removes all {view.batchCount} file{view.batchCount > 1 ? 's' : ''} from the queue. This action cannot be undone.</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, marginTop: 18 }}>
+              <button type="button" onClick={() => setConfirmClear(false)} style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 600, color: '#cdd8de', background: 'rgba(255,255,255,0.06)', border: '1px solid #323b44', borderRadius: 7, padding: '7px 16px', cursor: 'pointer' }}>Cancel</button>
+              <button type="button" onClick={() => { clearFiles(); setConfirmClear(false); }} style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, color: '#fff', background: '#e0344b', border: 'none', borderRadius: 7, padding: '7px 16px', cursor: 'pointer' }}>Clear all</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {view.batchCount === 0 ? (
+        <button
+          type="button"
+          onClick={handleImport}
+          disabled={importing}
+          style={{ width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 9, borderRadius: 9, border: `1.5px dashed ${view.pal.aMain}`, background: view.pal.panelDark, color: '#8a8070', cursor: importing ? 'wait' : 'pointer' }}
+        >
+          <DeskIcon icon="note" size={26} />
+          <span style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 600, color: view.pal.nInk }}>{importing ? 'Decoding…' : 'Drop audio here or click to import'}</span>
+          <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#6f6657' }}>WAV · MP3 · FLAC · OGG · M4A · AIFF</span>
+        </button>
+      ) : (
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {canScrollUp && (
           <button
             type="button"
@@ -55,12 +116,18 @@ function InputQueue({ view }: { view: DeskView }) {
             </svg>
           </button>
         )}
-        <div ref={ref} onScroll={updateScrollState} style={{ maxHeight: 176, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 2 }}>
+        <div ref={ref} onScroll={updateScrollState} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 2 }}>
           {view.files.map((f) => (
-            <div key={f.i} onClick={() => pickFile(f.i)} style={css(f.rowStyle)}>
+            <div key={f.id} onClick={() => pickFile(f.i)} style={css(f.rowStyle)}>
               <span style={{ flex: 'none', color: f.iconColor }}><DeskIcon icon="note" size={12} /></span>
-              <span style={{ flex: 1, fontFamily: 'Archivo', fontSize: 11, fontWeight: f.weight as any, color: f.nameColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+              <span style={{ flex: 1, minWidth: 0, fontFamily: 'Archivo', fontSize: 11, fontWeight: f.weight as any, color: f.nameColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
               <span style={{ fontFamily: 'Archivo', fontSize: 9, color: f.sizeColor, width: 48, textAlign: 'right' }}>{f.size}</span>
+              <span
+                role="button"
+                aria-label={`Remove ${f.name}`}
+                onClick={(e) => { e.stopPropagation(); removeFile(f.id); }}
+                style={{ flex: 'none', width: 16, height: 16, display: 'grid', placeItems: 'center', borderRadius: 4, fontSize: 12, lineHeight: 1, color: f.on ? view.pal.aInk : '#8a8070', cursor: 'pointer' }}
+              >×</span>
             </div>
           ))}
         </div>
@@ -77,7 +144,11 @@ function InputQueue({ view }: { view: DeskView }) {
           </button>
         )}
       </div>
-    </>
+      )}
+      {importError && (
+        <div style={{ marginTop: 8, flex: 'none', fontFamily: 'Archivo', fontSize: 9.5, color: '#e6502e', whiteSpace: 'pre-wrap', maxHeight: 40, overflow: 'hidden' }}>{importError}</div>
+      )}
+    </div>
   );
 }
 

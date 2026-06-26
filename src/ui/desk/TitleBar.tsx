@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import logoUrl from '../../../assets/logo.png';
 import { css } from '../../desk/css';
 import { useAppStore } from '../../store/appStore';
+import { openAudioFilePicker } from '../../audio/filePicker';
 import { THEME_NAMES } from '../../theme/themes';
 import type { DeskView } from '../../desk/compute';
 
@@ -20,6 +21,15 @@ export function TitleBar({ view }: { view: DeskView }) {
     window.addEventListener('click', h);
     return () => window.removeEventListener('click', h);
   }, [closeMenu]);
+
+  // 메뉴 항목 동작 (현재 연결된 항목만 처리, 나머지는 후속 Phase)
+  const onMenuItem = async (label: string) => {
+    closeMenu();
+    if (label === 'Import Files…') {
+      const picked = await openAudioFilePicker({ directory: false });
+      if (picked.length) await useAppStore.getState().loadFiles(picked);
+    }
+  };
 
   return (
     <div
@@ -38,7 +48,7 @@ export function TitleBar({ view }: { view: DeskView }) {
                   it.isDiv ? (
                     <div key={idx} style={{ height: 1, margin: '5px 8px', background: '#323b44' }} />
                   ) : (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, fontFamily: 'Archivo', fontSize: 11.5, color: '#cdd8de', padding: '7px 9px', borderRadius: 5, cursor: 'pointer' }}>
+                    <div key={idx} onClick={() => onMenuItem(it.label)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, fontFamily: 'Archivo', fontSize: 11.5, color: '#cdd8de', padding: '7px 9px', borderRadius: 5, cursor: 'pointer' }}>
                       <span>{it.label}</span>
                       <span style={{ fontFamily: 'Archivo', fontSize: 10, color: '#5e6b73' }}>{it.key}</span>
                     </div>

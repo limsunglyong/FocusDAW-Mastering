@@ -2,10 +2,15 @@
 // 출처: Mastering Desk Studio.standalone.html (DCLogic.renderVals). 계산식·색·문자열을 원본 그대로 유지.
 import { THEMES, type ThemeName } from '../theme/themes';
 import {
-  ROMAN, MODS, CTRL, EQBANDS, EQPRESETS, EQPRESET_ORDER, UNITS, META, FILES, MENUS, RIBBON, TOTAL_MB,
-  type DeskState, type ModId, type CtrlDef,
+  ROMAN, MODS, CTRL, EQBANDS, EQPRESETS, EQPRESET_ORDER, UNITS, META, MENUS, RIBBON,
+  type DeskState, type ModId, type CtrlDef, type FileItem,
 } from './data';
+import type { QueueFile } from '../audio/queueFile';
+import { formatBytes } from '../audio/queueFile';
 import { APP_VERSION_LABEL } from '../version';
+
+// 큐가 비었을 때 NOW SELECTED/칩 등에서 참조할 빈 파일 표시값
+const EMPTY_FILE: FileItem = { name: 'No file loaded', size: '—', fmt: '—', dur: '—', sr: '—', depth: '—', ch: '—', lufs: '—' };
 
 const num = (v: unknown) => Number(v);
 
@@ -96,12 +101,19 @@ function eqBandIdx(vals: Record<string, any>): number {
   return Math.max(0, Math.min(4, parseInt(vals['spectral.band'] || '1', 10) - 1));
 }
 
-export function computeView(state: DeskState, themeName: ThemeName) {
+export function computeView(state: DeskState, themeName: ThemeName, files: QueueFile[] = []) {
   const pal: any = THEMES[themeName] || THEMES.Teal;
   const accent = pal.aMain;
-  const { open, vals, enabled, curFile } = state;
+  const { open, vals, enabled } = state;
   const act = MODS[open];
   const id = act.id;
+
+  // 큐 인덱스 보정 + 선택 파일(빈 큐면 EMPTY_FILE)
+  const hasFiles = files.length > 0;
+  const curFile = hasFiles ? Math.min(Math.max(0, state.curFile), files.length - 1) : 0;
+  const sel: FileItem = hasFiles ? files[curFile] : EMPTY_FILE;
+  const totalBytes = files.reduce((s, f) => s + (f.bytes || 0), 0);
+  const batchSizeLabel = hasFiles ? formatBytes(totalBytes) : '0 MB';
 
   const statMap: Record<ModId, string> = {
     input: vals['input.bit'] + '-bit ' + vals['input.rate'],
@@ -359,13 +371,14 @@ export function computeView(state: DeskState, themeName: ThemeName) {
     loudGrad: `linear-gradient(90deg,#0e3496 0%,#1c54be 28%,#2f8f86 47%,#33b06a 53.3%,#46be62 70%,#7cc24a 73%,#e6c23c 76.7%,#ef8a36 80%,#e6502e 83.3%,#cf2a22 90%,#a81414 100%)`,
     eqStopA: pal.eqA, eqStopB: pal.eqB, ellipseFill: pal.ell,
     modules,
-    files: FILES.map((f, i) => {
+    files: files.map((f, i) => {
       const on = i === curFile;
       return {
         ...f, i, on, iconColor: on ? pal.aInk : accent, nameColor: on ? pal.aInk : pal.nInk, sizeColor: on ? pal.aInk : '#8a8070', weight: on ? '700' : '400',
         rowStyle: `display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:7px;cursor:pointer;` + (on ? `background:${accent};box-shadow:0 0 0 1px ${accent},0 0 12px ${pal.glow};` : `background:${pal.panelDark};`),
       };
     }),
+    hasFiles,
     vizTitle: act.viz,
     genCtrl: id !== 'export' && id !== 'spectral',
     isInput, isPre, isSpectral, isDynamics, isStereo, isLoudness, isExport,
@@ -392,12 +405,15 @@ export function computeView(state: DeskState, themeName: ThemeName) {
     titleRate: ({ '44.1k': '44.1 kHz', '48k': '48.0 kHz', '96k': '96.0 kHz' } as Record<string, string>)[String(vals['input.rate'])] || String(vals['input.rate']),
     titleBit: ({ '16': '16-bit', '24': '24-bit', '32f': '32-bit float' } as Record<string, string>)[String(vals['input.bit'])] || vals['input.bit'] + '-bit',
     titleFormat: String(vals['export.format']),
-    curFileName: FILES[curFile].name, curFileIdx: String(curFile + 1).padStart(2, '0'),
-    batchCount: FILES.length, batchSize: TOTAL_MB,
-    workFolder: vals['input.source'] === 'Folder' ? '~/Sessions/Aurora EP/stems/' : '~/Sessions/Aurora EP/ (6 files)',
+    curFileName: hasFiles ? sel.name : 'No file loaded', curFileIdx: hasFiles ? String(curFile + 1).padStart(2, '0') : '00',
+    batchCount: files.length, batchSize: batchSizeLabel,
+    // 기타3(v0.1.4/0.1.5): 큐 최상단 파일(files[0])의 실제 폴더 경로(Electron webUtils). 경로 없으면 파일 수로 폴백.
+    workFolder: hasFiles ? (files[0].dir || `${files.length} file${files.length > 1 ? 's' : ''} loaded`) : 'No files loaded',
     inputFmt: vals['input.bit'] + '-bit · ' + vals['input.rate'],
-    sel: FILES[curFile],
-    selChips: [{ label: FILES[curFile].fmt }, { label: FILES[curFile].depth + ' · ' + FILES[curFile].sr }, { label: FILES[curFile].ch }],
+    sel,
+    selChips: [{ label: sel.fmt }, { label: sel.depth + ' · ' + sel.sr }, { label: sel.ch }],
+    // v0.1.7: 원본 실측 LUFS 가 -9 LUFS 초과(=큰 라우드니스)면 진한 노란색으로 경고 표시
+    selLufsColor: (hasFiles && isFinite(files[curFile].meta.integratedLufs) && files[curFile].meta.integratedLufs > -9) ? '#d4a017' : accent,
     lufsVal: tgt.toFixed(1), tpVal: ceil.toFixed(1),
     activeCount: Object.values(enabled).filter(Boolean).length,
   };

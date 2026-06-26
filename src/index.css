@@ -23,6 +23,17 @@ body {
     stroke-dashoffset: -44;
   }
 }
+
+@keyframes dkbob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+
 .dk-flow {
   stroke-dasharray: 16 26;
   animation: dkflow 1.2s linear infinite;

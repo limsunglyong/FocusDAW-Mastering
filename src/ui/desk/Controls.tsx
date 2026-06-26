@@ -69,9 +69,9 @@ function InputPanels({ view }: { view: DeskView }) {
   const pal = view.pal;
   return (
     <>
-      <div style={{ marginTop: 13, borderTop: '1px solid rgba(58,52,43,0.14)', paddingTop: 11 }}>
-        <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a', marginBottom: 9 }}>BATCH INFO</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px', alignItems: 'center' }}>
+      <div style={{ marginTop: 10, borderTop: '1px solid rgba(58,52,43,0.14)', paddingTop: 8 }}>
+        <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a', marginBottom: 6 }}>BATCH INFO</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '5px 16px', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ flex: 'none', color: view.accent }}><DeskIcon icon="note" size={14} /></span><span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: pal.pInk2 }}>Total tracks</span></div>
           <span style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: 700, color: pal.pInk }}>{view.batchCount} files · {view.batchSize}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -84,8 +84,8 @@ function InputPanels({ view }: { view: DeskView }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 12, borderTop: '1px solid rgba(58,52,43,0.14)', paddingTop: 11 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
+      <div style={{ marginTop: 8, borderTop: '1px solid rgba(58,52,43,0.14)', paddingTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
           <span style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a' }}>NOW SELECTED</span>
           <span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: pal.pInk2 }}>{view.sel.dur} · {view.sel.size}</span>
         </div>
@@ -188,12 +188,12 @@ function ExportMeta({ view }: { view: DeskView }) {
   const pal = view.pal;
   const setVal = useAppStore((s) => s.setVal);
   return (
-    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', alignContent: 'start', overflowY: 'auto' }}>
+    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', alignContent: 'start', overflow: 'hidden' }}>
       {view.metaFields.map((f: any) => (
         <div key={f.key} style={css(f.wrap)}>
-          <div style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', marginBottom: 5 }}>{f.label}</div>
+          <div style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', marginBottom: 3 }}>{f.label}</div>
           {f.isText ? (
-            <input className="dk-in" value={f.value} placeholder={f.ph} onChange={(e) => setVal(f.fk, e.target.value)} style={{ width: '100%', boxSizing: 'border-box', background: pal.paperInput, border: '1px solid #cdbfa4', borderRadius: 7, padding: '8px 10px', color: pal.pInk, fontSize: 12.5, outline: 'none' }} />
+            <input className="dk-in" value={f.value} placeholder={f.ph} onChange={(e) => setVal(f.fk, e.target.value)} style={{ width: '100%', boxSizing: 'border-box', background: pal.paperInput, border: '1px solid #cdbfa4', borderRadius: 7, padding: '6px 10px', color: pal.pInk, fontSize: 12.5, outline: 'none' }} />
           ) : (
             <div style={{ display: 'flex', gap: 3, background: pal.paperCtl, borderRadius: 8, padding: 3 }}>
               {f.opts.map((o: any) => (

@@ -76,7 +76,6 @@ export function TitleBar({ view }: { view: DeskView }) {
 
       <div className="app-no-drag tb-win" style={{ display: 'flex', alignItems: 'center', gap: 7, marginLeft: 6 }}>
         <div onClick={() => win?.minimize()} style={{ width: 22, height: 20, borderRadius: 5, display: 'grid', placeItems: 'center', background: '#252b32', border: '1px solid #303841', cursor: 'pointer' }}><div style={{ width: 8, height: 1.5, background: '#9aa7af' }} /></div>
-        <div onClick={() => win?.toggleMaximize()} style={{ width: 22, height: 20, borderRadius: 5, display: 'grid', placeItems: 'center', background: '#252b32', border: '1px solid #303841', cursor: 'pointer' }}><div style={{ width: 8, height: 8, border: '1.3px solid #9aa7af', borderRadius: 2 }} /></div>
         <div onClick={() => win?.close()} style={{ width: 22, height: 20, borderRadius: 5, display: 'grid', placeItems: 'center', background: '#252b32', border: '1px solid #303841', color: '#9aa7af', fontSize: 12, cursor: 'pointer' }}>×</div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 // FocusDAW Mastering Desk v0.1.1 (Phase 0 UI) - 상세 시트 col2 (시각화 패널) (원본 dc.html 이식)
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { css } from '../../desk/css';
 import { useAppStore } from '../../store/appStore';
 import { DeskIcon } from '../Icons';
@@ -9,20 +9,73 @@ import type { DeskView } from '../../desk/compute';
 function InputQueue({ view }: { view: DeskView }) {
   const pickFile = useAppStore((s) => s.pickFile);
   const ref = useRef<HTMLDivElement>(null);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  const updateScrollState = () => {
+    const el = ref.current;
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    setCanScrollUp(el.scrollTop > 1);
+    setCanScrollDown(maxScroll > 1 && el.scrollTop < maxScroll - 1);
+  };
+
+  useEffect(() => {
+    updateScrollState();
+    const el = ref.current;
+    if (!el) return;
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updateScrollState)
+      : null;
+    resizeObserver?.observe(el);
+    return () => resizeObserver?.disconnect();
+  }, [view.files.length]);
+
+  const scrollQueue = (direction: 1 | -1) => {
+    ref.current?.scrollBy({ top: direction * 72, behavior: 'smooth' });
+  };
+
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
         <span style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>BATCH QUEUE</span>
         <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#6f6657' }}>{view.batchCount} · {view.batchSize}</span>
       </div>
-      <div ref={ref} style={{ maxHeight: 176, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 2 }}>
-        {view.files.map((f) => (
-          <div key={f.i} onClick={() => pickFile(f.i)} style={css(f.rowStyle)}>
-            <span style={{ flex: 'none', color: f.iconColor }}><DeskIcon icon="note" size={12} /></span>
-            <span style={{ flex: 1, fontFamily: 'Archivo', fontSize: 11, fontWeight: f.weight as any, color: f.nameColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-            <span style={{ fontFamily: 'Archivo', fontSize: 9, color: f.sizeColor, width: 48, textAlign: 'right' }}>{f.size}</span>
-          </div>
-        ))}
+      <div style={{ position: 'relative' }}>
+        {canScrollUp && (
+          <button
+            type="button"
+            aria-label="Scroll queue up"
+            onClick={() => scrollQueue(-1)}
+            style={{ position: 'absolute', left: 0, right: 2, top: 0, zIndex: 2, height: 30, border: 0, padding: '2px 0 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', cursor: 'pointer', background: `linear-gradient(0deg, rgba(0,0,0,0), ${view.pal.panel} 78%)` }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" style={{ animation: 'dkbob 1.2s ease-in-out infinite' }}>
+              <path d="M7 14l5-5 5 5" fill="none" stroke={view.pal.aBright} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+        <div ref={ref} onScroll={updateScrollState} style={{ maxHeight: 176, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 2 }}>
+          {view.files.map((f) => (
+            <div key={f.i} onClick={() => pickFile(f.i)} style={css(f.rowStyle)}>
+              <span style={{ flex: 'none', color: f.iconColor }}><DeskIcon icon="note" size={12} /></span>
+              <span style={{ flex: 1, fontFamily: 'Archivo', fontSize: 11, fontWeight: f.weight as any, color: f.nameColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+              <span style={{ fontFamily: 'Archivo', fontSize: 9, color: f.sizeColor, width: 48, textAlign: 'right' }}>{f.size}</span>
+            </div>
+          ))}
+        </div>
+        {canScrollDown && (
+          <button
+            type="button"
+            aria-label="Scroll queue down"
+            onClick={() => scrollQueue(1)}
+            style={{ position: 'absolute', left: 0, right: 2, bottom: 0, zIndex: 2, height: 30, border: 0, padding: '0 0 2px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', cursor: 'pointer', background: `linear-gradient(180deg, rgba(0,0,0,0), ${view.pal.panel} 78%)` }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" style={{ animation: 'dkbob 1.2s ease-in-out infinite' }}>
+              <path d="M7 10l5 5 5-5" fill="none" stroke={view.pal.aBright} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
       </div>
     </>
   );

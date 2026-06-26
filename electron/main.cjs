@@ -13,6 +13,9 @@ function createWindow() {
     minWidth: 1100,
     minHeight: 662,
     frame: false,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     backgroundColor: '#0c0f12',
     show: false,
     webPreferences: {

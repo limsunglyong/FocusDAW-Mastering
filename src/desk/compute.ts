@@ -201,7 +201,7 @@ export function computeView(state: DeskState, themeName: ThemeName) {
     if (def.type === 'text') return { key: def.key, label: def.label, isText: true, isSeg: false, value: String(raw || ''), ph: def.ph || '', fk, wrap: def.key === 'album' ? 'grid-column:span 2;' : '' };
     return {
       key: def.key, label: def.label, isText: false, isSeg: true, fk, wrap: 'grid-column:span 2;',
-      opts: def.opts!.map((o) => ({ label: o, value: o, selected: raw === o, style: `flex:1;text-align:center;font-family:'Archivo';font-size:10px;font-weight:600;padding:7px 4px;border-radius:6px;cursor:pointer;` + (raw === o ? `color:#f3ecdd;background:${accent};` : `color:${pal.pSeg};`) })),
+      opts: def.opts!.map((o) => ({ label: o, value: o, selected: raw === o, style: `flex:1;text-align:center;font-family:'Archivo';font-size:10px;font-weight:600;padding:5px 4px;border-radius:6px;cursor:pointer;` + (raw === o ? `color:#f3ecdd;background:${accent};` : `color:${pal.pSeg};`) })),
     };
   });
 

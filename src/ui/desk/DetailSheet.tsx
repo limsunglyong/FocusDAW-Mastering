@@ -13,7 +13,7 @@ export function DetailSheet({ view }: { view: DeskView }) {
 
   return (
     <div style={{ position: 'relative', background: pal.frame }}>
-      <div style={{ position: 'absolute', top: -2, left: view.notchLeft, width: 16, height: 16, background: pal.notch, transform: 'translateX(-50%) rotate(45deg)', borderRadius: 3 }} />
+      <div style={{ position: 'absolute', top: 6, left: view.notchLeft, width: 16, height: 16, background: pal.notch, transform: 'translateX(-50%) rotate(45deg)', borderRadius: 3 }} />
       <div style={{ margin: 14, borderRadius: 12, boxShadow: '0 10px 30px -12px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.6)', padding: '18px 20px', height: 308, boxSizing: 'border-box', display: 'flex', gap: 20, background: view.paperBg }}>
 
         {/* col 1: roman plate */}

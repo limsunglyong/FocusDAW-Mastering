@@ -15,6 +15,8 @@ export type PreviewParams = {
 type ActiveGraph = {
   source: AudioBufferSourceNode;
   nodes: AudioNode[];
+  dryGain: GainNode;
+  wetGain: GainNode;
   onEnded: (() => void) | null;
 };
 
@@ -59,6 +61,7 @@ export class PreviewEngine {
   private offset = 0;
   private playing = false;
   private desiredSampleRate: number | null = null;
+  private previewEnabled = false;
 
   isPlaying() {
     return this.playing;
@@ -69,13 +72,14 @@ export class PreviewEngine {
     return Math.max(0, this.offset + (this.ctx.currentTime - this.startedAt));
   }
 
-  async play(buffer: AudioBuffer, params: PreviewParams, onEnded: () => void, offset = 0) {
+  async play(buffer: AudioBuffer, params: PreviewParams, onEnded: () => void, offset = 0, previewEnabled = this.previewEnabled) {
     await this.ensureContext(buffer.sampleRate);
     this.stop(false);
     this.params = params;
     this.currentBuffer = buffer;
     this.currentOnEnded = onEnded;
     this.offset = Math.max(0, offset);
+    this.previewEnabled = previewEnabled;
     this.start(buffer, onEnded);
   }
 
@@ -112,6 +116,12 @@ export class PreviewEngine {
       this.playing = false;
       this.start(this.currentBuffer, this.currentOnEnded);
     }
+  }
+
+  setPreviewEnabled(enabled: boolean) {
+    this.previewEnabled = enabled;
+    if (!this.ctx || !this.graph) return;
+    this.crossfadePreview(enabled);
   }
 
   private async ensureContext(sampleRate: number) {
@@ -160,7 +170,15 @@ export class PreviewEngine {
   }
 
   private buildGraph(ctx: AudioContext, source: AudioBufferSourceNode, params: PreviewParams): ActiveGraph {
-    const nodes: AudioNode[] = [source];
+    const dryGain = ctx.createGain();
+    const wetGain = ctx.createGain();
+    dryGain.gain.value = this.previewEnabled ? 0 : 1;
+    wetGain.gain.value = this.previewEnabled ? 1 : 0;
+
+    source.connect(dryGain);
+    dryGain.connect(ctx.destination);
+
+    const nodes: AudioNode[] = [source, dryGain, wetGain];
     let tail: AudioNode = source;
     const append = (node: AudioNode) => {
       tail.connect(node);
@@ -243,9 +261,10 @@ export class PreviewEngine {
       }
     }
 
-    tail.connect(ctx.destination);
+    tail.connect(wetGain);
+    wetGain.connect(ctx.destination);
     nodes.push(ctx.destination);
-    return { source, nodes, onEnded: null };
+    return { source, nodes, dryGain, wetGain, onEnded: null };
   }
 
   private appendStereoWidth(ctx: AudioContext, inputFrom: AudioNode, width: number, ownedNodes: AudioNode[]): AudioNode {
@@ -291,6 +310,17 @@ export class PreviewEngine {
         eqIndex++;
       }
     }
+  }
+
+  private crossfadePreview(enabled: boolean) {
+    const ctx = this.ctx;
+    const graph = this.graph;
+    if (!ctx || !graph) return;
+    const now = ctx.currentTime;
+    graph.dryGain.gain.cancelScheduledValues(now);
+    graph.wetGain.gain.cancelScheduledValues(now);
+    graph.dryGain.gain.setTargetAtTime(enabled ? 0 : 1, now, 0.015);
+    graph.wetGain.gain.setTargetAtTime(enabled ? 1 : 0, now, 0.015);
   }
 }
 

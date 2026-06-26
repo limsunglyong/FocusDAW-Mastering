@@ -40,6 +40,8 @@
  *             processingBuffer 리샘플링 후 중단 지점부터 자동 재개.
  *  - v0.2.4 : (Phase 1 Patch) 원본 재생 중 파일 선택 변경 시 사용자가 pause하기 전까지
  *             새 선택 파일을 자동 재생하도록 transport 의도 유지.
+ *  - v0.2.5 : (Phase 1 Patch) 중앙 Preview를 별도 play/stop이 아닌 효과 모니터 ON/OFF
+ *             토글로 전환. 좌측 Play/Space가 dry/effect 통합 transport를 담당.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

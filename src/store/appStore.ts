@@ -8,7 +8,6 @@ import { DEFAULT_STATE, EQPRESETS, type DeskState, type ModId } from '../desk/da
 import { decodeAudioFile, AudioDecodeError } from '../audio/decoder';
 import { buildQueueFile, type QueueFile } from '../audio/queueFile';
 import { previewEngine, type PreviewParams } from '../audio/previewEngine';
-import { originalPlayer } from '../audio/originalPlayer';
 import { resampleAudioBuffer, sampleRateFromInputRate } from '../audio/resample';
 
 type AppState = DeskState & {
@@ -146,8 +145,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   prevFile: () => {
     const shouldResumeOriginal = get().isOriginalPlaying;
     const resumeSeq = ++originalSelectionResumeSeq;
-    get().stopPreview();
-    originalPlayer.stop();
+    previewEngine.stop();
     set({ isOriginalPlaying: false });
     set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile - 1 + s.files.length) % s.files.length }));
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
@@ -155,8 +153,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   nextFile: () => {
     const shouldResumeOriginal = get().isOriginalPlaying;
     const resumeSeq = ++originalSelectionResumeSeq;
-    get().stopPreview();
-    originalPlayer.stop();
+    previewEngine.stop();
     set({ isOriginalPlaying: false });
     set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile + 1) % s.files.length }));
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
@@ -164,8 +161,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   pickFile: (i) => {
     const shouldResumeOriginal = get().isOriginalPlaying;
     const resumeSeq = ++originalSelectionResumeSeq;
-    get().stopPreview();
-    originalPlayer.stop();
+    previewEngine.stop();
     set({ isOriginalPlaying: false });
     set((s) => (i >= 0 && i < s.files.length ? { curFile: i } : {}));
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
@@ -228,30 +224,17 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   togglePreview: async () => {
     const s = get();
-    if (s.isPreviewing) {
-      s.stopPreview();
-      return;
-    }
-    const file = s.files[s.curFile];
-    if (!file) {
+    if (s.files.length === 0) {
       set({ previewError: 'Load an audio file before preview.' });
       return;
     }
-    try {
-      s.stopOriginalPlayback();
-      const processingBuffer = await get().ensureProcessingBuffer(file.id);
-      const latest = get();
-      const latestFile = latest.files[latest.curFile];
-      if (!latestFile || latestFile.id !== file.id) return;
-      await previewEngine.play(processingBuffer, previewParamsFromState(latest, latestFile), () => set({ isPreviewing: false }));
-      set({ isPreviewing: true, previewError: null });
-    } catch {
-      set({ isPreviewing: false, previewError: 'Preview playback failed.' });
-    }
+    const enabled = !s.isPreviewing;
+    previewEngine.setPreviewEnabled(enabled);
+    set({ isPreviewing: enabled, previewError: null });
   },
 
   stopPreview: () => {
-    previewEngine.stop();
+    previewEngine.setPreviewEnabled(false);
     set({ isPreviewing: false });
   },
 
@@ -284,20 +267,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (before.vals['input.rate'] === rate) return;
 
     const currentFile = before.files[before.curFile];
-    const resumePreview = before.isPreviewing && !!currentFile;
     const resumeOriginal = before.isOriginalPlaying && !!currentFile;
-    const resumeTime = resumePreview
-      ? previewEngine.getCurrentTime()
-      : resumeOriginal
-        ? originalPlayer.getCurrentTime()
-        : 0;
+    const resumeTime = resumeOriginal ? previewEngine.getCurrentTime() : 0;
 
     previewEngine.stop();
-    originalPlayer.stop();
     set((s) => ({
       vals: { ...s.vals, 'input.rate': rate },
       files: invalidateProcessingBuffers(s.files),
-      isPreviewing: false,
       isOriginalPlaying: false,
       previewError: null,
       originalPlayError: null,
@@ -305,7 +281,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (!currentFile) return;
 
-    if (resumePreview) {
+    if (resumeOriginal) {
       set({
         processingAudio: true,
         processingMessage: `Resampling to ${rate}`,
@@ -322,42 +298,14 @@ export const useAppStore = create<AppState>((set, get) => ({
           await previewEngine.play(
             processingBuffer,
             previewParamsFromState(latest, latestFile),
-            () => set({ isPreviewing: false }),
-            Math.min(resumeTime, Math.max(0, processingBuffer.duration - 0.001)),
-          );
-          set({ isPreviewing: true, previewError: null });
-        }
-      } catch {
-        set({ isPreviewing: false, previewError: 'Resampling failed.' });
-      } finally {
-        set({ processingAudio: false, processingMessage: '', processingCurrentName: '', processingDone: 0, processingTotal: 0 });
-      }
-      return;
-    }
-
-    if (resumeOriginal) {
-      set({
-        processingAudio: true,
-        processingMessage: `Resampling to ${rate}`,
-        processingCurrentName: currentFile.name,
-        processingDone: 0,
-        processingTotal: 1,
-      });
-      try {
-        await get().ensureProcessingBuffer(currentFile.id);
-        set({ processingDone: 1 });
-        const latest = get();
-        const latestFile = latest.files[latest.curFile];
-        if (latestFile?.id === currentFile.id) {
-          const playing = await originalPlayer.toggle(
-            latestFile.sourceBuffer,
             () => set({ isOriginalPlaying: false }),
-            Math.min(resumeTime, Math.max(0, latestFile.sourceBuffer.duration - 0.001)),
+            Math.min(resumeTime, Math.max(0, processingBuffer.duration - 0.001)),
+            latest.isPreviewing,
           );
-          set({ isOriginalPlaying: playing, originalPlayError: null });
+          set({ isOriginalPlaying: true, originalPlayError: null });
         }
       } catch {
-        set({ isOriginalPlaying: false, originalPlayError: 'Original playback failed.' });
+        set({ isOriginalPlaying: false, originalPlayError: 'Resampling failed.' });
       } finally {
         set({ processingAudio: false, processingMessage: '', processingCurrentName: '', processingDone: 0, processingTotal: 0 });
       }
@@ -373,9 +321,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     try {
-      s.stopPreview();
-      const playing = await originalPlayer.toggle(file.sourceBuffer, () => set({ isOriginalPlaying: false }));
-      set({ isOriginalPlaying: playing, originalPlayError: null });
+      if (s.isOriginalPlaying) {
+        previewEngine.pause();
+        set({ isOriginalPlaying: false, originalPlayError: null });
+        return;
+      }
+      const processingBuffer = await get().ensureProcessingBuffer(file.id);
+      const latest = get();
+      const latestFile = latest.files[latest.curFile];
+      if (!latestFile || latestFile.id !== file.id) return;
+      const offset = Math.min(previewEngine.getCurrentTime(), Math.max(0, processingBuffer.duration - 0.001));
+      await previewEngine.play(
+        processingBuffer,
+        previewParamsFromState(latest, latestFile),
+        () => set({ isOriginalPlaying: false }),
+        offset,
+        latest.isPreviewing,
+      );
+      set({ isOriginalPlaying: true, originalPlayError: null });
     } catch {
       set({ isOriginalPlaying: false, originalPlayError: 'Original playback failed.' });
     }
@@ -383,7 +346,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   stopOriginalPlayback: () => {
     originalSelectionResumeSeq++;
-    originalPlayer.stop();
+    previewEngine.stop();
     set({ isOriginalPlaying: false });
   },
 
@@ -393,9 +356,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     const file = s.files[s.curFile];
     if (!file) return;
     try {
-      const playing = await originalPlayer.play(file.sourceBuffer, () => set({ isOriginalPlaying: false }), 0);
+      const processingBuffer = await get().ensureProcessingBuffer(file.id);
+      const latest = get();
+      const latestFile = latest.files[latest.curFile];
+      if (!latestFile || latestFile.id !== file.id) return;
+      await previewEngine.play(
+        processingBuffer,
+        previewParamsFromState(latest, latestFile),
+        () => set({ isOriginalPlaying: false }),
+        0,
+        latest.isPreviewing,
+      );
       if (resumeSeq !== originalSelectionResumeSeq) return;
-      set({ isOriginalPlaying: playing, originalPlayError: null });
+      set({ isOriginalPlaying: true, originalPlayError: null });
     } catch {
       if (resumeSeq !== originalSelectionResumeSeq) return;
       set({ isOriginalPlaying: false, originalPlayError: 'Original playback failed.' });

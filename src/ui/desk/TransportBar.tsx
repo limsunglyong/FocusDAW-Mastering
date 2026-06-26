@@ -13,6 +13,7 @@ export function TransportBar({ view }: { view: DeskView }) {
   const isPreviewing = useAppStore((s) => s.isPreviewing);
   const previewError = useAppStore((s) => s.previewError);
   const canPreview = view.hasFiles;
+  const previewTitle = previewError || (canPreview ? `Preview effects ${isPreviewing ? 'on' : 'off'}` : 'Load an audio file before preview');
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -59,15 +60,22 @@ export function TransportBar({ view }: { view: DeskView }) {
       <button
         onClick={() => { void togglePreview(); }}
         disabled={!canPreview}
-        title={previewError || (canPreview ? 'Preview selected file' : 'Load an audio file before preview')}
-        style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'Archivo', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', color: canPreview ? view.accent : '#6f7d86', background: isPreviewing ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isPreviewing ? view.pal.aBright : view.pal.aMain}`, borderRadius: 6, padding: '6px 16px', cursor: canPreview ? 'pointer' : 'not-allowed', justifySelf: 'center', opacity: canPreview ? 1 : 0.5 }}
+        aria-pressed={isPreviewing}
+        title={previewTitle}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Archivo', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', color: canPreview ? view.accent : '#6f7d86', background: isPreviewing ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.035)', border: `1px solid ${isPreviewing ? view.pal.aBright : view.pal.aMain}`, borderRadius: 6, padding: '6px 16px', cursor: canPreview ? 'pointer' : 'not-allowed', justifySelf: 'center', opacity: canPreview ? 1 : 0.5, boxShadow: isPreviewing ? `0 0 16px ${view.pal.glow}` : 'none' }}
       >
-        {isPreviewing ? (
-          <span style={{ width: 8, height: 8, background: view.accent, boxShadow: `0 0 8px ${view.pal.glow}` }} />
-        ) : (
-          <span style={{ width: 0, height: 0, borderLeft: `8px solid ${canPreview ? view.accent : '#6f7d86'}`, borderTop: '5px solid transparent', borderBottom: '5px solid transparent' }} />
-        )}
-        {isPreviewing ? 'Stop' : 'Preview'}
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: isPreviewing && canPreview ? view.accent : 'transparent',
+            border: `1px solid ${canPreview ? view.accent : '#6f7d86'}`,
+            boxShadow: isPreviewing && canPreview ? `0 0 10px ${view.pal.glow}` : 'none',
+            animation: isPreviewing && canPreview ? 'dkpreviewglow 1.4s ease-in-out infinite' : 'none',
+          }}
+        />
+        Preview
       </button>
 
       {/* 우: 라우드니스 + Render */}

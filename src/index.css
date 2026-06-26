@@ -40,6 +40,18 @@ body {
   }
 }
 
+@keyframes dkpreviewglow {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
 /* v0.1.5: 로딩 카드의 오디오 웨이브폼 막대 펄스 */
 @keyframes dkwave {
   0%,

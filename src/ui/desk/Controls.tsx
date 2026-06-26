@@ -1,0 +1,227 @@
+// FocusDAW Mastering Desk v0.1.1 (Phase 0 UI) - 상세 시트 col3 (PARAMETERS) (원본 dc.html 이식)
+import { css } from '../../desk/css';
+import { useAppStore } from '../../store/appStore';
+import { DeskIcon } from '../Icons';
+import { Knob } from './Knob';
+import type { Control, DeskView } from '../../desk/compute';
+
+function ControlItem({ c, view }: { c: Control; view: DeskView }) {
+  const setVal = useAppStore((s) => s.setVal);
+  const paperCtl = view.pal.paperCtl;
+
+  if (c.isRot) {
+    return (
+      <div style={css(c.wrapStyle)}>
+        <div style={{ textAlign: 'center', fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', whiteSpace: 'nowrap', marginBottom: 5 }}>{c.label}</div>
+        <Knob vm={c.knob!} size={54} sw={3.2} trackSw={3.2} />
+        <div style={{ textAlign: 'center', fontFamily: 'Archivo', fontSize: 12, fontWeight: 700, color: c.knob!.valColor, marginTop: 5 }}>
+          {c.knob!.display} <span style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 400, color: '#8a8070' }}>{c.knob!.unitText}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (c.isSeg) {
+    return (
+      <div style={css(c.wrapStyle)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', whiteSpace: 'nowrap' }}>{c.label}</span>
+          <div style={{ display: 'flex', gap: 3, background: paperCtl, borderRadius: 8, padding: 3 }}>
+            {c.opts!.map((o) => (
+              <div key={o.value} onClick={() => setVal(c.fk, o.value)} style={css(o.style)}>{o.label}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // switch
+  return (
+    <div style={css(c.wrapStyle)}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+        <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', lineHeight: 1.2, width: c.labelW, flex: 'none', display: 'flex', flexDirection: 'column' }}>
+          {c.labelL1}{c.twoLine && <span>{c.labelL2}</span>}
+        </span>
+        <div onClick={() => setVal(c.fk, !c.on)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <div style={css(c.swTrack)}><div style={css(c.swKnob)} /></div>
+          <span style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 600, color: c.subColor }}>{c.subText}</span>
+        </div>
+      </div>
+      {c.hasBelow && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginTop: 13, ...css(c.belowStyle) }}>
+          <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', lineHeight: 1.25, textAlign: 'left', width: 46, flex: 'none' }}>Noise<br />Depth</span>
+          <div>
+            <div style={{ display: 'flex', gap: 3, background: paperCtl, borderRadius: 8, padding: 3 }}>
+              {c.belowOpts!.map((o) => (
+                <div key={o.value} onClick={() => setVal('pre.noiseDepth', o.value)} style={css(o.style)}>{o.label}</div>
+              ))}
+            </div>
+            <div style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', textAlign: 'center', marginTop: 5 }}>{c.belowDesc}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InputPanels({ view }: { view: DeskView }) {
+  const pal = view.pal;
+  return (
+    <>
+      <div style={{ marginTop: 13, borderTop: '1px solid rgba(58,52,43,0.14)', paddingTop: 11 }}>
+        <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a', marginBottom: 9 }}>BATCH INFO</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ flex: 'none', color: view.accent }}><DeskIcon icon="note" size={14} /></span><span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: pal.pInk2 }}>Total tracks</span></div>
+          <span style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: 700, color: pal.pInk }}>{view.batchCount} files · {view.batchSize}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" style={{ flex: 'none', color: view.accent }}><path d="M3 7a2 2 0 0 1 2-2h4l2 2.4h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
+            <span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: pal.pInk2 }}>Working folder</span>
+          </div>
+          <span style={{ fontFamily: 'Archivo', fontSize: 12, fontWeight: 500, color: pal.pInk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{view.workFolder}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ flex: 'none', color: view.accent }}><DeskIcon icon="export" size={14} /></span><span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: pal.pInk2 }}>Decode format</span></div>
+          <span style={{ fontFamily: 'Archivo', fontSize: 12, fontWeight: 500, color: pal.pInk }}>PCM {view.inputFmt}</span>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12, borderTop: '1px solid rgba(58,52,43,0.14)', paddingTop: 11 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
+          <span style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a' }}>NOW SELECTED</span>
+          <span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: pal.pInk2 }}>{view.sel.dur} · {view.sel.size}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 8, flex: 'none', display: 'grid', placeItems: 'center', color: pal.aInk, background: view.accent }}><DeskIcon icon="note" size={16} /></div>
+          <span style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: 600, color: pal.pInk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{view.sel.name}</span>
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+            {view.selChips.map((ch, i) => (
+              <span key={i} style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 600, color: pal.pSeg, background: pal.paperCtl, borderRadius: 6, padding: '5px 10px', whiteSpace: 'nowrap' }}>{ch.label}</span>
+            ))}
+            <span style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, color: view.accent, background: pal.paperCtl, borderRadius: 6, padding: '5px 10px', whiteSpace: 'nowrap' }}>{view.sel.lufs} LUFS</span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function DynamicsExtra({ view }: { view: DeskView }) {
+  const pal = view.pal;
+  return (
+    <div style={{ marginTop: 12, flex: 1, borderRadius: 12, padding: '13px 15px', display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: 14, ...css(view.insetBg) }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {view.dynTrans?.knob && <Knob vm={view.dynTrans.knob} size={48} sw={3.6} trackSw={3.6} />}
+          <div style={{ fontFamily: 'Archivo', fontSize: 8.5, color: '#8a8070', marginTop: 3 }}>Transient</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}><span style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>TRANSIENT</span><span style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, color: pal.aBright }}>{view.transLabel}</span></div>
+          <svg width="100%" height="50" viewBox="0 0 212 54" preserveAspectRatio="none" style={{ display: 'block' }}>
+            <line x1="0" y1="27" x2="212" y2="27" stroke="rgba(255,240,210,0.12)" strokeDasharray="2 3" />
+            <path d={view.transPath} fill={pal.aMain} opacity="0.5" />
+            <path d={view.transPath} fill="none" stroke={pal.aBright} strokeWidth="1.3" />
+          </svg>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {view.dynExc?.knob && <Knob vm={view.dynExc.knob} size={48} sw={3.6} trackSw={3.6} />}
+          <div style={{ fontFamily: 'Archivo', fontSize: 8.5, color: '#8a8070', marginTop: 3 }}>Exciter</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}><span style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>EXCITER · HARMONICS</span><span style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, color: pal.aBright }}>{view.exLabel}</span></div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 5, height: 46 }}>
+            {view.exciterBars.map((h: any, i: number) => (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                <div style={css(h.barStyle)} />
+                <span style={{ fontFamily: 'Archivo', fontSize: 7, color: '#8a8070', marginTop: 3 }}>{h.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SpectralControls({ view }: { view: DeskView }) {
+  const pal = view.pal;
+  const applyPreset = useAppStore((s) => s.applyPreset);
+  const toggleAdv = useAppStore((s) => s.toggleAdv);
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 }}>
+        <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070' }}>Preset · <span style={{ fontWeight: 700, color: view.presetColor }}>{view.presetName}</span></span>
+        <button onClick={toggleAdv} style={css(view.advBtnStyle)}>{view.advLabel}</button>
+      </div>
+      {view.eqShowPresets && (
+        <div style={{ display: 'flex', gap: 9 }}>
+          {view.presetCards.map((p: any) => (
+            <div key={p.name} onClick={() => applyPreset(p.name)} style={css(p.cardStyle)}>
+              <span style={css(p.dotStyle)} />
+              <span style={{ fontFamily: 'Archivo', fontSize: 12.5, fontWeight: 700, color: p.nameColor }}>{p.name}</span>
+              <span style={{ fontFamily: 'Archivo', fontSize: 8.5, color: '#8a8070', textAlign: 'center', lineHeight: 1.3 }}>{p.desc}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {view.eqAdvanced && (
+        <div style={{ display: 'flex', gap: 7, justifyContent: 'space-between' }}>
+          {view.eqColumns.map((col: any) => (
+            <div key={col.num} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 3px 7px', borderRadius: 11, background: 'rgba(58,52,43,0.05)', boxShadow: 'inset 0 2px 5px rgba(58,52,43,0.2),inset 0 -1px 0 rgba(255,255,255,0.5)', border: '1px solid rgba(58,52,43,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 1 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: col.color, flex: 'none' }} /><span style={{ fontFamily: 'Archivo', fontSize: 8.5, fontWeight: 700, color: pal.pInk }}>{col.num}</span><span style={{ fontFamily: 'Archivo', fontSize: 7.5, color: '#8a8070', whiteSpace: 'nowrap' }}>{col.type}</span></div>
+              {col.ctls.map((c: Control) => (
+                <div key={c.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <Knob vm={c.knob!} size={37} sw={4} trackSw={4} />
+                  <div style={{ textAlign: 'center', fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, color: c.knob!.valColor, lineHeight: 1.1 }}>{c.knob!.display} <span style={{ fontFamily: 'Archivo', fontSize: 7.5, fontWeight: 400, color: '#8a8070' }}>{c.knob!.unitText}</span></div>
+                  <div style={{ textAlign: 'center', fontFamily: 'Archivo', fontSize: 7.5, color: '#8a8070', lineHeight: 1 }}>{c.label}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ExportMeta({ view }: { view: DeskView }) {
+  const pal = view.pal;
+  const setVal = useAppStore((s) => s.setVal);
+  return (
+    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', alignContent: 'start', overflowY: 'auto' }}>
+      {view.metaFields.map((f: any) => (
+        <div key={f.key} style={css(f.wrap)}>
+          <div style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', marginBottom: 5 }}>{f.label}</div>
+          {f.isText ? (
+            <input className="dk-in" value={f.value} placeholder={f.ph} onChange={(e) => setVal(f.fk, e.target.value)} style={{ width: '100%', boxSizing: 'border-box', background: pal.paperInput, border: '1px solid #cdbfa4', borderRadius: 7, padding: '8px 10px', color: pal.pInk, fontSize: 12.5, outline: 'none' }} />
+          ) : (
+            <div style={{ display: 'flex', gap: 3, background: pal.paperCtl, borderRadius: 8, padding: 3 }}>
+              {f.opts.map((o: any) => (
+                <div key={o.value} onClick={() => setVal(f.fk, o.value)} style={css(o.style)}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function Controls({ view }: { view: DeskView }) {
+  return (
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a', marginBottom: 11 }}>PARAMETERS</div>
+
+      {view.genCtrl && (
+        <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '16px 22px', alignContent: 'flex-start' }}>
+          {view.controls.map((c) => <ControlItem key={c.key} c={c} view={view} />)}
+        </div>
+      )}
+      {view.isInput && <InputPanels view={view} />}
+      {view.isDynamics && <DynamicsExtra view={view} />}
+      {view.isSpectral && <SpectralControls view={view} />}
+      {view.isExport && <ExportMeta view={view} />}
+    </div>
+  );
+}

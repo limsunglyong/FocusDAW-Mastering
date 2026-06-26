@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* FocusDAW Mastering Desk v0.1.0 (Phase 0) - 전역 스타일 (dc.html 기반) */
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--t-page, #0c0f12);
+  font-family: 'Archivo', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--t-pInk, #2a2620);
+  user-select: none;
+}
+
+@keyframes dkflow {
+  to {
+    stroke-dashoffset: -44;
+  }
+}
+.dk-flow {
+  stroke-dasharray: 16 26;
+  animation: dkflow 1.2s linear infinite;
+}
+
+.dk-card {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s,
+    background 0.2s;
+}
+.dk-card:hover {
+  transform: translateY(-3px);
+}
+
+/* borderless 윈도우 드래그 영역 */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--t-paperCtl, #cdbfa4);
+  border-radius: 4px;
+}

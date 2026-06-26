@@ -30,6 +30,16 @@
  *             (Loudness 섹션 VI 의 LUFS 는 사용자 설정 목표값으로 별개)
  *  - v0.1.7 : (Phase 1) 보완 — 로딩 원형 링 두께 50%↓(4→2px), 원본 LUFS > -9 LUFS 시
  *             NOW SELECTED 칩을 진한 노란색(#d4a017)으로 경고 표시.
+ *  - v0.2.0 : Phase 1 완료 — 선택 파일 Preview 재생/정지, 기본 7단계 직렬 Web Audio 체인,
+ *             EQ/간단 dynamics/stereo/loudness 파라미터 연결, 노브 더블클릭 기본값 리셋.
+ *  - v0.2.1 : (Phase 1 Patch) 트랜스포트 좌측 Play 버튼을 원본 재생/일시정지로 연결,
+ *             Space 키 토글 및 play/pause 아이콘 상태 반영.
+ *  - v0.2.2 : (Phase 1 Patch) sourceBuffer/processingBuffer 분리, 사용자 Input Rate 기준
+ *             lazy resampling, Rate 변경 시 processingBuffer 무효화.
+ *  - v0.2.3 : (Phase 1 Patch) 재생 중 Input Rate 변경 시 로딩 오버레이 표시,
+ *             processingBuffer 리샘플링 후 중단 지점부터 자동 재개.
+ *  - v0.2.4 : (Phase 1 Patch) 원본 재생 중 파일 선택 변경 시 사용자가 pause하기 전까지
+ *             새 선택 파일을 자동 재생하도록 transport 의도 유지.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

@@ -1,10 +1,32 @@
 // FocusDAW Mastering Desk v0.1.1 (Phase 0 UI) - 트랜스포트/배치 바 (원본 dc.html 이식)
+import { useEffect } from 'react';
 import { useAppStore } from '../../store/appStore';
 import type { DeskView } from '../../desk/compute';
 
 export function TransportBar({ view }: { view: DeskView }) {
   const prevFile = useAppStore((s) => s.prevFile);
   const nextFile = useAppStore((s) => s.nextFile);
+  const toggleOriginalPlayback = useAppStore((s) => s.toggleOriginalPlayback);
+  const isOriginalPlaying = useAppStore((s) => s.isOriginalPlaying);
+  const originalPlayError = useAppStore((s) => s.originalPlayError);
+  const togglePreview = useAppStore((s) => s.togglePreview);
+  const isPreviewing = useAppStore((s) => s.isPreviewing);
+  const previewError = useAppStore((s) => s.previewError);
+  const canPreview = view.hasFiles;
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const editable = tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable;
+      if (editable) return;
+      e.preventDefault();
+      void useAppStore.getState().toggleOriginalPlayback();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // v0.1.4: 3칸 그리드(1fr·auto·1fr)로 가운데 Preview 를 중앙 고정 — 좌측 파일명 길이와 무관.
   return (
@@ -13,8 +35,19 @@ export function TransportBar({ view }: { view: DeskView }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 13, minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 5, flex: 'none' }}>
           <div onClick={prevFile} style={{ width: 26, height: 24, borderRadius: 6, display: 'grid', placeItems: 'center', background: '#222830', border: '1px solid #303841', cursor: 'pointer', color: '#9aa7af', fontSize: 10 }}>◀</div>
-          <div style={{ width: 26, height: 24, borderRadius: 6, display: 'grid', placeItems: 'center', background: view.accent, cursor: 'pointer' }}>
-            <div style={{ width: 0, height: 0, borderLeft: `7px solid ${view.pal.aInk}`, borderTop: '4.5px solid transparent', borderBottom: '4.5px solid transparent' }} />
+          <div
+            onClick={() => { void toggleOriginalPlayback(); }}
+            title={originalPlayError || (view.hasFiles ? 'Play/pause original file (Space)' : 'Load an audio file before playback')}
+            style={{ width: 26, height: 24, borderRadius: 6, display: 'grid', placeItems: 'center', background: view.hasFiles ? view.accent : '#2a3037', cursor: view.hasFiles ? 'pointer' : 'not-allowed', opacity: view.hasFiles ? 1 : 0.55 }}
+          >
+            {isOriginalPlaying ? (
+              <div style={{ display: 'flex', gap: 3 }}>
+                <span style={{ width: 3, height: 10, borderRadius: 1, background: view.pal.aInk }} />
+                <span style={{ width: 3, height: 10, borderRadius: 1, background: view.pal.aInk }} />
+              </div>
+            ) : (
+              <div style={{ width: 0, height: 0, borderLeft: `7px solid ${view.hasFiles ? view.pal.aInk : '#6f7d86'}`, borderTop: '4.5px solid transparent', borderBottom: '4.5px solid transparent' }} />
+            )}
           </div>
           <div onClick={nextFile} style={{ width: 26, height: 24, borderRadius: 6, display: 'grid', placeItems: 'center', background: '#222830', border: '1px solid #303841', cursor: 'pointer', color: '#9aa7af', fontSize: 10 }}>▶</div>
         </div>
@@ -23,9 +56,18 @@ export function TransportBar({ view }: { view: DeskView }) {
       </div>
 
       {/* 중앙: Preview (고정) */}
-      <button style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'Archivo', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', color: view.accent, background: 'rgba(255,255,255,0.04)', border: `1px solid ${view.pal.aMain}`, borderRadius: 6, padding: '6px 16px', cursor: 'pointer', justifySelf: 'center' }}>
-        <span style={{ width: 0, height: 0, borderLeft: `8px solid ${view.accent}`, borderTop: '5px solid transparent', borderBottom: '5px solid transparent' }} />
-        Preview
+      <button
+        onClick={() => { void togglePreview(); }}
+        disabled={!canPreview}
+        title={previewError || (canPreview ? 'Preview selected file' : 'Load an audio file before preview')}
+        style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'Archivo', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', color: canPreview ? view.accent : '#6f7d86', background: isPreviewing ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isPreviewing ? view.pal.aBright : view.pal.aMain}`, borderRadius: 6, padding: '6px 16px', cursor: canPreview ? 'pointer' : 'not-allowed', justifySelf: 'center', opacity: canPreview ? 1 : 0.5 }}
+      >
+        {isPreviewing ? (
+          <span style={{ width: 8, height: 8, background: view.accent, boxShadow: `0 0 8px ${view.pal.glow}` }} />
+        ) : (
+          <span style={{ width: 0, height: 0, borderLeft: `8px solid ${canPreview ? view.accent : '#6f7d86'}`, borderTop: '5px solid transparent', borderBottom: '5px solid transparent' }} />
+        )}
+        {isPreviewing ? 'Stop' : 'Preview'}
       </button>
 
       {/* 우: 라우드니스 + Render */}

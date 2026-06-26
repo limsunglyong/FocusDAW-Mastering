@@ -2,6 +2,7 @@
 // data-knob-key/min/max/step 속성을 가진 SVG 노브를 세로 드래그(범위/140px)·휠(1스텝)로 조절.
 import { useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
+import { DEFAULT_STATE } from './data';
 
 export function useKnobInteractions() {
   useEffect(() => {
@@ -52,11 +53,25 @@ export function useKnobInteractions() {
       window.addEventListener('pointerup', up);
     };
 
+    const onDblClick = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      const k = t?.closest?.('[data-knob-key]') as HTMLElement | null;
+      if (!k) return;
+      const fk = k.getAttribute('data-knob-key');
+      if (!fk) return;
+      const def = DEFAULT_STATE.vals[fk];
+      if (typeof def !== 'number') return;
+      e.preventDefault();
+      store().setVal(fk, def);
+    };
+
     window.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('pointerdown', onPdown, true);
+    window.addEventListener('dblclick', onDblClick, true);
     return () => {
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('pointerdown', onPdown, true);
+      window.removeEventListener('dblclick', onDblClick, true);
     };
   }, []);
 }

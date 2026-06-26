@@ -29,6 +29,11 @@ export default function App() {
   const importTotal = useAppStore((s) => s.importTotal);
   const importDone = useAppStore((s) => s.importDone);
   const importCurrentName = useAppStore((s) => s.importCurrentName);
+  const processingAudio = useAppStore((s) => s.processingAudio);
+  const processingMessage = useAppStore((s) => s.processingMessage);
+  const processingCurrentName = useAppStore((s) => s.processingCurrentName);
+  const processingDone = useAppStore((s) => s.processingDone);
+  const processingTotal = useAppStore((s) => s.processingTotal);
 
   const [dragOver, setDragOver] = useState(false);
 
@@ -101,6 +106,21 @@ export default function App() {
           done={importDone}
           total={importTotal}
           name={importCurrentName}
+          title="DECODING AUDIO"
+        />
+      )}
+
+      {processingAudio && (
+        <LoadingCard
+          accent={view.accent}
+          bright={view.pal.aBright}
+          glow={view.pal.glow}
+          track={view.pal.panelDark}
+          done={processingDone}
+          total={processingTotal}
+          name={processingCurrentName}
+          title={processingMessage || 'RESAMPLING AUDIO'}
+          unit="buffer"
         />
       )}
     </div>
@@ -108,8 +128,8 @@ export default function App() {
 }
 
 // v0.1.5: Glass 로딩 카드 — 회전하는 원형 링(가운데 퍼센트) + 현재 파일/진행률
-function LoadingCard({ accent, bright, glow, track, done, total, name }: {
-  accent: string; bright: string; glow: string; track: string; done: number; total: number; name: string;
+function LoadingCard({ accent, bright, glow, track, done, total, name, title = 'DECODING AUDIO', unit = 'files' }: {
+  accent: string; bright: string; glow: string; track: string; done: number; total: number; name: string; title?: string; unit?: string;
 }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   // 링 두께를 만드는 마스크: 바깥은 보이고 안쪽(반지름 - 2px)은 투명 → 글래스 배경이 비침 (v0.1.7: 두께 50%↓)
@@ -133,13 +153,13 @@ function LoadingCard({ accent, bright, glow, track, done, total, name }: {
           <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontFamily: 'Spectral, serif', fontSize: 17, fontWeight: 600, color: accent }}>{pct}<span style={{ fontSize: 10 }}>%</span></div>
         </div>
 
-        <div style={{ marginTop: 16, fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', color: '#a99f8a', textAlign: 'center' }}>DECODING AUDIO</div>
+        <div style={{ marginTop: 16, fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', color: '#a99f8a', textAlign: 'center' }}>{title}</div>
         <div style={{ marginTop: 6, fontFamily: 'Archivo', fontSize: 12.5, fontWeight: 600, color: '#efe7d6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>{name || '—'}</div>
 
         <div style={{ width: '100%', height: 5, marginTop: 13, borderRadius: 4, background: track, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${pct}%`, borderRadius: 4, background: `linear-gradient(90deg, ${accent}, ${bright})`, transition: 'width 0.2s ease', boxShadow: `0 0 10px ${glow}` }} />
         </div>
-        <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 10.5, color: '#8a9099', textAlign: 'right' }}>{done} / {total} files</div>
+        <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 10.5, color: '#8a9099', textAlign: 'right' }}>{done} / {total} {unit}</div>
       </div>
     </div>
   );

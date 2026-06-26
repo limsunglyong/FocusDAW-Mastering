@@ -7,6 +7,9 @@ import { DEFAULT_THEME, applyTheme, type ThemeName } from '../theme/themes';
 import { DEFAULT_STATE, EQPRESETS, type DeskState, type ModId } from '../desk/data';
 import { decodeAudioFile, AudioDecodeError } from '../audio/decoder';
 import { buildQueueFile, type QueueFile } from '../audio/queueFile';
+import { previewEngine, type PreviewParams } from '../audio/previewEngine';
+import { originalPlayer } from '../audio/originalPlayer';
+import { resampleAudioBuffer, sampleRateFromInputRate } from '../audio/resample';
 
 type AppState = DeskState & {
   theme: ThemeName;
@@ -19,6 +22,18 @@ type AppState = DeskState & {
   importDone: number;
   // v0.1.5: 현재 디코딩 중인 파일명(로딩 카드 표시용)
   importCurrentName: string;
+  // ── Preview 재생 (v0.2.0 Phase 1) ──
+  isPreviewing: boolean;
+  previewError: string | null;
+  // ── 원본 재생 (v0.2.1 Phase 1 Patch) ──
+  isOriginalPlaying: boolean;
+  originalPlayError: string | null;
+  // ── 처리 버퍼 리샘플링 (v0.2.3 Phase 1 Patch) ──
+  processingAudio: boolean;
+  processingMessage: string;
+  processingCurrentName: string;
+  processingDone: number;
+  processingTotal: number;
 
   setTheme: (t: ThemeName) => void;
   setOpen: (i: number) => void;
@@ -36,6 +51,14 @@ type AppState = DeskState & {
   loadFiles: (files: File[] | FileList) => Promise<void>;
   removeFile: (id: string) => void;
   clearFiles: () => void;
+  togglePreview: () => Promise<void>;
+  stopPreview: () => void;
+  syncPreviewParams: () => void;
+  ensureProcessingBuffer: (id: string) => Promise<AudioBuffer>;
+  changeInputRate: (rate: string) => Promise<void>;
+  toggleOriginalPlayback: () => Promise<void>;
+  stopOriginalPlayback: () => void;
+  resumeOriginalPlaybackAfterSelection: (resumeSeq: number) => Promise<void>;
 };
 
 const clone = (s: DeskState): DeskState => ({
@@ -44,7 +67,21 @@ const clone = (s: DeskState): DeskState => ({
   vals: { ...s.vals },
 });
 
-export const useAppStore = create<AppState>((set) => ({
+function previewParamsFromState(s: AppState, file: QueueFile): PreviewParams {
+  return { vals: s.vals, enabled: s.enabled, meta: file.meta };
+}
+
+function invalidateProcessingBuffers(files: QueueFile[]): QueueFile[] {
+  return files.map((file) => ({
+    ...file,
+    processingBuffer: undefined,
+    processingSampleRate: undefined,
+  }));
+}
+
+let originalSelectionResumeSeq = 0;
+
+export const useAppStore = create<AppState>((set, get) => ({
   ...clone(DEFAULT_STATE),
   theme: DEFAULT_THEME,
   files: [],
@@ -53,36 +90,86 @@ export const useAppStore = create<AppState>((set) => ({
   importTotal: 0,
   importDone: 0,
   importCurrentName: '',
+  isPreviewing: false,
+  previewError: null,
+  isOriginalPlaying: false,
+  originalPlayError: null,
+  processingAudio: false,
+  processingMessage: '',
+  processingCurrentName: '',
+  processingDone: 0,
+  processingTotal: 0,
 
   setTheme: (t) => { applyTheme(t); set({ theme: t }); },
   setOpen: (i) => set({ open: i }),
-  toggleEnabled: (id) => set((s) => ({ enabled: { ...s.enabled, [id]: !s.enabled[id] } })),
+  toggleEnabled: (id) => {
+    set((s) => ({ enabled: { ...s.enabled, [id]: !s.enabled[id] } }));
+    get().syncPreviewParams();
+  },
 
   setVal: (fk, v) =>
-    set((s) => {
-      const extra = /^spectral\.[fgq]\d/.test(fk) ? { 'spectral.preset': 'User' } : null;
-      return { vals: { ...s.vals, [fk]: v, ...(extra || {}) } };
-    }),
+    {
+      if (fk === 'input.rate') {
+        void get().changeInputRate(String(v));
+        return;
+      }
+      set((s) => {
+        const extra = /^spectral\.[fgq]\d/.test(fk) ? { 'spectral.preset': 'User' } : null;
+        const vals = { ...s.vals, [fk]: v, ...(extra || {}) };
+        return { vals };
+      });
+      get().syncPreviewParams();
+    },
 
   applyPreset: (name) =>
-    set((s) => {
+    {
+      set((s) => {
       const p = EQPRESETS[name];
       if (!p) return {};
       const patch: Record<string, number | string> = { 'spectral.preset': name };
       for (let n = 0; n < 5; n++) { patch['spectral.f' + n] = p.f[n]; patch['spectral.g' + n] = p.g[n]; patch['spectral.q' + n] = p.q[n]; }
       return { vals: { ...s.vals, ...patch } };
-    }),
+      });
+      get().syncPreviewParams();
+    },
 
   setEqNode: (n, f, g) =>
-    set((s) => ({ vals: { ...s.vals, ['spectral.f' + n]: f, ['spectral.g' + n]: g, 'spectral.band': String(n + 1), 'spectral.preset': 'User' } })),
+    {
+      set((s) => ({ vals: { ...s.vals, ['spectral.f' + n]: f, ['spectral.g' + n]: g, 'spectral.band': String(n + 1), 'spectral.preset': 'User' } }));
+      get().syncPreviewParams();
+    },
 
   toggleAdv: () => set((s) => ({ eqAdvanced: !s.eqAdvanced })),
   toggleMenu: (name) => set((s) => ({ openMenu: s.openMenu === name ? null : name })),
   closeMenu: () => set({ openMenu: null }),
 
-  prevFile: () => set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile - 1 + s.files.length) % s.files.length })),
-  nextFile: () => set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile + 1) % s.files.length })),
-  pickFile: (i) => set((s) => (i >= 0 && i < s.files.length ? { curFile: i } : {})),
+  prevFile: () => {
+    const shouldResumeOriginal = get().isOriginalPlaying;
+    const resumeSeq = ++originalSelectionResumeSeq;
+    get().stopPreview();
+    originalPlayer.stop();
+    set({ isOriginalPlaying: false });
+    set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile - 1 + s.files.length) % s.files.length }));
+    if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
+  },
+  nextFile: () => {
+    const shouldResumeOriginal = get().isOriginalPlaying;
+    const resumeSeq = ++originalSelectionResumeSeq;
+    get().stopPreview();
+    originalPlayer.stop();
+    set({ isOriginalPlaying: false });
+    set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile + 1) % s.files.length }));
+    if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
+  },
+  pickFile: (i) => {
+    const shouldResumeOriginal = get().isOriginalPlaying;
+    const resumeSeq = ++originalSelectionResumeSeq;
+    get().stopPreview();
+    originalPlayer.stop();
+    set({ isOriginalPlaying: false });
+    set((s) => (i >= 0 && i < s.files.length ? { curFile: i } : {}));
+    if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
+  },
 
   // 선택된 File 들을 순차 디코딩해 큐에 추가. 진행 중 importing 표시, 실패 항목은 메시지로 수집.
   loadFiles: async (fileList) => {
@@ -119,7 +206,10 @@ export const useAppStore = create<AppState>((set) => ({
   },
 
   removeFile: (id) =>
-    set((s) => {
+    {
+      get().stopPreview();
+      get().stopOriginalPlayback();
+      set((s) => {
       const idx = s.files.findIndex((f) => f.id === id);
       if (idx < 0) return {};
       const files = s.files.filter((f) => f.id !== id);
@@ -127,7 +217,188 @@ export const useAppStore = create<AppState>((set) => ({
       if (idx < curFile) curFile -= 1;
       curFile = Math.min(curFile, Math.max(0, files.length - 1));
       return { files, curFile };
-    }),
+      });
+    },
 
-  clearFiles: () => set({ files: [], curFile: 0, importError: null }),
+  clearFiles: () => {
+    get().stopPreview();
+    get().stopOriginalPlayback();
+    set({ files: [], curFile: 0, importError: null });
+  },
+
+  togglePreview: async () => {
+    const s = get();
+    if (s.isPreviewing) {
+      s.stopPreview();
+      return;
+    }
+    const file = s.files[s.curFile];
+    if (!file) {
+      set({ previewError: 'Load an audio file before preview.' });
+      return;
+    }
+    try {
+      s.stopOriginalPlayback();
+      const processingBuffer = await get().ensureProcessingBuffer(file.id);
+      const latest = get();
+      const latestFile = latest.files[latest.curFile];
+      if (!latestFile || latestFile.id !== file.id) return;
+      await previewEngine.play(processingBuffer, previewParamsFromState(latest, latestFile), () => set({ isPreviewing: false }));
+      set({ isPreviewing: true, previewError: null });
+    } catch {
+      set({ isPreviewing: false, previewError: 'Preview playback failed.' });
+    }
+  },
+
+  stopPreview: () => {
+    previewEngine.stop();
+    set({ isPreviewing: false });
+  },
+
+  syncPreviewParams: () => {
+    const s = get();
+    const file = s.files[s.curFile];
+    if (!file) return;
+    previewEngine.update(previewParamsFromState(s, file));
+  },
+
+  ensureProcessingBuffer: async (id) => {
+    const s = get();
+    const file = s.files.find((f) => f.id === id);
+    if (!file) throw new Error('File is no longer in the queue.');
+    const targetSampleRate = sampleRateFromInputRate(s.vals['input.rate']);
+    if (file.processingBuffer && file.processingSampleRate === targetSampleRate) {
+      return file.processingBuffer;
+    }
+    const processingBuffer = await resampleAudioBuffer(file.sourceBuffer, targetSampleRate);
+    set((state) => ({
+      files: state.files.map((f) => (
+        f.id === id ? { ...f, processingBuffer, processingSampleRate: targetSampleRate } : f
+      )),
+    }));
+    return processingBuffer;
+  },
+
+  changeInputRate: async (rate) => {
+    const before = get();
+    if (before.vals['input.rate'] === rate) return;
+
+    const currentFile = before.files[before.curFile];
+    const resumePreview = before.isPreviewing && !!currentFile;
+    const resumeOriginal = before.isOriginalPlaying && !!currentFile;
+    const resumeTime = resumePreview
+      ? previewEngine.getCurrentTime()
+      : resumeOriginal
+        ? originalPlayer.getCurrentTime()
+        : 0;
+
+    previewEngine.stop();
+    originalPlayer.stop();
+    set((s) => ({
+      vals: { ...s.vals, 'input.rate': rate },
+      files: invalidateProcessingBuffers(s.files),
+      isPreviewing: false,
+      isOriginalPlaying: false,
+      previewError: null,
+      originalPlayError: null,
+    }));
+
+    if (!currentFile) return;
+
+    if (resumePreview) {
+      set({
+        processingAudio: true,
+        processingMessage: `Resampling to ${rate}`,
+        processingCurrentName: currentFile.name,
+        processingDone: 0,
+        processingTotal: 1,
+      });
+      try {
+        const processingBuffer = await get().ensureProcessingBuffer(currentFile.id);
+        set({ processingDone: 1 });
+        const latest = get();
+        const latestFile = latest.files[latest.curFile];
+        if (latestFile?.id === currentFile.id) {
+          await previewEngine.play(
+            processingBuffer,
+            previewParamsFromState(latest, latestFile),
+            () => set({ isPreviewing: false }),
+            Math.min(resumeTime, Math.max(0, processingBuffer.duration - 0.001)),
+          );
+          set({ isPreviewing: true, previewError: null });
+        }
+      } catch {
+        set({ isPreviewing: false, previewError: 'Resampling failed.' });
+      } finally {
+        set({ processingAudio: false, processingMessage: '', processingCurrentName: '', processingDone: 0, processingTotal: 0 });
+      }
+      return;
+    }
+
+    if (resumeOriginal) {
+      set({
+        processingAudio: true,
+        processingMessage: `Resampling to ${rate}`,
+        processingCurrentName: currentFile.name,
+        processingDone: 0,
+        processingTotal: 1,
+      });
+      try {
+        await get().ensureProcessingBuffer(currentFile.id);
+        set({ processingDone: 1 });
+        const latest = get();
+        const latestFile = latest.files[latest.curFile];
+        if (latestFile?.id === currentFile.id) {
+          const playing = await originalPlayer.toggle(
+            latestFile.sourceBuffer,
+            () => set({ isOriginalPlaying: false }),
+            Math.min(resumeTime, Math.max(0, latestFile.sourceBuffer.duration - 0.001)),
+          );
+          set({ isOriginalPlaying: playing, originalPlayError: null });
+        }
+      } catch {
+        set({ isOriginalPlaying: false, originalPlayError: 'Original playback failed.' });
+      } finally {
+        set({ processingAudio: false, processingMessage: '', processingCurrentName: '', processingDone: 0, processingTotal: 0 });
+      }
+    }
+  },
+
+  toggleOriginalPlayback: async () => {
+    originalSelectionResumeSeq++;
+    const s = get();
+    const file = s.files[s.curFile];
+    if (!file) {
+      set({ originalPlayError: 'Load an audio file before playback.' });
+      return;
+    }
+    try {
+      s.stopPreview();
+      const playing = await originalPlayer.toggle(file.sourceBuffer, () => set({ isOriginalPlaying: false }));
+      set({ isOriginalPlaying: playing, originalPlayError: null });
+    } catch {
+      set({ isOriginalPlaying: false, originalPlayError: 'Original playback failed.' });
+    }
+  },
+
+  stopOriginalPlayback: () => {
+    originalSelectionResumeSeq++;
+    originalPlayer.stop();
+    set({ isOriginalPlaying: false });
+  },
+
+  resumeOriginalPlaybackAfterSelection: async (resumeSeq) => {
+    const s = get();
+    if (resumeSeq !== originalSelectionResumeSeq) return;
+    const file = s.files[s.curFile];
+    if (!file) return;
+    try {
+      const playing = await originalPlayer.play(file.sourceBuffer, () => set({ isOriginalPlaying: false }), 0);
+      if (resumeSeq !== originalSelectionResumeSeq) return;
+      set({ isOriginalPlaying: playing, originalPlayError: null });
+    } catch {
+      if (resumeSeq !== originalSelectionResumeSeq) return;
+      set({ isOriginalPlaying: false, originalPlayError: 'Original playback failed.' });
+    }
+  },
 }));

@@ -1,19 +1,23 @@
 // FocusDAW Mastering Desk v0.2.0 (Phase 1) - 배치 큐 파일 모델
 // 디코딩 결과(AudioBuffer + AudioMeta)를 UI 표시용 문자열 필드(FileItem)로 변환해 보관한다.
 // FileItem 의 표시 필드(name/size/fmt/dur/sr/depth/ch/lufs)는 원본 UI(compute/Viz/DetailSheet)가
-// 그대로 소비하므로 동일한 형태를 유지한다. buffer/meta 는 이후 Preview/엔진 단계에서 사용.
+// 그대로 소비하므로 동일한 형태를 유지한다. sourceBuffer 는 원본 Play, processingBuffer 는 Preview/DSP 에 사용.
 import type { AudioMeta, DecodedAudio } from './decoder';
 import type { FileItem } from '../desk/data';
 
 let seq = 0;
 
-/** 큐에 보관되는 파일: 표시 문자열(FileItem) + 디코딩 산출물(buffer/meta) */
+/** 큐에 보관되는 파일: 표시 문자열(FileItem) + 디코딩 산출물(sourceBuffer/meta) */
 export type QueueFile = FileItem & {
   id: string;
   bytes: number;
   /** v0.1.4: Electron File.path 에서 추출한 원본 폴더 경로(브라우저에선 ''). Working folder 표시용. */
   dir: string;
-  buffer: AudioBuffer;
+  /** v0.2.2: 원본 샘플레이트 보존 버퍼. 좌측 원본 Play 와 processingBuffer 재생성 기준. */
+  sourceBuffer: AudioBuffer;
+  /** v0.2.2: 사용자 Input Rate 로 변환된 내부 처리 버퍼. Preview/DSP/Export 용 lazy cache. */
+  processingBuffer?: AudioBuffer;
+  processingSampleRate?: number;
   meta: AudioMeta;
 };
 
@@ -85,7 +89,7 @@ export function buildQueueFile(file: File, decoded: DecodedAudio): QueueFile {
     ch: channelLabel(meta.channels),
     // v0.1.6: 원본 파일의 실측 Integrated LUFS(BS.1770). 측정 불가/무음이면 '—'.
     lufs: isFinite(meta.integratedLufs) ? meta.integratedLufs.toFixed(1) : '—',
-    buffer,
+    sourceBuffer: buffer,
     meta,
   };
 }

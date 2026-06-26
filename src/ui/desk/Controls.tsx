@@ -91,9 +91,8 @@ function InputPanels({ view }: { view: DeskView }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 30, height: 30, borderRadius: 8, flex: 'none', display: 'grid', placeItems: 'center', color: pal.aInk, background: view.accent }}><DeskIcon icon="note" size={16} /></div>
-          <span style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: 600, color: pal.pInk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{view.sel.name}</span>
-          <div style={{ flex: 1 }} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+          <span style={{ flex: '1 1 auto', minWidth: 0, fontFamily: 'Archivo', fontSize: 14, fontWeight: 600, color: pal.pInk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{view.sel.name}</span>
+          <div style={{ flex: '0 0 auto', display: 'flex', flexWrap: 'nowrap', gap: 6, justifyContent: 'flex-end' }}>
             {view.selChips.map((ch, i) => (
               <span key={i} style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 600, color: pal.pSeg, background: pal.paperCtl, borderRadius: 6, padding: '5px 10px', whiteSpace: 'nowrap' }}>{ch.label}</span>
             ))}

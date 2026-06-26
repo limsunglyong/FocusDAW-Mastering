@@ -28,9 +28,9 @@ export default function App() {
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: view.pal.page, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+    <div style={{ width: '100vw', height: '100vh', background: view.pal.frame, overflow: 'hidden' }}>
       <IconDefs />
-      <div style={{ width: 1208, background: view.pal.frame, border: '1px solid #000', borderRadius: 12, boxShadow: '0 44px 100px -34px rgba(0,0,0,0.9)', overflow: 'hidden' }}>
+      <div style={{ width: '100%', height: '100%', background: view.pal.frame, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <TitleBar view={view} />
         <TransportBar view={view} />
         <Desk view={view} />

@@ -3,8 +3,6 @@
 import { css } from '../../desk/css';
 import type { Knob as KnobVM } from '../../desk/compute';
 
-const rotTrack = 'M 12.44 36.56 A 22 22 0 1 1 43.56 36.56'; // arc(22,-135,135)
-
 export function Knob({ vm, size, sw, trackSw }: { vm: KnobVM; size: number; sw: number; trackSw: number }) {
   return (
     <svg
@@ -15,9 +13,9 @@ export function Knob({ vm, size, sw, trackSw }: { vm: KnobVM; size: number; sw: 
       data-knob-min={vm.kmin}
       data-knob-max={vm.kmax}
       data-knob-step={vm.kstep}
-      style={{ touchAction: 'none', display: 'block', margin: '0 auto', ...css(vm.knobStyle) }}
+      style={{ touchAction: 'none', display: 'block', margin: '0 auto', overflow: 'visible', ...css(vm.knobStyle) }}
     >
-      <path d={rotTrack} fill="none" stroke="#cdbfa4" strokeWidth={trackSw} strokeLinecap="round" />
+      <path d={vm.track} fill="none" stroke="#cdbfa4" strokeWidth={trackSw} strokeLinecap="round" />
       {vm.arc && <path d={vm.arc} fill="none" stroke={vm.arcColor} strokeWidth={sw} strokeLinecap="round" />}
       <circle cx="28" cy="28" r="17" fill="url(#dk-cap)" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
       <ellipse cx="28" cy="23" rx="11" ry="6" fill="rgba(255,245,225,0.07)" />

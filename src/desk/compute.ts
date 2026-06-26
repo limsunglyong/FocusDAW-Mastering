@@ -27,7 +27,7 @@ function fmt(def: CtrlDef, v: number): string {
 }
 
 export type Knob = {
-  arc: string; arcColor: string; valColor: string; display: string; unitText: string;
+  track: string; arc: string; arcColor: string; valColor: string; display: string; unitText: string;
   px1: string; py1: string; px2: string; py2: string;
   fk: string; kmin: number; kmax: number; kstep: number; knobStyle: string; fixed: boolean;
 };
@@ -56,6 +56,7 @@ function makeKnob(fk: string, def: CtrlDef, raw: number, vals: Record<string, an
   if (def.khz) u = Math.abs(raw) >= 1000 ? 'kHz' : 'Hz';
   return {
     display: fmt(def, raw), unitText: u || '',
+    track: arcPath(22, -135, 135),
     arc: Math.abs(a1 + 135) < 0.5 ? '' : arcPath(22, -135, a1),
     arcColor: fk === 'loudness.sat' ? satCol : warn ? def.warnArc || '#f5c542' : fixed ? '#9a907c' : accent,
     valColor: fk === 'loudness.sat' ? satCol : warn ? def.warnVal || '#d98a1f' : fixed ? '#9a907c' : pal.pInk,

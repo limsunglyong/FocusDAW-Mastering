@@ -27,6 +27,9 @@ type AppState = DeskState & {
   // ── 원본 재생 (v0.2.1 Phase 1 Patch) ──
   isOriginalPlaying: boolean;
   originalPlayError: string | null;
+  // ── Transport 패널 (v0.2.11) ──
+  transportOpen: boolean;
+  volume: number;
   // ── 처리 버퍼 리샘플링 (v0.2.3 Phase 1 Patch) ──
   processingAudio: boolean;
   processingMessage: string;
@@ -60,6 +63,11 @@ type AppState = DeskState & {
   toggleOriginalPlayback: () => Promise<void>;
   stopOriginalPlayback: () => void;
   resumeOriginalPlaybackAfterSelection: (resumeSeq: number) => Promise<void>;
+  // ── Transport 패널 (v0.2.11) ──
+  toggleTransport: () => void;
+  setVolume: (v: number) => void;
+  seekPreview: (time: number) => void;
+  skip: (delta: number) => void;
 };
 
 const clone = (s: DeskState): DeskState => ({
@@ -162,6 +170,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   previewError: null,
   isOriginalPlaying: false,
   originalPlayError: null,
+  transportOpen: false,
+  volume: 1,
   processingAudio: false,
   processingMessage: '',
   processingCurrentName: '',
@@ -469,5 +479,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (resumeSeq !== originalSelectionResumeSeq) return;
       set({ isOriginalPlaying: false, originalPlayError: 'Original playback failed.' });
     }
+  },
+
+  // ── Transport 패널 (v0.2.11) ──
+  toggleTransport: () => set((s) => ({ transportOpen: !s.transportOpen })),
+
+  setVolume: (v) => {
+    const volume = Math.max(0, Math.min(1, v));
+    previewEngine.setVolume(volume);
+    set({ volume });
+  },
+
+  // 현재 재생/일시정지 상태를 유지한 채 위치를 이동. 엔진이 재생 중이면 그 위치에서 재시작.
+  seekPreview: (time) => {
+    const s = get();
+    const file = s.files[s.curFile];
+    const dur = file?.meta.duration ?? 0;
+    const t = Math.max(0, dur > 0 ? Math.min(time, Math.max(0, dur - 0.05)) : time);
+    previewEngine.seek(t);
+  },
+
+  skip: (delta) => {
+    get().seekPreview(previewEngine.getCurrentTime() + delta);
   },
 }));

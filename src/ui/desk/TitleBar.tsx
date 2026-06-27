@@ -14,6 +14,8 @@ export function TitleBar({ view }: { view: DeskView }) {
   const closeMenu = useAppStore((s) => s.closeMenu);
   const setTheme = useAppStore((s) => s.setTheme);
   const theme = useAppStore((s) => s.theme);
+  const transportOpen = useAppStore((s) => s.transportOpen);
+  const toggleTransport = useAppStore((s) => s.toggleTransport);
   const win = window.focusdaw?.win;
 
   useEffect(() => {
@@ -73,6 +75,9 @@ export function TitleBar({ view }: { view: DeskView }) {
             </div>
           )}
         </div>
+
+        {/* Transport 패널 토글 (v0.2.11) */}
+        <div onClick={() => toggleTransport()} style={css(`font-family:'Archivo';font-size:11.5px;font-weight:500;color:${transportOpen ? view.accent : '#9aa7af'};padding:5px 10px;border-radius:6px;cursor:pointer;background:${transportOpen ? '#283038' : 'transparent'};white-space:nowrap`)}>Transport</div>
       </div>
 
       <div style={{ position: 'absolute', left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, pointerEvents: 'none' }}>

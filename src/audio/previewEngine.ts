@@ -132,9 +132,18 @@ export class PreviewEngine {
   private playing = false;
   private desiredSampleRate: number | null = null;
   private previewEnabled = false;
+  // v0.2.11: Transport 패널용 — 영속 master gain(모니터 볼륨) + seek 재시작용 버퍼/콜백 참조
+  private master: GainNode | null = null;
+  private volume = 1;
+  private currentBuffer: AudioBuffer | null = null;
+  private currentOnEnded: (() => void) | null = null;
 
   isPlaying() {
     return this.playing;
+  }
+
+  getDuration() {
+    return this.currentBuffer?.duration ?? 0;
   }
 
   getCurrentTime() {
@@ -146,9 +155,31 @@ export class PreviewEngine {
     await this.ensureContext(buffer.sampleRate);
     this.stop(false);
     this.params = params;
+    this.currentBuffer = buffer;
+    this.currentOnEnded = onEnded;
     this.offset = Math.max(0, offset);
     this.previewEnabled = previewEnabled;
     this.start(buffer, onEnded);
+  }
+
+  // v0.2.11: 모니터 볼륨(0~1). master gain 을 짧게 ramp. Export 와는 무관(청취 전용).
+  setVolume(v: number) {
+    this.volume = Math.max(0, Math.min(1, v));
+    if (this.master && this.ctx) {
+      this.master.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.master.gain.setTargetAtTime(this.volume, this.ctx.currentTime, RAMP);
+    }
+  }
+
+  // v0.2.11: 탐색. 재생 중이면 해당 위치에서 재시작, 일시정지면 다음 재생 시작 오프셋만 갱신.
+  seek(time: number) {
+    const max = this.currentBuffer ? Math.max(0, this.currentBuffer.duration - 0.001) : Infinity;
+    this.offset = Math.max(0, Math.min(time, max));
+    if (this.playing && this.currentBuffer && this.currentOnEnded) {
+      this.stopGraph();
+      this.playing = false;
+      this.start(this.currentBuffer, this.currentOnEnded);
+    }
   }
 
   pause() {
@@ -169,6 +200,8 @@ export class PreviewEngine {
     this.playing = false;
     if (resetOffset) {
       this.offset = 0;
+      this.currentBuffer = null;
+      this.currentOnEnded = null;
     }
   }
 
@@ -190,6 +223,10 @@ export class PreviewEngine {
       this.stop();
       this.ctx = new AudioContext({ sampleRate });
       this.desiredSampleRate = sampleRate;
+      // 영속 master gain: 그래프 재빌드와 무관하게 유지(볼륨 연속성). dry/wet → master → destination.
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.volume;
+      this.master.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') await this.ctx.resume();
   }
@@ -209,6 +246,8 @@ export class PreviewEngine {
       this.stopGraph();
       this.playing = false;
       this.offset = 0;
+      this.currentBuffer = null;
+      this.currentOnEnded = null;
       notifyEnded?.();
     };
     graph.onEnded = onEnded;
@@ -235,6 +274,7 @@ export class PreviewEngine {
     const enabled = params.enabled;
     const channels = params.meta.channels;
     const nyq = Math.min(source.buffer?.sampleRate ?? ctx.sampleRate, ctx.sampleRate) / 2;
+    const out: AudioNode = this.master ?? ctx.destination; // v0.2.11: master gain(볼륨) 경유
     const nodes: AudioNode[] = [source];
     const sections: Partial<Record<ModId, SectionGain>> = {};
 
@@ -244,8 +284,8 @@ export class PreviewEngine {
     dryGain.gain.value = this.previewEnabled ? 0 : 1;
     wetGain.gain.value = this.previewEnabled ? 1 : 0;
     source.connect(dryGain);
-    dryGain.connect(ctx.destination);
-    nodes.push(dryGain, wetGain, ctx.destination);
+    dryGain.connect(out);
+    nodes.push(dryGain, wetGain);
 
     // 섹션을 dry/wet 병렬로 감싸 sum 을 반환한다. buildDSP 는 input 에서 시작해 output 노드를 반환.
     const wrapSection = (id: ModId, input: AudioNode, buildDSP: (input: AudioNode) => AudioNode): AudioNode => {
@@ -356,7 +396,7 @@ export class PreviewEngine {
     });
 
     tail.connect(wetGain);
-    wetGain.connect(ctx.destination);
+    wetGain.connect(out);
 
     return {
       source, nodes, dryGain, wetGain, sections,

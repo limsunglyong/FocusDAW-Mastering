@@ -55,6 +55,9 @@
  *             실제 폴더 스캔 깊이(Root=최상위만 / Sub Folder=하위 포함)에 연결.
  *  - v0.2.10: (Phase 1 Patch) 세그먼트 선택 버튼(Source/PCM/Rate 등 CTRL seg) Y높이 약 80% 축소
  *             (세로 패딩 6→4px). VII Export 의 Format 세그먼트는 별도 스타일이라 제외.
+ *  - v0.2.11: (Phase 1 Patch) 하단 Transport 패널(#2) — Top bar Transport 메뉴로 접이식 펼침.
+ *             웨이브폼(클릭 탐색)·Rewind/Play·Pause/Forward(±5s)·모니터 볼륨(영속 master gain,
+ *             Export 미반영)·rAF 재생헤드. 엔진에 master gain/setVolume/seek 추가. (구간반복은 v0.2.12)
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

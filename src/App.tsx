@@ -11,6 +11,7 @@ import { TitleBar } from './ui/desk/TitleBar';
 import { TransportBar } from './ui/desk/TransportBar';
 import { Desk } from './ui/desk/Desk';
 import { DetailSheet } from './ui/desk/DetailSheet';
+import { TransportPanel } from './ui/desk/TransportPanel';
 import { Footer } from './ui/desk/Footer';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
   const enabled = useAppStore((s) => s.enabled);
   const vals = useAppStore((s) => s.vals);
   const theme = useAppStore((s) => s.theme);
+  const transportOpen = useAppStore((s) => s.transportOpen);
   const files = useAppStore((s) => s.files);
   const loadFiles = useAppStore((s) => s.loadFiles);
   const importing = useAppStore((s) => s.importing);
@@ -81,6 +83,7 @@ export default function App() {
         <TransportBar view={view} />
         <Desk view={view} />
         <DetailSheet view={view} />
+        {transportOpen && <TransportPanel view={view} />}
         <Footer view={view} />
       </div>
 

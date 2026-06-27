@@ -64,7 +64,32 @@
  *             볼륨 슬라이더 둥근 pill+라운드사각 thumb. range 포커스에서도 Space play/pause 동작.
  *  - v0.2.13: (Phase 1 Patch) A4 Transport 보완2 — 창 가로폭 누적 축소 버그 수정(상대 setBounds→
  *             기준값 절대 setSize, `win:transport`). VOL 옆 스피커 버튼(클릭 mute, 이전 볼륨 복원).
- *             볼륨 슬라이더 높이 증가(14→20px). 현재시간 폰트 bold→normal. (A/B Loop는 v0.2.14)
+ *             볼륨 슬라이더 높이 증가(14→20px). 현재시간 폰트 bold→normal.
+ *  - v0.2.14: (Phase 1 Patch) Transport 창 크기 안정화 — 처음부터 native resizable로 생성하되
+ *             will-resize로 사용자 리사이즈 차단. 최초 실제 outer size를 기준으로 폭은 고정하고
+ *             높이만 ±132px 변경. Windows 125% DPI 누적 드리프트 제거.
+ *             Transport roll-in 애니메이션 추가.
+ *  - v0.2.15: (Phase 1 Patch) Transport UI 보완 — 시간 표시 Orbitron 폰트, play 고정 highlight/
+ *             pause breathing, 웨이브폼 중앙 PAUSE 점멸, 패널 접힘 시 Footer 상단 테마형 진행 막대.
+ *  - v0.2.16: (Phase 1 Patch) Transport UI 보완2 — PAUSE를 Archivo·고정 붉은색·테마 어두운
+ *             50% 오버레이로 변경. 시간 숫자 영역 고정폭/tabular 정렬. 접힌 진행바 선두 8px를
+ *             밝은 테마색과 추가 glow로 강조.
+ *  - v0.2.17: (Phase 1 Patch) Transport UI 보완3 — 시간 폰트를 Audiowide로 교체. PAUSE의
+ *             테마 어두운 50% 배경을 중앙 배지에만 적용하고 붉은 글자만 점멸하도록 분리.
+ *  - v0.2.18: (Phase 1 Patch) Transport UI 보완4 — 현재 시간은 Segoe UI 계열 weight 300+
+ *             tabular 숫자, 전체 길이는 전역 `--mono` 스택으로 변경(크기 유지). PAUSE 글자는
+ *             breathing 없이 완전한 ON/OFF 점멸로 변경.
+ *  - v0.2.19: (Phase 1 Patch) 재생 중 현재 시간에 테마 accent 기반 고정 네온 glow 추가.
+ *             Pause breathing과 Stop 기본 표시는 기존 동작 유지.
+ *  - v0.2.20: (Phase 1 Patch) 웨이브폼에 저채도 중앙 수평선과 시간 구분선 추가. 기본 5초,
+ *             긴 곡은 픽셀 밀도에 따라 10/15/30/60/120초로 자동 확장하며 30초선은 소폭 강조.
+ *             현재 재생 시간 glow 강도 축소.
+ *  - v0.2.21: (Phase 1 Patch) 웨이브폼 드래그 A/B 구간 선택 + REPEAT 토글. Web Audio
+ *             source.loop/loopStart/loopEnd를 기존 Play/Pause/Seek 경로에 통합하고 파일 변경 시 초기화.
+ *  - v0.2.22: (Phase 1 Patch) 반복 구간 설정 시 웨이브폼 우측 상단 × 버튼 표시. 클릭하면
+ *             재생을 끊지 않고 REPEAT 해제 후 선택 구간을 초기화.
+ *  - v0.2.23: (Phase 1 Patch) 반복 구간 삭제 × 버튼을 고정 우측 상단에서 B 지점 경계 상단으로
+ *             이동. 양쪽 끝에서는 CSS clamp로 버튼이 웨이브폼 밖으로 잘리지 않도록 제한.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

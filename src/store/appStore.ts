@@ -4,11 +4,13 @@
 //   loadFiles/removeFile/clearFiles 액션 추가. curFile 은 큐 인덱스를 가리킨다.
 import { create } from 'zustand';
 import { DEFAULT_THEME, applyTheme, type ThemeName } from '../theme/themes';
-import { DEFAULT_STATE, EQPRESETS, type DeskState, type ModId } from '../desk/data';
+import { DEFAULT_STATE, EQPRESETS, MODS, type DeskState, type ModId } from '../desk/data';
 import { decodeAudioFile, readHeaderMeta, AudioDecodeError, type DecodedAudio } from '../audio/decoder';
 import { buildQueueFileFromHeader, applyDecodedMeta, markLufsFailed, type QueueFile } from '../audio/queueFile';
 import { previewEngine, type PreviewParams } from '../audio/previewEngine';
 import { resampleAudioBuffer, sampleRateFromInputRate } from '../audio/resample';
+import { analyzePre, type PreAnalysis } from '../audio/preAnalysis';
+import { denoiseAudioBuffer, denoiseKeyOf } from '../audio/denoise';
 
 type AppState = DeskState & {
   theme: ThemeName;
@@ -24,6 +26,8 @@ type AppState = DeskState & {
   // ── Preview 재생 (v0.2.0 Phase 1) ──
   isPreviewing: boolean;
   previewError: string | null;
+  // ── Pre Processing 3D 워터폴 실데이터 분석 (v0.2.25 Phase 2) ──
+  preAnalysis: PreAnalysis | null;
   // ── 원본 재생 (v0.2.1 Phase 1 Patch) ──
   isOriginalPlaying: boolean;
   originalPlayError: string | null;
@@ -31,6 +35,9 @@ type AppState = DeskState & {
   transportOpen: boolean;
   volume: number;
   muted: boolean;
+  loopEnabled: boolean;
+  loopStart: number;
+  loopEnd: number;
   // ── 처리 버퍼 리샘플링 (v0.2.3 Phase 1 Patch) ──
   processingAudio: boolean;
   processingMessage: string;
@@ -57,7 +64,15 @@ type AppState = DeskState & {
   togglePreview: () => Promise<void>;
   stopPreview: () => void;
   syncPreviewParams: () => void;
+  /** v0.2.25: Pre 패널이 열렸을 때 선택 파일을 STFT 분석해 워터폴/노이즈 정보를 채운다. */
+  analyzePreSelected: () => Promise<void>;
   ensureProcessingBuffer: (id: string) => Promise<AudioBuffer>;
+  /** v0.2.28: Denoise 결과 버퍼 확보(lazy·캐시, 처리 오버레이 표시). */
+  ensureDenoisedBuffer: (id: string) => Promise<AudioBuffer>;
+  /** v0.2.28: 현재 Pre/Denoise 상태에 맞는 재생·분석용 유효 버퍼(denoise on→denoised, off→processing). */
+  effectivePlaybackBuffer: (id: string) => Promise<AudioBuffer>;
+  /** v0.2.28: Denoise 관련 파라미터 변경 시 분석/재생 버퍼를 디바운스 갱신. */
+  refreshDenoise: () => void;
   /** v0.2.8: lazy 디코딩 — 필요 시 원본 버퍼를 확보(없으면 디코딩, LRU=현재 파일만 유지). */
   ensureSourceBuffer: (id: string) => Promise<AudioBuffer>;
   changeInputRate: (rate: string) => Promise<void>;
@@ -70,6 +85,9 @@ type AppState = DeskState & {
   toggleMute: () => void;
   seekPreview: (time: number) => void;
   skip: (delta: number) => void;
+  setLoopRange: (start: number, end: number) => void;
+  toggleLoop: () => void;
+  clearLoop: () => void;
 };
 
 const clone = (s: DeskState): DeskState => ({
@@ -87,7 +105,19 @@ function invalidateProcessingBuffers(files: QueueFile[]): QueueFile[] {
     ...file,
     processingBuffer: undefined,
     processingSampleRate: undefined,
+    // v0.2.28: 처리 버퍼가 무효화되면 그로부터 파생된 denoise 버퍼도 무효화.
+    denoisedBuffer: undefined,
+    denoiseKey: undefined,
   }));
+}
+
+// v0.2.28: Pre 섹션이 켜져 있고 Denoise 토글이 ON 일 때만 denoise 가 적용된다.
+function denoiseActive(s: AppState): boolean {
+  return !!s.enabled.pre && !!s.vals['pre.denoise'];
+}
+function currentDenoiseKey(s: AppState): string {
+  const rate = sampleRateFromInputRate(s.vals['input.rate']);
+  return denoiseKeyOf(rate, String(s.vals['pre.noiseDepth']), Number(s.vals['pre.denoiseAmt']) || 0);
 }
 
 let originalSelectionResumeSeq = 0;
@@ -153,10 +183,45 @@ async function pumpMeasureQueue() {
 function prioritizeSelectedDecode() {
   const st = useAppStore.getState();
   const sel = st.files[st.curFile];
-  if (!sel) return;
+  if (!sel) {
+    useAppStore.setState({ preAnalysis: null });
+    return;
+  }
   enqueueMeasure(sel.id, true);
   void pumpMeasureQueue();
   if (!sel.sourceBuffer) void st.ensureSourceBuffer(sel.id).catch(() => {});
+  // 선택이 바뀌었으면 기존 워터폴 분석을 비우고(엉뚱한 파일 표시 방지) 새로 분석.
+  useAppStore.setState({ preAnalysis: null });
+  void st.analyzePreSelected();
+}
+
+// v0.2.25: 워터폴 분석 stale 가드(선택/Rate 변경으로 진행 중 분석을 폐기).
+let preAnalysisSeq = 0;
+
+// v0.2.28: Denoise 재계산 디바운스(노브 드래그 중 thrash 방지) + 재생 중 버퍼 스왑.
+let denoiseRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+async function swapPlaybackToEffective() {
+  const st = useAppStore.getState();
+  if (!st.isOriginalPlaying) return;
+  const file = st.files[st.curFile];
+  if (!file) return;
+  const pos = previewEngine.getCurrentTime();
+  let buf: AudioBuffer;
+  try {
+    buf = await st.effectivePlaybackBuffer(file.id);
+  } catch {
+    return;
+  }
+  const latest = useAppStore.getState();
+  const lf = latest.files[latest.curFile];
+  if (!lf || lf.id !== file.id || !latest.isOriginalPlaying) return;
+  await previewEngine.play(
+    buf,
+    previewParamsFromState(latest, lf),
+    () => useAppStore.setState({ isOriginalPlaying: false }),
+    Math.min(pos, Math.max(0, buf.duration - 0.001)),
+    latest.isPreviewing,
+  );
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -170,11 +235,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   importCurrentName: '',
   isPreviewing: false,
   previewError: null,
+  preAnalysis: null,
   isOriginalPlaying: false,
   originalPlayError: null,
   transportOpen: false,
   volume: 1,
   muted: false,
+  loopEnabled: false,
+  loopStart: 0,
+  loopEnd: 0,
   processingAudio: false,
   processingMessage: '',
   processingCurrentName: '',
@@ -182,10 +251,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   processingTotal: 0,
 
   setTheme: (t) => { applyTheme(t); set({ theme: t }); },
-  setOpen: (i) => set({ open: i }),
+  setOpen: (i) => {
+    set({ open: i });
+    if (MODS[i]?.id === 'pre') void get().analyzePreSelected(); // Pre 패널 열 때 워터폴 분석
+  },
   toggleEnabled: (id) => {
     set((s) => ({ enabled: { ...s.enabled, [id]: !s.enabled[id] } }));
     get().syncPreviewParams();
+    // v0.2.28: Pre 섹션 On/Bypass 는 denoise 적용 여부(유효 버퍼)를 바꾸므로 분석/재생 갱신.
+    if (id === 'pre') get().refreshDenoise();
   },
 
   setVal: (fk, v) =>
@@ -200,6 +274,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         return { vals };
       });
       get().syncPreviewParams();
+      // v0.2.28: Denoise 관련 파라미터는 유효 버퍼를 재계산해야 하므로 디바운스 갱신.
+      if (fk === 'pre.denoise' || fk === 'pre.noiseDepth' || fk === 'pre.denoiseAmt') get().refreshDenoise();
     },
 
   applyPreset: (name) =>
@@ -228,7 +304,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const shouldResumeOriginal = get().isOriginalPlaying;
     const resumeSeq = ++originalSelectionResumeSeq;
     previewEngine.stop();
-    set({ isOriginalPlaying: false });
+    previewEngine.setLoop(false, 0, 0);
+    set({ isOriginalPlaying: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
     set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile - 1 + s.files.length) % s.files.length }));
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
     prioritizeSelectedDecode();
@@ -237,7 +314,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const shouldResumeOriginal = get().isOriginalPlaying;
     const resumeSeq = ++originalSelectionResumeSeq;
     previewEngine.stop();
-    set({ isOriginalPlaying: false });
+    previewEngine.setLoop(false, 0, 0);
+    set({ isOriginalPlaying: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
     set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile + 1) % s.files.length }));
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
     prioritizeSelectedDecode();
@@ -246,7 +324,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     const shouldResumeOriginal = get().isOriginalPlaying;
     const resumeSeq = ++originalSelectionResumeSeq;
     previewEngine.stop();
-    set({ isOriginalPlaying: false });
+    previewEngine.setLoop(false, 0, 0);
+    set({ isOriginalPlaying: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
     set((s) => (i >= 0 && i < s.files.length ? { curFile: i } : {}));
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
     prioritizeSelectedDecode();
@@ -294,6 +373,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     {
       get().stopPreview();
       get().stopOriginalPlayback();
+      previewEngine.setLoop(false, 0, 0);
       dropFromMeasureQueue(id);
       set((s) => {
       const idx = s.files.findIndex((f) => f.id === id);
@@ -302,15 +382,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       let curFile = s.curFile;
       if (idx < curFile) curFile -= 1;
       curFile = Math.min(curFile, Math.max(0, files.length - 1));
-      return { files, curFile };
+      return { files, curFile, loopEnabled: false, loopStart: 0, loopEnd: 0, preAnalysis: null };
       });
+      void get().analyzePreSelected();
     },
 
   clearFiles: () => {
     get().stopPreview();
     get().stopOriginalPlayback();
     measureQueue = [];
-    set({ files: [], curFile: 0, importError: null });
+    previewEngine.setLoop(false, 0, 0);
+    set({ files: [], curFile: 0, importError: null, loopEnabled: false, loopStart: 0, loopEnd: 0, preAnalysis: null });
   },
 
   togglePreview: async () => {
@@ -336,6 +418,39 @@ export const useAppStore = create<AppState>((set, get) => ({
     previewEngine.update(previewParamsFromState(s, file));
   },
 
+  // v0.2.25: Pre 패널이 열려 있을 때만 선택 파일을 STFT 분석(워터폴 그리드 + noise floor/SNR).
+  // 무거운 계산은 Web Worker(analyzePre)에서 수행하며, 선택/Rate 변경 시 stale 결과는 폐기한다.
+  analyzePreSelected: async () => {
+    const st = get();
+    if (MODS[st.open]?.id !== 'pre') return; // Pre 상세 패널이 열렸을 때만 분석
+    const file = st.files[st.curFile];
+    if (!file) {
+      set({ preAnalysis: null });
+      return;
+    }
+    const rate = sampleRateFromInputRate(st.vals['input.rate']);
+    // v0.2.28: Denoise 적용 후 기준으로 표시(P2-4) — denoise on 이면 denoised 버퍼를 분석.
+    const active = denoiseActive(st);
+    const key = `${file.id}:${active ? 'dn:' + currentDenoiseKey(st) : 'dry:' + rate}`;
+    if (st.preAnalysis?.key === key) return; // 이미 동일 조건으로 분석됨
+    const seq = ++preAnalysisSeq;
+    let buffer: AudioBuffer;
+    try {
+      buffer = active ? await get().ensureDenoisedBuffer(file.id) : await get().ensureProcessingBuffer(file.id);
+    } catch {
+      return; // 디코딩/처리 실패 → 절차적 폴백 유지
+    }
+    if (seq !== preAnalysisSeq) return; // 분석 도중 선택/Rate 변경됨
+    try {
+      const analysis = await analyzePre(file.id, key, buffer);
+      if (seq !== preAnalysisSeq) return;
+      set({ preAnalysis: analysis });
+    } catch (e) {
+      // 분석 실패 시 절차적 워터폴 폴백 유지(원인 확인용 로그)
+      console.warn('[Pre] STFT 워터폴 분석 실패 — 절차적 폴백 사용:', e);
+    }
+  },
+
   ensureProcessingBuffer: async (id) => {
     const targetSampleRate = sampleRateFromInputRate(get().vals['input.rate']);
     const file = get().files.find((f) => f.id === id);
@@ -353,6 +468,45 @@ export const useAppStore = create<AppState>((set, get) => ({
     return processingBuffer;
   },
 
+  // v0.2.28: Denoise 결과 버퍼(lazy·캐시). 키(rate:depth:amt)가 같으면 재계산 생략.
+  ensureDenoisedBuffer: async (id) => {
+    const processing = await get().ensureProcessingBuffer(id);
+    const st = get();
+    const file = st.files.find((f) => f.id === id);
+    if (!file) throw new Error('File is no longer in the queue.');
+    const key = currentDenoiseKey(st);
+    if (file.denoisedBuffer && file.denoiseKey === key) return file.denoisedBuffer;
+
+    const depth = String(st.vals['pre.noiseDepth']);
+    const amt = Number(st.vals['pre.denoiseAmt']) || 0;
+    set({ processingAudio: true, processingMessage: 'Denoising', processingCurrentName: file.name, processingDone: 0, processingTotal: 1 });
+    try {
+      const denoised = await denoiseAudioBuffer(processing, depth, amt);
+      set((state) => ({
+        files: state.files.map((f) => (f.id === id ? { ...f, denoisedBuffer: denoised, denoiseKey: key } : f)),
+        processingDone: 1,
+      }));
+      return denoised;
+    } finally {
+      set({ processingAudio: false, processingMessage: '', processingCurrentName: '', processingDone: 0, processingTotal: 0 });
+    }
+  },
+
+  // v0.2.28: Pre ON + Denoise ON → denoised, 그 외 → processing.
+  effectivePlaybackBuffer: async (id) => {
+    return denoiseActive(get()) ? get().ensureDenoisedBuffer(id) : get().ensureProcessingBuffer(id);
+  },
+
+  // v0.2.28: Denoise 파라미터/토글 변경 시 디바운스로 분석+재생 버퍼를 갱신(드래그 thrash 방지).
+  refreshDenoise: () => {
+    if (denoiseRefreshTimer) clearTimeout(denoiseRefreshTimer);
+    denoiseRefreshTimer = setTimeout(() => {
+      denoiseRefreshTimer = null;
+      void useAppStore.getState().analyzePreSelected();
+      void swapPlaybackToEffective();
+    }, 350);
+  },
+
   // v0.2.8: 원본 버퍼 확보(lazy). 없으면 디코딩하고, 현재 파일만 버퍼를 유지(LRU=1)하도록 나머지를 evict.
   ensureSourceBuffer: async (id) => {
     const existing = get().files.find((f) => f.id === id);
@@ -362,8 +516,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       files: state.files.map((f) => {
         if (f.id === id) return applyDecodedMeta(f, decoded, true);
-        if (f.sourceBuffer || f.processingBuffer) {
-          return { ...f, sourceBuffer: undefined, processingBuffer: undefined, processingSampleRate: undefined };
+        if (f.sourceBuffer || f.processingBuffer || f.denoisedBuffer) {
+          return { ...f, sourceBuffer: undefined, processingBuffer: undefined, processingSampleRate: undefined, denoisedBuffer: undefined, denoiseKey: undefined };
         }
         return f;
       }),
@@ -399,16 +553,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         processingTotal: 1,
       });
       try {
-        const processingBuffer = await get().ensureProcessingBuffer(currentFile.id);
+        const playBuffer = await get().effectivePlaybackBuffer(currentFile.id);
         set({ processingDone: 1 });
         const latest = get();
         const latestFile = latest.files[latest.curFile];
         if (latestFile?.id === currentFile.id) {
           await previewEngine.play(
-            processingBuffer,
+            playBuffer,
             previewParamsFromState(latest, latestFile),
             () => set({ isOriginalPlaying: false }),
-            Math.min(resumeTime, Math.max(0, processingBuffer.duration - 0.001)),
+            Math.min(resumeTime, Math.max(0, playBuffer.duration - 0.001)),
             latest.isPreviewing,
           );
           set({ isOriginalPlaying: true, originalPlayError: null });
@@ -435,13 +589,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ isOriginalPlaying: false, originalPlayError: null });
         return;
       }
-      const processingBuffer = await get().ensureProcessingBuffer(file.id);
+      const playBuffer = await get().effectivePlaybackBuffer(file.id);
       const latest = get();
       const latestFile = latest.files[latest.curFile];
       if (!latestFile || latestFile.id !== file.id) return;
-      const offset = Math.min(previewEngine.getCurrentTime(), Math.max(0, processingBuffer.duration - 0.001));
+      const offset = Math.min(previewEngine.getCurrentTime(), Math.max(0, playBuffer.duration - 0.001));
       await previewEngine.play(
-        processingBuffer,
+        playBuffer,
         previewParamsFromState(latest, latestFile),
         () => set({ isOriginalPlaying: false }),
         offset,
@@ -465,12 +619,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const file = s.files[s.curFile];
     if (!file) return;
     try {
-      const processingBuffer = await get().ensureProcessingBuffer(file.id);
+      const playBuffer = await get().effectivePlaybackBuffer(file.id);
       const latest = get();
       const latestFile = latest.files[latest.curFile];
       if (!latestFile || latestFile.id !== file.id) return;
       await previewEngine.play(
-        processingBuffer,
+        playBuffer,
         previewParamsFromState(latest, latestFile),
         () => set({ isOriginalPlaying: false }),
         0,
@@ -512,5 +666,27 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   skip: (delta) => {
     get().seekPreview(previewEngine.getCurrentTime() + delta);
+  },
+
+  setLoopRange: (start, end) => {
+    const s = get();
+    const duration = s.files[s.curFile]?.meta.duration ?? 0;
+    const a = Math.max(0, Math.min(start, duration));
+    const b = Math.max(a, Math.min(end, duration));
+    if (b - a < 0.25) return;
+    set({ loopStart: a, loopEnd: b });
+    if (s.loopEnabled) previewEngine.setLoop(true, a, b);
+  },
+
+  toggleLoop: () => {
+    const s = get();
+    const enabled = !s.loopEnabled && s.loopEnd - s.loopStart >= 0.25;
+    previewEngine.setLoop(enabled, s.loopStart, s.loopEnd);
+    set({ loopEnabled: enabled });
+  },
+
+  clearLoop: () => {
+    previewEngine.setLoop(false, 0, 0);
+    set({ loopEnabled: false, loopStart: 0, loopEnd: 0 });
   },
 }));

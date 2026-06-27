@@ -1,7 +1,7 @@
 {
   "name": "focusdaw-mastering-desk",
   "private": true,
-  "version": "0.2.13",
+  "version": "0.2.28",
   "description": "FocusDAW - Mastering Desk",
   "author": "FocusDAW",
   "type": "module",
@@ -19,9 +19,11 @@
     "verify": "node scripts/verify-decoder.mjs"
   },
   "dependencies": {
+    "@types/three": "^0.185.0",
     "electron-updater": "^6.3.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "three": "^0.185.0",
     "zustand": "^4.5.2"
   },
   "devDependencies": {

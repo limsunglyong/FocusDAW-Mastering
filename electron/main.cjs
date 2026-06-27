@@ -7,8 +7,10 @@ const isDev = !app.isPackaged;
 // v0.2.13: 기준 윈도우 크기(고정). Transport 패널 펼침 시 높이만 절대값으로 변경한다.
 const BASE_W = 1208;
 const BASE_H = 662;
+const TRANSPORT_H = 132;
 
 let mainWindow = null;
+let baseWindowSize = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -17,7 +19,9 @@ function createWindow() {
     minWidth: 1100,
     minHeight: BASE_H,
     frame: false,
-    resizable: false,
+    // v0.2.14: 처음부터 native resizable 상태로 생성해 Windows/DPI의 최초 경계 재계산을 없앤다.
+    // 사용자 수동 리사이즈는 아래 will-resize에서 차단한다.
+    resizable: true,
     maximizable: false,
     fullscreenable: false,
     backgroundColor: '#0c0f12',
@@ -30,7 +34,24 @@ function createWindow() {
     },
   });
 
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.once('ready-to-show', () => {
+    if (!mainWindow) return;
+    // v0.2.14: 창을 표시하기 전에 첫 setSize를 실행해 Windows/DPI의
+    // outer bounds 정규화가 사용자에게 보이지 않도록 한다.
+    const initialSize = mainWindow.getSize();
+    mainWindow.setSize(initialSize[0], initialSize[1]);
+
+    // native bounds 반영이 끝난 뒤 실제 크기를 한 번만 기준으로 저장한다.
+    setImmediate(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      baseWindowSize = mainWindow.getSize();
+      mainWindow.show();
+    });
+  });
+
+  // 공식 Electron 동작상 will-resize는 수동 리사이즈에서만 발생한다.
+  // programmatic setContentSize는 통과시키면서 사용자 가장자리 드래그만 차단한다.
+  mainWindow.on('will-resize', (event) => event.preventDefault());
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -55,14 +76,13 @@ ipcMain.on('win:toggle-maximize', () => {
   else mainWindow.maximize();
 });
 ipcMain.on('win:close', () => mainWindow?.close());
-// v0.2.13: Transport 패널 펼침/접힘 — 기준 크기에서 절대값으로 setSize.
-//   (v0.2.12의 getBounds→setBounds 상대 방식은 DPI 배율에서 가로폭이 매번 누적 축소되는 드리프트가 있었음)
-//   가로는 항상 BASE_W 로 고정, 높이만 BASE_H(±패널)로 설정 → 읽기 누적 없음.
+// v0.2.14: 최초 실제 outer 크기를 기준으로 width는 고정하고 height만 변경한다.
 ipcMain.on('win:transport', (_e, payload) => {
   if (!mainWindow) return;
   const open = !!(payload && payload.open);
-  const panelH = payload && typeof payload.panelH === 'number' && isFinite(payload.panelH) ? Math.round(payload.panelH) : 0;
-  mainWindow.setSize(BASE_W, BASE_H + (open ? panelH : 0));
+  if (!baseWindowSize) baseWindowSize = mainWindow.getSize();
+  const [width, height] = baseWindowSize;
+  mainWindow.setSize(width, height + (open ? TRANSPORT_H : 0));
 });
 
 app.whenReady().then(() => {

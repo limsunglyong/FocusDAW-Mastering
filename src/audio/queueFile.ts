@@ -24,6 +24,9 @@ export type QueueFile = FileItem & {
   /** v0.2.2: 사용자 Input Rate 로 변환된 내부 처리 버퍼. Preview/DSP/Export 용 lazy cache. */
   processingBuffer?: AudioBuffer;
   processingSampleRate?: number;
+  /** v0.2.28: Denoise 결과 버퍼 lazy cache(키 = rate:depth:amt). Pre ON+Denoise ON 시 재생/분석 소스. */
+  denoisedBuffer?: AudioBuffer;
+  denoiseKey?: string;
   meta: AudioMeta;
   /** v0.2.8: 원본 Integrated LUFS 측정 상태. */
   lufsState: LufsState;

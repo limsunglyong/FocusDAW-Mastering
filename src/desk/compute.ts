@@ -236,35 +236,9 @@ export function computeView(state: DeskState, themeName: ThemeName, files: Queue
   let satPath = '', satLine = '', satLabel = '', satHarm: any[] = [], satThd = '0.0%', satThdStatus = 'GENTLE', satWarnColor = satCol;
   let exportFormat = 'WAV', exportAlbum = 'Untitled Master';
 
-  if (isPre) {
-    const NT = 11, NF = 46, oX = 14, plotW = 300, baseY = 128, skewX = 2.6, skewY = 8, amp = 34;
-    const nrOn = !!vals['pre.denoise'], nr = nrOn ? num(vals['pre.denoiseAmt']) / 100 : 0;
-    const field = (i: number, t: number) => {
-      const f = i / (NF - 1);
-      let h = 0.12 + 0.5 * Math.exp(-Math.pow((f - 0.06 - 0.008 * t) / 0.05, 2));
-      h += 0.34 * Math.exp(-Math.pow((f - 0.3 + 0.012 * t) / 0.1, 2));
-      h += 0.18 * Math.exp(-Math.pow((f - 0.62) / 0.16, 2)) * (0.6 + 0.4 * Math.sin(t * 0.7));
-      h += 0.06 * Math.sin(f * 40 + t) * Math.exp(-f * 0.8);
-      h += 0.05 * Math.sin(f * 120 + t * 2.0);
-      if (f > 0.5) h *= 1 - 0.55 * nr * (f - 0.5) / 0.5;
-      return Math.max(0.02, Math.min(1, h));
-    };
-    for (let t = NT - 1; t >= 0; t--) {
-      const by = baseY - t * skewY;
-      let line = '';
-      for (let i = 0; i < NF; i++) {
-        const x = oX + (i / (NF - 1)) * plotW + t * skewX;
-        const y = by - field(i, t) * amp;
-        line += (i === 0 ? 'M ' : 'L ') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
-      }
-      const x0 = (oX + t * skewX).toFixed(1), x1 = (oX + plotW + t * skewX).toFixed(1);
-      const depth = t / (NT - 1);
-      waterfall.push({ line: line.trim(), area: line + `L ${x1} ${by.toFixed(1)} L ${x0} ${by.toFixed(1)} Z`, sop: (0.92 - depth * 0.6).toFixed(2), fop: (0.2 - depth * 0.15).toFixed(2) });
-    }
-    const floor = (-62 - nr * 8).toFixed(0), snr = (48 + nr * 9).toFixed(0);
-    fftInfo = [{ k: 'FFT Size', v: '4096' }, { k: 'Window', v: 'Hann' }, { k: 'Overlap', v: '75%' }, { k: 'Bin', v: '11.7 Hz' }];
-    noiseInfo = [{ k: 'Floor', v: floor + ' dBFS' }, { k: 'SNR', v: snr + ' dB' }, { k: 'Profile', v: nrOn ? 'Hiss · Hum' : '—' }, { k: 'Reduction', v: nrOn ? Math.round(nr * 100) + '%' : 'off' }];
-  } else if (isSpectral) {
+  // v0.2.26: Pre(II) 3D 스펙트로그램·통합 정보창은 PreViz/Spectrogram3D 가 스토어(preAnalysis)에서
+  // 직접 읽어 렌더한다. 기존 절차적 SVG 워터폴/정보 계산(waterfall/fftInfo/noiseInfo)은 제거.
+  if (isSpectral) {
     const W = 338, mid = 82, pxDb = 2.6, N = 90, bAct = eqBandIdx(vals);
     const nyq = nyquistOf(vals), dec = Math.log10(nyq / 20);
     const fx = (f: number) => (Math.log10(Math.max(20, f) / 20) / dec) * W;

@@ -11,7 +11,7 @@ import { TitleBar } from './ui/desk/TitleBar';
 import { TransportBar } from './ui/desk/TransportBar';
 import { Desk } from './ui/desk/Desk';
 import { DetailSheet } from './ui/desk/DetailSheet';
-import { TransportPanel, PANEL_H } from './ui/desk/TransportPanel';
+import { TransportPanel } from './ui/desk/TransportPanel';
 import { Footer } from './ui/desk/Footer';
 
 export default function App() {
@@ -70,12 +70,12 @@ export default function App() {
     if (e.relatedTarget === null) setDragOver(false);
   }, []);
 
-  // v0.2.13: Transport 패널 펼침/접힘 시 윈도우 크기를 절대값으로 설정(가로 드리프트 방지).
+  // v0.2.14: Transport 패널 펼침/접힘 시 main에서 최초 실제 창 폭을 유지하고 높이만 변경.
   const prevTransportOpen = useRef(transportOpen);
   useEffect(() => {
     if (prevTransportOpen.current === transportOpen) return;
     prevTransportOpen.current = transportOpen;
-    window.focusdaw?.win?.setTransport?.(transportOpen, PANEL_H);
+    window.focusdaw?.win?.setTransport?.(transportOpen);
   }, [transportOpen]);
 
   return (

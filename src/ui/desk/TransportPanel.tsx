@@ -50,17 +50,28 @@ export function TransportPanel({ view }: { view: DeskView }) {
   const setVolume = useAppStore((s) => s.setVolume);
   const muted = useAppStore((s) => s.muted);
   const toggleMute = useAppStore((s) => s.toggleMute);
+  const loopEnabled = useAppStore((s) => s.loopEnabled);
+  const loopStart = useAppStore((s) => s.loopStart);
+  const loopEnd = useAppStore((s) => s.loopEnd);
+  const setLoopRange = useAppStore((s) => s.setLoopRange);
+  const toggleLoop = useAppStore((s) => s.toggleLoop);
+  const clearLoop = useAppStore((s) => s.clearLoop);
 
   const accent = view.accent;
   const pal = view.pal;
   const hasFile = !!file;
   const duration = file?.meta.duration ?? 0;
+  const isPaused = hasFile && !isPlaying && previewEngine.getCurrentTime() > 0.05;
 
   const waveRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
   const curTimeRef = useRef<HTMLSpanElement>(null);
+  const dragStartRef = useRef<number | null>(null);
+  const dragStartXRef = useRef(0);
+  const [draftLoop, setDraftLoop] = useState<{ start: number; end: number } | null>(null);
   const [waveW, setWaveW] = useState(600);
+  const shownLoop = draftLoop ?? (loopEnd - loopStart >= 0.25 ? { start: loopStart, end: loopEnd } : null);
 
   // 재생 상태를 rAF 안에서 읽기 위한 ref(현재시간 색/breathing 결정용)
   const playingRef = useRef(isPlaying);
@@ -97,6 +108,31 @@ export function TransportPanel({ view }: { view: DeskView }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, WAVE_H);
     if (!peaks) return;
+
+    // v0.2.20: 파형 뒤쪽의 저채도 기준선. 긴 곡은 세로선 간격을 자동 확장한다.
+    ctx.save();
+    ctx.strokeStyle = pal.nInk2;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.14;
+    ctx.beginPath();
+    ctx.moveTo(0, Math.floor(WAVE_H / 2) + 0.5);
+    ctx.lineTo(W, Math.floor(WAVE_H / 2) + 0.5);
+    ctx.stroke();
+
+    const intervals = [5, 10, 15, 30, 60];
+    const gridSeconds = intervals.find((seconds) => duration <= 0 || (W * seconds) / duration >= 24) ?? 120;
+    if (duration > 0) {
+      for (let seconds = gridSeconds; seconds < duration; seconds += gridSeconds) {
+        const x = Math.round((seconds / duration) * W) + 0.5;
+        ctx.globalAlpha = seconds % 30 === 0 ? 0.18 : 0.09;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, WAVE_H);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
     const mid = WAVE_H / 2;
     const bw = W / peaks.length;
     ctx.fillStyle = accent;
@@ -104,10 +140,10 @@ export function TransportPanel({ view }: { view: DeskView }) {
       const h = Math.max(1, peaks[i] * (WAVE_H - 6));
       ctx.fillRect(i * bw, mid - h / 2, Math.max(0.75, bw - 0.5), h);
     }
-  }, [peaks, waveW, accent]);
+  }, [peaks, waveW, accent, duration, pal.nInk2]);
 
-  // 재생헤드 + 현재시간(rAF, React 리렌더 없이 DOM 직접 갱신).
-  //   재생 중=하이라이트+breathing / 일시정지=하이라이트(정지) / 정지(종료·0)=normal.
+  // v0.2.15: 재생헤드 + 현재시간(rAF, React 리렌더 없이 DOM 직접 갱신).
+  //   재생 중=고정 하이라이트 / 일시정지=하이라이트+breathing / 정지=normal.
   useEffect(() => {
     let raf = 0;
     let lastState = '';
@@ -116,7 +152,8 @@ export function TransportPanel({ view }: { view: DeskView }) {
       if (!el || state === lastState) return;
       lastState = state;
       el.style.color = state === 'stop' ? '#9aa7af' : accent;
-      el.style.animation = state === 'play' ? 'dktimebreath 1.3s ease-in-out infinite' : 'none';
+      el.style.animation = state === 'pause' ? 'dktimebreath 1.3s ease-in-out infinite' : 'none';
+      el.style.textShadow = state === 'play' ? `0 0 4px ${pal.glow}, 0 0 9px ${accent}` : 'none';
     };
     const tick = () => {
       const t = previewEngine.getCurrentTime();
@@ -128,14 +165,43 @@ export function TransportPanel({ view }: { view: DeskView }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [duration, accent]);
+  }, [duration, accent, pal.glow]);
 
-  const onSeek = (e: React.MouseEvent) => {
+  const timeFromPointer = (clientX: number) => {
     const el = waveRef.current;
-    if (!el || duration <= 0) return;
+    if (!el || duration <= 0) return 0;
     const rect = el.getBoundingClientRect();
-    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    seekPreview(frac * duration);
+    return Math.max(0, Math.min(duration, ((clientX - rect.left) / rect.width) * duration));
+  };
+
+  const onWavePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!hasFile || duration <= 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const time = timeFromPointer(e.clientX);
+    dragStartRef.current = time;
+    dragStartXRef.current = e.clientX;
+    setDraftLoop({ start: time, end: time });
+  };
+
+  const onWavePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = dragStartRef.current;
+    if (start == null) return;
+    const current = timeFromPointer(e.clientX);
+    setDraftLoop({ start: Math.min(start, current), end: Math.max(start, current) });
+  };
+
+  const onWavePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = dragStartRef.current;
+    if (start == null) return;
+    const current = timeFromPointer(e.clientX);
+    const moved = Math.abs(e.clientX - dragStartXRef.current);
+    dragStartRef.current = null;
+    setDraftLoop(null);
+    if (moved < 4 || Math.abs(current - start) < 0.25) {
+      seekPreview(current);
+      return;
+    }
+    setLoopRange(Math.min(start, current), Math.max(start, current));
   };
 
   const ctlBtn = (onClick: () => void, label: React.ReactNode, title: string, primary = false) => (
@@ -153,14 +219,55 @@ export function TransportPanel({ view }: { view: DeskView }) {
   );
 
   return (
-    <div style={{ flex: 'none', height: PANEL_H, boxSizing: 'border-box', background: '#13171c', borderTop: '1px solid #0a0d10', padding: '10px 15px 12px' }}>
+    <div className="dk-transport-roll" style={{ flex: 'none', height: PANEL_H, boxSizing: 'border-box', background: '#13171c', borderTop: '1px solid #0a0d10', padding: '10px 15px 12px' }}>
       {/* 웨이브폼 */}
       <div
         ref={waveRef}
-        onClick={onSeek}
-        style={{ position: 'relative', height: WAVE_H, borderRadius: 7, background: pal.panelDark, overflow: 'hidden', cursor: hasFile && duration > 0 ? 'pointer' : 'default' }}
+        onPointerDown={onWavePointerDown}
+        onPointerMove={onWavePointerMove}
+        onPointerUp={onWavePointerUp}
+        onPointerCancel={() => { dragStartRef.current = null; setDraftLoop(null); }}
+        style={{ position: 'relative', height: WAVE_H, borderRadius: 7, background: pal.panelDark, overflow: 'hidden', cursor: hasFile && duration > 0 ? 'crosshair' : 'default', touchAction: 'none' }}
       >
         <canvas ref={canvasRef} style={{ display: 'block', position: 'absolute', left: 0, top: 0 }} />
+        {shownLoop && duration > 0 && (
+          <div
+            style={{
+              position: 'absolute', top: 0, bottom: 0,
+              left: `${(shownLoop.start / duration) * 100}%`,
+              width: `${((shownLoop.end - shownLoop.start) / duration) * 100}%`,
+              background: `${accent}24`,
+              borderLeft: `1px solid ${accent}`,
+              borderRight: `1px solid ${accent}`,
+              boxShadow: loopEnabled ? `inset 0 0 14px ${pal.glow}` : 'none',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        {loopEnd - loopStart >= 0.25 && (
+          <button
+            type="button"
+            className="dk-loop-clear"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); clearLoop(); }}
+            title="Clear repeat range"
+            aria-label="Clear repeat range"
+            style={{
+              position: 'absolute', top: 5,
+              left: `clamp(20px, ${(loopEnd / duration) * 100}%, calc(100% - 4px))`,
+              transform: 'translateX(-100%)',
+              zIndex: 4,
+              width: 20, height: 20, padding: 0, borderRadius: 6,
+              display: 'grid', placeItems: 'center',
+              border: '1px solid rgba(255,255,255,0.14)',
+              background: `${pal.panelDark}d9`, color: '#a8b2b8',
+              fontFamily: 'Arial, sans-serif', fontSize: 15, lineHeight: 1,
+              cursor: 'pointer',
+            }}
+          >
+            ×
+          </button>
+        )}
         {hasFile && !peaks && (
           <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontFamily: 'Archivo', fontSize: 10.5, color: '#6f7d86' }}>Loading waveform…</div>
         )}
@@ -169,6 +276,30 @@ export function TransportPanel({ view }: { view: DeskView }) {
         )}
         {/* 재생헤드 */}
         <div ref={headRef} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 2, background: accent, boxShadow: `0 0 7px ${pal.glow}`, pointerEvents: 'none' }} />
+        {isPaused && (
+          <div
+            style={{
+              position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                padding: '7px 14px', borderRadius: 7, background: `${pal.panelDark}80`,
+                border: `1px solid ${pal.panelDark}`, boxShadow: `0 4px 14px ${pal.panelDark}66`,
+              }}
+            >
+              <span
+                className="dk-pause-blink"
+                style={{
+                  fontFamily: 'Archivo, sans-serif', fontSize: 13, fontWeight: 600, letterSpacing: '0.22em',
+                  color: '#ff4d5e', textShadow: '0 0 8px rgba(255,77,94,0.75), 0 0 18px rgba(255,77,94,0.45)',
+                }}
+              >
+                PAUSE
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 컨트롤 */}
@@ -189,14 +320,33 @@ export function TransportPanel({ view }: { view: DeskView }) {
         )}
         {ctlBtn(() => skip(SKIP_SEC), '»', `Forward ${SKIP_SEC}s`)}
 
-        {/* 현재 / 전체 시간 — 현재는 2배·상태색, 전체는 1.5배·이탤릭 */}
+        {/* v0.2.18: 현재 시간은 tabular UI sans, 전체 길이는 --mono */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginLeft: 6, minWidth: 128, whiteSpace: 'nowrap' }}>
-          <span ref={curTimeRef} style={{ fontFamily: 'Archivo', fontSize: 22, fontWeight: 400, color: '#9aa7af', lineHeight: 1 }}>0:00</span>
+          <span ref={curTimeRef} style={{ display: 'inline-block', width: 76, textAlign: 'right', fontFamily: '"Segoe UI", Inter, Arial, sans-serif', fontVariantNumeric: 'tabular-nums', fontSize: 22, fontWeight: 300, color: '#9aa7af', lineHeight: 1 }}>0:00</span>
           <span style={{ fontFamily: 'Archivo', fontSize: 13, color: '#5e6b73' }}>/</span>
-          <span style={{ fontFamily: 'Archivo', fontStyle: 'italic', fontSize: 16.5, color: '#6f7d86', lineHeight: 1 }}>{fmt(duration)}</span>
+          <span style={{ display: 'inline-block', width: 58, textAlign: 'left', fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums', fontSize: 16.5, color: '#6f7d86', lineHeight: 1 }}>{fmt(duration)}</span>
         </div>
 
         <div style={{ flex: 1 }} />
+
+        <button
+          type="button"
+          onClick={toggleLoop}
+          disabled={!hasFile || loopEnd - loopStart < 0.25}
+          title={loopEnd - loopStart >= 0.25 ? `Repeat ${fmt(loopStart)}–${fmt(loopEnd)}` : 'Drag a waveform range first'}
+          style={{
+            height: 27, padding: '0 11px', borderRadius: 7, flex: 'none',
+            border: `1px solid ${loopEnabled ? accent : '#303841'}`,
+            background: loopEnabled ? `${accent}2e` : '#222830',
+            color: loopEnabled ? accent : '#77848c',
+            boxShadow: loopEnabled ? `0 0 8px ${pal.glow}` : 'none',
+            fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.08em',
+            cursor: hasFile && loopEnd - loopStart >= 0.25 ? 'pointer' : 'not-allowed',
+            opacity: hasFile && loopEnd - loopStart >= 0.25 ? 1 : 0.5,
+          }}
+        >
+          REPEAT
+        </button>
 
         {/* 볼륨(모니터 전용) */}
         <span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: '#6f7d86', flex: 'none' }} title="Monitor volume (not applied to Export)">VOL</span>

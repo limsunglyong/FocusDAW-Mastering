@@ -13,8 +13,8 @@ declare global {
         minimize: () => void;
         toggleMaximize: () => void;
         close: () => void;
-        /** v0.2.13: Transport 패널 펼침/접힘 시 윈도우 크기를 절대값으로 설정(가로 드리프트 방지). */
-        setTransport: (open: boolean, panelH: number) => void;
+        /** v0.2.14: Transport 패널 펼침/접힘 시 최초 실제 창 폭을 유지하고 높이만 변경. */
+        setTransport: (open: boolean) => void;
       };
     };
   }

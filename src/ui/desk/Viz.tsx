@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/appStore';
 import { openAudioFilePicker } from '../../audio/filePicker';
 import { DeskIcon } from '../Icons';
 import { Knob } from './Knob';
+import { Spectrogram3D } from './Spectrogram3D';
 import type { DeskView } from '../../desk/compute';
 
 function InputQueue({ view }: { view: DeskView }) {
@@ -162,40 +163,46 @@ function InputQueue({ view }: { view: DeskView }) {
 
 function PreViz({ view }: { view: DeskView }) {
   const pal = view.pal;
+  // v0.2.26: Pre 뷰가 보이거나 선택 파일이 바뀌면 STFT 분석을 보장(HMR/타이밍 누락 대비).
+  const curFile = useAppStore((s) => s.curFile);
+  const fileCount = useAppStore((s) => s.files.length);
+  const files = useAppStore((s) => s.files);
+  const preAnalysis = useAppStore((s) => s.preAnalysis);
+  const denoiseOn = useAppStore((s) => !!s.vals['pre.denoise']);
+  const denoiseAmt = useAppStore((s) => Number(s.vals['pre.denoiseAmt']) || 0);
+  useEffect(() => {
+    void useAppStore.getState().analyzePreSelected();
+  }, [curFile, fileCount]);
+
+  const sel = files[curFile];
+  const ready = !!preAnalysis && preAnalysis.fileId === sel?.id;
+  const meta = sel?.meta;
+  const lufs = meta && Number.isFinite(meta.integratedLufs) ? meta.integratedLufs.toFixed(1) + ' LUFS' : '—';
+  const peak = meta && Number.isFinite(meta.peakDb) ? meta.peakDb.toFixed(1) + ' dBFS' : '—';
+  const floor = ready && Number.isFinite(preAnalysis!.floorDb) ? Math.round(preAnalysis!.floorDb) + ' dBFS' : '—';
+  const snr = ready && Number.isFinite(preAnalysis!.snrDb) ? Math.round(preAnalysis!.snrDb) + ' dB' : '—';
+
+  // 통합 정보창(FFT Size/Window 등 FFT 파라미터 제거, 노이즈/라우드니스만)
+  const info: { k: string; v: string }[] = [
+    { k: 'Integrated LUFS', v: lufs },
+    { k: 'Peak', v: peak },
+    { k: 'Noise Floor', v: floor },
+    { k: 'SNR', v: snr },
+    { k: 'Reduction', v: denoiseOn ? Math.round(denoiseAmt) + '%' : 'off' },
+  ];
+
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <span style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>SPECTRO · 3D</span>
-        <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070' }}>time → · freq → · level ↑</span>
-      </div>
-      <svg width="338" height="150" viewBox="0 0 338 150" style={{ display: 'block' }}>
-        <line x1="14" y1="128" x2="314" y2="128" stroke="rgba(255,240,210,0.1)" strokeWidth="1" />
-        <line x1="14" y1="128" x2="38" y2="44" stroke="rgba(255,240,210,0.08)" strokeWidth="1" />
-        <line x1="314" y1="128" x2="338" y2="44" stroke="rgba(255,240,210,0.08)" strokeWidth="1" />
-        {view.waterfall.map((s: any, i: number) => (
-          <g key={i}>
-            <path d={s.area} fill={pal.panel} opacity="0.9" />
-            <path d={s.area} fill={pal.aMain} opacity={s.fop} />
-            <path d={s.line} fill="none" stroke={pal.aBright} strokeWidth="1.3" opacity={s.sop} />
-          </g>
-        ))}
-        <text x="14" y="146" fontFamily="Archivo" fontSize="8" fill="#8a8070">20Hz</text>
-        <text x="300" y="146" fontFamily="Archivo" fontSize="8" fill="#8a8070">20k</text>
-      </svg>
-      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-        {[{ t: 'FFT', rows: view.fftInfo }, { t: 'NOISE', rows: view.noiseInfo }].map((p) => (
-          <div key={p.t} style={{ flex: 1, background: pal.panelDark, borderRadius: 8, padding: '8px 10px' }}>
-            <div style={{ fontFamily: 'Archivo', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.1em', color: pal.aBright, marginBottom: 6 }}>{p.t}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 8px' }}>
-              {p.rows.map((r: any, i: number) => (
-                <span key={i} style={{ display: 'contents' }}>
-                  <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070' }}>{r.k}</span>
-                  <span style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 600, color: pal.nInk, textAlign: 'right' }}>{r.v}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
+      <Spectrogram3D view={view} />
+      <div style={{ marginTop: 8, background: pal.panelDark, borderRadius: 8, padding: '6px 12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto 1fr', gap: '1px 12px', lineHeight: 1.1 }}>
+          {info.map((r, i) => (
+            <span key={i} style={{ display: 'contents' }}>
+              <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070', whiteSpace: 'nowrap' }}>{r.k}</span>
+              <span style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 600, color: pal.nInk, textAlign: 'right' }}>{r.v}</span>
+            </span>
+          ))}
+        </div>
       </div>
     </>
   );

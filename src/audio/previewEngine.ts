@@ -137,6 +137,10 @@ export class PreviewEngine {
   private volume = 1;
   private currentBuffer: AudioBuffer | null = null;
   private currentOnEnded: (() => void) | null = null;
+  // v0.2.21: 웨이브폼 A/B 구간 반복. source 재생성(Play/Seek/Pause 재개) 뒤에도 유지한다.
+  private loopEnabled = false;
+  private loopStart = 0;
+  private loopEnd = 0;
 
   isPlaying() {
     return this.playing;
@@ -148,7 +152,11 @@ export class PreviewEngine {
 
   getCurrentTime() {
     if (!this.ctx || !this.playing) return this.offset;
-    return Math.max(0, this.offset + (this.ctx.currentTime - this.startedAt));
+    const raw = Math.max(0, this.offset + (this.ctx.currentTime - this.startedAt));
+    if (this.loopEnabled && this.loopEnd > this.loopStart && raw >= this.loopEnd) {
+      return this.loopStart + ((raw - this.loopStart) % (this.loopEnd - this.loopStart));
+    }
+    return raw;
   }
 
   async play(buffer: AudioBuffer, params: PreviewParams, onEnded: () => void, offset = 0, previewEnabled = this.previewEnabled) {
@@ -171,10 +179,50 @@ export class PreviewEngine {
     }
   }
 
+  setLoop(enabled: boolean, start: number, end: number) {
+    const duration = this.currentBuffer?.duration ?? Infinity;
+    const nextStart = Math.max(0, Math.min(start, duration));
+    const nextEnd = Math.max(nextStart, Math.min(end, duration));
+    const valid = enabled && nextEnd - nextStart >= 0.25;
+    const current = this.getCurrentTime();
+
+    this.loopEnabled = valid;
+    this.loopStart = nextStart;
+    this.loopEnd = nextEnd;
+
+    if (!valid) {
+      this.offset = current;
+      if (this.playing && this.currentBuffer && this.currentOnEnded) {
+        this.stopGraph();
+        this.playing = false;
+        this.start(this.currentBuffer, this.currentOnEnded);
+      }
+      return;
+    }
+
+    if (current < nextStart || current >= nextEnd) {
+      this.seek(nextStart);
+      return;
+    }
+    // 이미 한 번 이상 wrap된 source의 경과시간과 새 구간 계산이 어긋나지 않도록
+    // 현재 실제 위치를 기준으로 source를 재시작한다.
+    this.offset = current;
+    if (this.playing && this.currentBuffer && this.currentOnEnded) {
+      this.stopGraph();
+      this.playing = false;
+      this.start(this.currentBuffer, this.currentOnEnded);
+    }
+  }
+
   // v0.2.11: 탐색. 재생 중이면 해당 위치에서 재시작, 일시정지면 다음 재생 시작 오프셋만 갱신.
   seek(time: number) {
     const max = this.currentBuffer ? Math.max(0, this.currentBuffer.duration - 0.001) : Infinity;
-    this.offset = Math.max(0, Math.min(time, max));
+    let target = time;
+    if (this.loopEnabled && this.loopEnd > this.loopStart) {
+      const length = this.loopEnd - this.loopStart;
+      target = this.loopStart + ((((time - this.loopStart) % length) + length) % length);
+    }
+    this.offset = Math.max(0, Math.min(target, max));
     if (this.playing && this.currentBuffer && this.currentOnEnded) {
       this.stopGraph();
       this.playing = false;
@@ -238,6 +286,11 @@ export class PreviewEngine {
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
+    source.loop = this.loopEnabled;
+    if (this.loopEnabled) {
+      source.loopStart = this.loopStart;
+      source.loopEnd = this.loopEnd;
+    }
     const graph = this.buildGraph(ctx, source, params);
     source.onended = () => {
       if (this.graph !== graph) return;

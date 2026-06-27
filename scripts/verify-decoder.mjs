@@ -92,9 +92,20 @@ function check(name, got, expected) {
 const decUrl = transpileToModule('src/audio/decoder.ts', 'decoder.mjs');
 const qfUrl = transpileToModule('src/audio/queueFile.ts', 'queueFile.mjs');
 const loudUrl = transpileToModule('src/audio/loudness.ts', 'loudness.mjs');
+// Phase 2 STFT/Denoise 이식 모듈 (의존: noiseReduction → decoder, stft → fft, noisePrint → stft)
+const fftUrl = transpileToModule('src/audio/fft.ts', 'fft.mjs');
+const stftUrl = transpileToModule('src/audio/stft.ts', 'stft.mjs');
+const npUrl = transpileToModule('src/audio/noisePrint.ts', 'noisePrint.mjs');
+const nrUrl = transpileToModule('src/audio/noiseReduction.ts', 'noiseReduction.mjs');
+const dnUrl = transpileToModule('src/audio/denoise.ts', 'denoise.mjs');
+const { FFT } = await import(fftUrl);
+const { depthToOptions, denoiseKeyOf } = await import(dnUrl);
 const { parseAudioHeader, parseHeaderMeta } = await import(decUrl);
 const { formatBytes } = await import(qfUrl);
 const { integratedLufsFromChannels } = await import(loudUrl);
+const { computeSpectrogram, makeWindow, DB_FLOOR } = await import(stftUrl);
+const { buildNoisePrint, findQuietNoiseRange } = await import(npUrl);
+const { reduceNoiseChannel } = await import(nrUrl);
 
 function checkClose(name, got, expected, tol) {
   const ok = isFinite(got) && Math.abs(got - expected) <= tol;
@@ -159,6 +170,128 @@ checkClose('0 dBFS 1kHz stereo sine ≈ 0 LUFS', integratedLufsFromChannels([sin
   const ok = isFinite(mono);
   console.log(`${ok ? 'PASS' : 'FAIL'}  mono sine → finite LUFS` + (ok ? '' : `  got ${mono}`));
   ok ? pass++ : fail++;
+}
+
+console.log('— FFT (Phase 2) —');
+// 1) 라운드트립: random → transform → inverseTransform ≈ 원본
+{
+  const N = 256;
+  let seed = 12345;
+  const rng = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff) * 2 - 1;
+  const re0 = new Float32Array(N), im0 = new Float32Array(N);
+  for (let i = 0; i < N; i++) { re0[i] = rng(); im0[i] = 0; }
+  const re = Float32Array.from(re0), im = Float32Array.from(im0);
+  const fft = new FFT(N);
+  fft.transform(re, im);
+  fft.inverseTransform(re, im);
+  let maxErr = 0;
+  for (let i = 0; i < N; i++) maxErr = Math.max(maxErr, Math.abs(re[i] - re0[i]), Math.abs(im[i]));
+  checkClose('FFT roundtrip max error ≈ 0', maxErr, 0, 1e-4);
+}
+// 2) 사인파 → 해당 bin 에 매그니튜드 피크
+{
+  const N = 64, binTarget = 8;
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let i = 0; i < N; i++) re[i] = Math.cos((2 * Math.PI * binTarget * i) / N);
+  new FFT(N).transform(re, im);
+  let peakBin = 0, peakMag = -1;
+  for (let k = 0; k < N / 2; k++) {
+    const m = Math.hypot(re[k], im[k]);
+    if (m > peakMag) { peakMag = m; peakBin = k; }
+  }
+  check('FFT sine peak bin', peakBin, binTarget);
+}
+// 3) 2의 거듭제곱이 아니면 throw
+{
+  let threw = false;
+  try { new FFT(100); } catch { threw = true; }
+  check('FFT non-power-of-2 throws', threw, true);
+}
+
+console.log('— STFT spectrogram (Phase 2) —');
+// 4) 풀스케일 1kHz 사인 → 해당 bin maxDb ≈ 0 dBFS
+{
+  const spec = computeSpectrogram(sineChannel(1, 1000, 48000, 1), 48000, { fftSize: 2048, hopSize: 512, window: 'hann' });
+  const okShape = spec.bins === 1024 && spec.frames > 0 && Math.abs(spec.freqStep - 48000 / 2048) < 1e-6;
+  console.log(`${okShape ? 'PASS' : 'FAIL'}  spectrogram shape (bins/freqStep)` + (okShape ? '' : `  got bins=${spec.bins} freqStep=${spec.freqStep}`));
+  okShape ? pass++ : fail++;
+  checkClose('spectrogram full-scale sine maxDb ≈ 0', spec.maxDb, 0, 1.0);
+}
+// 5) Hann window 양끝 0
+{
+  const w = makeWindow('hann', 16);
+  const okEnds = Math.abs(w[0]) < 1e-6 && Math.abs(w[15]) < 1e-6 && w[8] > 0.9;
+  console.log(`${okEnds ? 'PASS' : 'FAIL'}  Hann window endpoints 0, center ~1` + (okEnds ? '' : `  got [0]=${w[0]} [15]=${w[15]} [8]=${w[8]}`));
+  okEnds ? pass++ : fail++;
+}
+// 6) 무음 → 모든 데이터 DB_FLOOR
+{
+  const spec = computeSpectrogram(new Float32Array(48000), 48000, { fftSize: 2048, hopSize: 512, window: 'hann' });
+  check('silence spectrogram minDb == DB_FLOOR', spec.minDb, DB_FLOOR);
+}
+
+console.log('— Noise print + spectral gating (Phase 2) —');
+// 7) 앞 1.5초 저레벨 노이즈 + 뒤 1.5초 노이즈+톤 → findQuietNoiseRange 가 앞 구간 선택
+{
+  let seed = 999;
+  const rng = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff) * 2 - 1;
+  const fs = 48000, total = fs * 3;
+  const sig = new Float32Array(total);
+  for (let i = 0; i < total; i++) {
+    let s = rng() * 0.01; // 상시 저레벨 브로드밴드 노이즈
+    if (i >= fs * 1.5) s += 0.6 * Math.sin((2 * Math.PI * 1000 * i) / fs); // 뒤쪽에 톤
+    sig[i] = s;
+  }
+  const spec = computeSpectrogram(sig, fs, { fftSize: 2048, hopSize: 512, window: 'hann' });
+  const range = findQuietNoiseRange(spec, 1.0);
+  const okRange = range && range.startTime < 1.5;
+  console.log(`${okRange ? 'PASS' : 'FAIL'}  findQuietNoiseRange picks quiet head` + (okRange ? '' : `  got ${JSON.stringify(range)}`));
+  okRange ? pass++ : fail++;
+}
+// 8) 순수 저레벨 노이즈 → Deep 게이팅 후 RMS 대폭 감소
+{
+  let seed = 4242;
+  const rng = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff) * 2 - 1;
+  const fs = 48000, total = fs * 2;
+  const noise = new Float32Array(total);
+  for (let i = 0; i < total; i++) noise[i] = rng() * 0.02;
+  const params = { fftSize: 2048, hopSize: 512, window: 'hann' };
+  const spec = computeSpectrogram(noise, fs, params);
+  const print = buildNoisePrint(spec, 0, 1.5, 2);
+  // Deep 설정: 높은 threshold 로 노이즈 프로파일 근방을 적극 게이팅
+  const out = reduceNoiseChannel(noise, print, params, { thresholdDb: 24, amount: 0.95, floor: 0.04 });
+  const rms = (a) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * a[i]; return Math.sqrt(s / a.length); };
+  const inR = rms(noise), outR = rms(out);
+  const okReduce = outR < inR * 0.5;
+  console.log(`${okReduce ? 'PASS' : 'FAIL'}  spectral gating reduces noise RMS >50%` + (okReduce ? '' : `  in=${inR.toFixed(5)} out=${outR.toFixed(5)}`));
+  okReduce ? pass++ : fail++;
+}
+// 9) amount 0 → 사실상 원본 보존 (length 동일·RMS 근접)
+{
+  let seed = 77;
+  const rng = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff) * 2 - 1;
+  const fs = 48000, total = fs;
+  const noise = new Float32Array(total);
+  for (let i = 0; i < total; i++) noise[i] = rng() * 0.05;
+  const params = { fftSize: 2048, hopSize: 512, window: 'hann' };
+  const spec = computeSpectrogram(noise, fs, params);
+  const print = buildNoisePrint(spec, 0, 0.8, 2);
+  const out = reduceNoiseChannel(noise, print, params, { thresholdDb: 0, amount: 0, floor: 0 });
+  const rms = (a) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * a[i]; return Math.sqrt(s / a.length); };
+  const okPass = out.length === total && Math.abs(rms(out) - rms(noise)) < rms(noise) * 0.05;
+  console.log(`${okPass ? 'PASS' : 'FAIL'}  amount 0 preserves signal` + (okPass ? '' : `  in=${rms(noise).toFixed(5)} out=${rms(out).toFixed(5)}`));
+  okPass ? pass++ : fail++;
+}
+
+console.log('— Denoise depth mapping (Phase 2) —');
+{
+  const o1 = depthToOptions('1', 100), o2 = depthToOptions('2', 100), o3 = depthToOptions('3', 100);
+  check('Deep amount > Original amount', o3.amount > o1.amount, true);
+  check('Deep threshold > Normal > Original', o3.thresholdDb > o2.thresholdDb && o2.thresholdDb > o1.thresholdDb, true);
+  check('amtPct 0 → amount 0', depthToOptions('2', 0).amount, 0);
+  checkClose('Normal amtPct 50 → 0.85*0.5', depthToOptions('2', 50).amount, 0.425, 1e-6);
+  check('Deep floor < Original floor', o3.floor < o1.floor, true);
+  check('denoiseKeyOf format', denoiseKeyOf(48000, '2', 35), '48000:2:35');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

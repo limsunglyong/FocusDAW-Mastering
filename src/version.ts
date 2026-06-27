@@ -57,7 +57,14 @@
  *             (세로 패딩 6→4px). VII Export 의 Format 세그먼트는 별도 스타일이라 제외.
  *  - v0.2.11: (Phase 1 Patch) 하단 Transport 패널(#2) — Top bar Transport 메뉴로 접이식 펼침.
  *             웨이브폼(클릭 탐색)·Rewind/Play·Pause/Forward(±5s)·모니터 볼륨(영속 master gain,
- *             Export 미반영)·rAF 재생헤드. 엔진에 master gain/setVolume/seek 추가. (구간반복은 v0.2.12)
+ *             Export 미반영)·rAF 재생헤드. 엔진에 master gain/setVolume/seek 추가.
+ *  - v0.2.12: (Phase 1 Patch) A4 Transport 보완 — 패널 펼침 시 윈도우 높이를 패널만큼 키워 기존
+ *             항목 높이 유지(win:height-delta IPC). 메뉴 Transport(F4)+F4 단축키. 현재시간 폰트 2배·
+ *             상태색(재생=하이라이트+breathing/일시정지=하이라이트/정지=normal), 전체길이 1.5배·이탤릭.
+ *             볼륨 슬라이더 둥근 pill+라운드사각 thumb. range 포커스에서도 Space play/pause 동작.
+ *  - v0.2.13: (Phase 1 Patch) A4 Transport 보완2 — 창 가로폭 누적 축소 버그 수정(상대 setBounds→
+ *             기준값 절대 setSize, `win:transport`). VOL 옆 스피커 버튼(클릭 mute, 이전 볼륨 복원).
+ *             볼륨 슬라이더 높이 증가(14→20px). 현재시간 폰트 bold→normal. (A/B Loop는 v0.2.14)
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

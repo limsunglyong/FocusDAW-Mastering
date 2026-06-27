@@ -25,5 +25,7 @@ contextBridge.exposeInMainWorld('focusdaw', {
     minimize: () => ipcRenderer.send('win:minimize'),
     toggleMaximize: () => ipcRenderer.send('win:toggle-maximize'),
     close: () => ipcRenderer.send('win:close'),
+    // v0.2.13: Transport 패널 펼침/접힘 — 절대 사이징(가로 드리프트 방지)
+    setTransport: (open, panelH) => ipcRenderer.send('win:transport', { open, panelH }),
   },
 });

@@ -24,6 +24,17 @@ export function TitleBar({ view }: { view: DeskView }) {
     return () => window.removeEventListener('click', h);
   }, [closeMenu]);
 
+  // v0.2.12: F4 로 Transport 패널 열고 닫기
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'F4' || e.repeat) return;
+      e.preventDefault();
+      useAppStore.getState().toggleTransport();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   // 메뉴 항목 동작 (현재 연결된 항목만 처리, 나머지는 후속 Phase)
   const onMenuItem = async (label: string) => {
     closeMenu();
@@ -77,7 +88,7 @@ export function TitleBar({ view }: { view: DeskView }) {
         </div>
 
         {/* Transport 패널 토글 (v0.2.11) */}
-        <div onClick={() => toggleTransport()} style={css(`font-family:'Archivo';font-size:11.5px;font-weight:500;color:${transportOpen ? view.accent : '#9aa7af'};padding:5px 10px;border-radius:6px;cursor:pointer;background:${transportOpen ? '#283038' : 'transparent'};white-space:nowrap`)}>Transport</div>
+        <div onClick={() => toggleTransport()} style={css(`font-family:'Archivo';font-size:11.5px;font-weight:500;color:${transportOpen ? view.accent : '#9aa7af'};padding:5px 10px;border-radius:6px;cursor:pointer;background:${transportOpen ? '#283038' : 'transparent'};white-space:nowrap`)}>Transport(F4)</div>
       </div>
 
       <div style={{ position: 'absolute', left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, pointerEvents: 'none' }}>

@@ -1,7 +1,7 @@
 // FocusDAW Mastering Desk - 앱 셸 (원본 윈도우 카드 구조 그대로)
 // 전체 윈도우 프레임 안에 타이틀바 → 트랜스포트 → 데스크 → 상세 시트 → 푸터.
 // v0.2.0(Phase 1): 전역 드래그&드롭으로 오디오 파일을 큐에 로딩.
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useAppStore } from './store/appStore';
 import { computeView } from './desk/compute';
 import { useKnobInteractions } from './desk/useKnob';
@@ -11,7 +11,7 @@ import { TitleBar } from './ui/desk/TitleBar';
 import { TransportBar } from './ui/desk/TransportBar';
 import { Desk } from './ui/desk/Desk';
 import { DetailSheet } from './ui/desk/DetailSheet';
-import { TransportPanel } from './ui/desk/TransportPanel';
+import { TransportPanel, PANEL_H } from './ui/desk/TransportPanel';
 import { Footer } from './ui/desk/Footer';
 
 export default function App() {
@@ -69,6 +69,14 @@ export default function App() {
     // 윈도우 밖으로 나갈 때만 해제 (자식 간 이동은 무시)
     if (e.relatedTarget === null) setDragOver(false);
   }, []);
+
+  // v0.2.13: Transport 패널 펼침/접힘 시 윈도우 크기를 절대값으로 설정(가로 드리프트 방지).
+  const prevTransportOpen = useRef(transportOpen);
+  useEffect(() => {
+    if (prevTransportOpen.current === transportOpen) return;
+    prevTransportOpen.current = transportOpen;
+    window.focusdaw?.win?.setTransport?.(transportOpen, PANEL_H);
+  }, [transportOpen]);
 
   return (
     <div

@@ -52,6 +52,43 @@ body {
   }
 }
 
+/* v0.2.12: Transport 현재 재생시간 숨쉬기(재생 중) */
+@keyframes dktimebreath {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* v0.2.12: Transport 볼륨 슬라이더 — 둥근 pill 트랙 + 라운드 직사각형 thumb */
+.dk-vol {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  outline: none;
+}
+.dk-vol::-webkit-slider-runnable-track {
+  height: 20px;
+  border-radius: 999px;
+  background: transparent;
+}
+.dk-vol::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 30px;
+  border-radius: 8px;
+  margin-top: -5px;
+  background: #fbf6ea;
+  border: 1px solid rgba(0, 0, 0, 0.28);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
 /* v0.2.9: BATCH QUEUE [Decoding...] 숨쉬기(네온) 표시 */
 @keyframes dkdecoding {
   0%,

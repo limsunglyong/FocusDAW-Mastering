@@ -20,7 +20,9 @@ export function TransportBar({ view }: { view: DeskView }) {
       if (e.code !== 'Space' || e.repeat) return;
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
-      const editable = tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable;
+      // v0.2.12: 볼륨 등 range 슬라이더는 텍스트 입력이 아니므로 Space 가 play/pause 로 동작하게 허용.
+      const type = (target as HTMLInputElement | null)?.type;
+      const editable = (tag === 'input' && type !== 'range') || tag === 'textarea' || tag === 'select' || target?.isContentEditable;
       if (editable) return;
       e.preventDefault();
       void useAppStore.getState().toggleOriginalPlayback();

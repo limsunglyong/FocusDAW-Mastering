@@ -9,6 +9,8 @@ import type { DeskView } from '../../desk/compute';
 const SKIP_SEC = 5;
 const WAVE_H = 64;
 const PEAK_BINS = 700;
+// v0.2.12: 패널 고정 높이. App 에서 패널 펼침/접힘 시 윈도우 높이를 이 값만큼 증감해 기존 항목 높이를 유지한다.
+export const PANEL_H = 132;
 
 /** 디코딩 버퍼에서 bin 당 최대 진폭(0~1)을 추출(채널 최대값). */
 function computePeaks(buffer: AudioBuffer, bins: number): Float32Array {
@@ -46,6 +48,8 @@ export function TransportPanel({ view }: { view: DeskView }) {
   const skip = useAppStore((s) => s.skip);
   const volume = useAppStore((s) => s.volume);
   const setVolume = useAppStore((s) => s.setVolume);
+  const muted = useAppStore((s) => s.muted);
+  const toggleMute = useAppStore((s) => s.toggleMute);
 
   const accent = view.accent;
   const pal = view.pal;
@@ -55,8 +59,12 @@ export function TransportPanel({ view }: { view: DeskView }) {
   const waveRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const headRef = useRef<HTMLDivElement>(null);
-  const timeRef = useRef<HTMLSpanElement>(null);
+  const curTimeRef = useRef<HTMLSpanElement>(null);
   const [waveW, setWaveW] = useState(600);
+
+  // 재생 상태를 rAF 안에서 읽기 위한 ref(현재시간 색/breathing 결정용)
+  const playingRef = useRef(isPlaying);
+  useEffect(() => { playingRef.current = isPlaying; }, [isPlaying]);
 
   const peaks = useMemo(
     () => (file?.sourceBuffer ? computePeaks(file.sourceBuffer, PEAK_BINS) : null),
@@ -98,19 +106,29 @@ export function TransportPanel({ view }: { view: DeskView }) {
     }
   }, [peaks, waveW, accent]);
 
-  // 재생헤드 + 시간 표시(rAF, React 리렌더 없이 DOM 직접 갱신)
+  // 재생헤드 + 현재시간(rAF, React 리렌더 없이 DOM 직접 갱신).
+  //   재생 중=하이라이트+breathing / 일시정지=하이라이트(정지) / 정지(종료·0)=normal.
   useEffect(() => {
     let raf = 0;
+    let lastState = '';
+    const apply = (state: string) => {
+      const el = curTimeRef.current;
+      if (!el || state === lastState) return;
+      lastState = state;
+      el.style.color = state === 'stop' ? '#9aa7af' : accent;
+      el.style.animation = state === 'play' ? 'dktimebreath 1.3s ease-in-out infinite' : 'none';
+    };
     const tick = () => {
       const t = previewEngine.getCurrentTime();
       const frac = duration > 0 ? Math.max(0, Math.min(1, t / duration)) : 0;
       if (headRef.current) headRef.current.style.left = frac * 100 + '%';
-      if (timeRef.current) timeRef.current.textContent = `${fmt(t)} / ${fmt(duration)}`;
+      if (curTimeRef.current) curTimeRef.current.textContent = fmt(t);
+      apply(playingRef.current ? 'play' : t < 0.05 ? 'stop' : 'pause');
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [duration]);
+  }, [duration, accent]);
 
   const onSeek = (e: React.MouseEvent) => {
     const el = waveRef.current;
@@ -135,7 +153,7 @@ export function TransportPanel({ view }: { view: DeskView }) {
   );
 
   return (
-    <div style={{ flex: 'none', background: '#13171c', borderTop: '1px solid #0a0d10', padding: '10px 15px 12px' }}>
+    <div style={{ flex: 'none', height: PANEL_H, boxSizing: 'border-box', background: '#13171c', borderTop: '1px solid #0a0d10', padding: '10px 15px 12px' }}>
       {/* 웨이브폼 */}
       <div
         ref={waveRef}
@@ -171,16 +189,36 @@ export function TransportPanel({ view }: { view: DeskView }) {
         )}
         {ctlBtn(() => skip(SKIP_SEC), '»', `Forward ${SKIP_SEC}s`)}
 
-        <span ref={timeRef} style={{ fontFamily: 'Archivo', fontSize: 11, color: '#9aa7af', marginLeft: 4, minWidth: 92, whiteSpace: 'nowrap' }}>0:00 / 0:00</span>
+        {/* 현재 / 전체 시간 — 현재는 2배·상태색, 전체는 1.5배·이탤릭 */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginLeft: 6, minWidth: 128, whiteSpace: 'nowrap' }}>
+          <span ref={curTimeRef} style={{ fontFamily: 'Archivo', fontSize: 22, fontWeight: 400, color: '#9aa7af', lineHeight: 1 }}>0:00</span>
+          <span style={{ fontFamily: 'Archivo', fontSize: 13, color: '#5e6b73' }}>/</span>
+          <span style={{ fontFamily: 'Archivo', fontStyle: 'italic', fontSize: 16.5, color: '#6f7d86', lineHeight: 1 }}>{fmt(duration)}</span>
+        </div>
 
         <div style={{ flex: 1 }} />
 
         {/* 볼륨(모니터 전용) */}
         <span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: '#6f7d86', flex: 'none' }} title="Monitor volume (not applied to Export)">VOL</span>
+        <div
+          onClick={() => toggleMute()}
+          title={muted ? 'Unmute' : 'Mute'}
+          style={{ width: 26, height: 26, borderRadius: 7, display: 'grid', placeItems: 'center', flex: 'none', background: '#222830', border: '1px solid #303841', cursor: 'pointer', color: muted ? '#8a8070' : accent }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M2.5 6h2.5l3.5-2.6v9.2L5 10H2.5z" fill="currentColor" />
+            {muted ? (
+              <path d="M10.4 6.2l3.2 3.6M13.6 6.2l-3.2 3.6" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            ) : (
+              <path d="M10.4 5.2a3.6 3.6 0 0 1 0 5.6" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            )}
+          </svg>
+        </div>
         <input
+          className="dk-vol"
           type="range" min={0} max={100} value={Math.round(volume * 100)}
           onChange={(e) => setVolume(Number(e.target.value) / 100)}
-          style={{ width: 130, accentColor: accent, cursor: 'pointer', flex: 'none' }}
+          style={{ width: 150, flex: 'none', background: `linear-gradient(to right, ${accent} ${Math.round(volume * 100)}%, #2a3037 ${Math.round(volume * 100)}%)` }}
         />
         <span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: '#9aa7af', width: 30, textAlign: 'right', flex: 'none' }}>{Math.round(volume * 100)}</span>
       </div>

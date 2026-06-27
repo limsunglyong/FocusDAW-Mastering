@@ -4,14 +4,18 @@ const path = require('path');
 const DEV_SERVER_URL = process.env.ELECTRON_START_URL || 'http://localhost:5173';
 const isDev = !app.isPackaged;
 
+// v0.2.13: 기준 윈도우 크기(고정). Transport 패널 펼침 시 높이만 절대값으로 변경한다.
+const BASE_W = 1208;
+const BASE_H = 662;
+
 let mainWindow = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1208,
-    height: 662,
+    width: BASE_W,
+    height: BASE_H,
     minWidth: 1100,
-    minHeight: 662,
+    minHeight: BASE_H,
     frame: false,
     resizable: false,
     maximizable: false,
@@ -51,6 +55,15 @@ ipcMain.on('win:toggle-maximize', () => {
   else mainWindow.maximize();
 });
 ipcMain.on('win:close', () => mainWindow?.close());
+// v0.2.13: Transport 패널 펼침/접힘 — 기준 크기에서 절대값으로 setSize.
+//   (v0.2.12의 getBounds→setBounds 상대 방식은 DPI 배율에서 가로폭이 매번 누적 축소되는 드리프트가 있었음)
+//   가로는 항상 BASE_W 로 고정, 높이만 BASE_H(±패널)로 설정 → 읽기 누적 없음.
+ipcMain.on('win:transport', (_e, payload) => {
+  if (!mainWindow) return;
+  const open = !!(payload && payload.open);
+  const panelH = payload && typeof payload.panelH === 'number' && isFinite(payload.panelH) ? Math.round(payload.panelH) : 0;
+  mainWindow.setSize(BASE_W, BASE_H + (open ? panelH : 0));
+});
 
 app.whenReady().then(() => {
   createWindow();

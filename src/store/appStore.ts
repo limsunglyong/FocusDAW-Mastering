@@ -30,6 +30,7 @@ type AppState = DeskState & {
   // ── Transport 패널 (v0.2.11) ──
   transportOpen: boolean;
   volume: number;
+  muted: boolean;
   // ── 처리 버퍼 리샘플링 (v0.2.3 Phase 1 Patch) ──
   processingAudio: boolean;
   processingMessage: string;
@@ -66,6 +67,7 @@ type AppState = DeskState & {
   // ── Transport 패널 (v0.2.11) ──
   toggleTransport: () => void;
   setVolume: (v: number) => void;
+  toggleMute: () => void;
   seekPreview: (time: number) => void;
   skip: (delta: number) => void;
 };
@@ -172,6 +174,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   originalPlayError: null,
   transportOpen: false,
   volume: 1,
+  muted: false,
   processingAudio: false,
   processingMessage: '',
   processingCurrentName: '',
@@ -486,8 +489,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setVolume: (v) => {
     const volume = Math.max(0, Math.min(1, v));
+    // 슬라이더 조작은 음소거를 해제하고 그 음량을 적용한다.
     previewEngine.setVolume(volume);
-    set({ volume });
+    set({ volume, muted: false });
+  },
+
+  // 음소거 토글: 끄면 0, 켜면 이전 볼륨 복원(슬라이더 위치는 유지).
+  toggleMute: () => {
+    const muted = !get().muted;
+    previewEngine.setVolume(muted ? 0 : get().volume);
+    set({ muted });
   },
 
   // 현재 재생/일시정지 상태를 유지한 채 위치를 이동. 엔진이 재생 중이면 그 위치에서 재시작.

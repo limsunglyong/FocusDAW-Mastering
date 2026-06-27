@@ -239,7 +239,18 @@ function SpectralViz({ view }: { view: DeskView }) {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: view.presetColor }}>{view.presetNameUpper}</span>
+        <span
+          style={{
+            fontFamily: 'Archivo',
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            color: view.isEqEdited ? view.pal.aBright : view.presetColor,
+            animation: view.isEqEdited ? 'dkblink 0.8s infinite alternate ease-in-out' : undefined,
+          }}
+        >
+          {view.isEqEdited ? 'EDITED' : view.presetNameUpper}
+        </span>
         <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#6f6657' }}>20Hz — 20kHz</span>
       </div>
       <svg ref={svgRef} width="338" height="150" viewBox="0 0 338 150" style={{ display: 'block' }}>

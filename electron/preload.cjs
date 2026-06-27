@@ -28,4 +28,7 @@ contextBridge.exposeInMainWorld('focusdaw', {
     // v0.2.14: Transport 패널 펼침/접힘 — main의 최초 실제 창 크기 기준
     setTransport: (open) => ipcRenderer.send('win:transport', { open }),
   },
+  // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
+  loadUserPresets: () => ipcRenderer.invoke('win:load-user-presets'),
+  saveUserPresets: (presets) => ipcRenderer.invoke('win:save-user-presets', presets),
 });

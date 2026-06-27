@@ -1,9 +1,11 @@
 // FocusDAW Mastering Desk v0.1.1 (Phase 0 UI) - 상세 시트 col3 (PARAMETERS) (원본 dc.html 이식)
+import { useState, useEffect, useRef } from 'react';
 import { css } from '../../desk/css';
 import { useAppStore } from '../../store/appStore';
 import { DeskIcon } from '../Icons';
 import { Knob } from './Knob';
 import type { Control, DeskView } from '../../desk/compute';
+import { getDenoiseRecommendation } from '../../audio/denoise';
 
 function ControlItem({ c, view }: { c: Control; view: DeskView }) {
   const setVal = useAppStore((s) => s.setVal);
@@ -69,12 +71,97 @@ function ControlItem({ c, view }: { c: Control; view: DeskView }) {
 function PreControls({ view }: { view: DeskView }) {
   const denoise = view.controls.find((c) => c.key === 'denoise');
   const knobs = view.controls.filter((c) => c.isRot); // Noise Reduction, Fade In, Fade Out
+  const preAnalysis = useAppStore((s) => s.preAnalysis);
+  const setVal = useAppStore((s) => s.setVal);
+  const currentDepth = useAppStore((s) => s.vals['pre.noiseDepth']);
+  const currentAmt = useAppStore((s) => s.vals['pre.denoiseAmt']);
+
+  let recommendationHtml = null;
+  if (denoise?.on && preAnalysis) {
+    const rec = getDenoiseRecommendation(preAnalysis.snrDb, preAnalysis.floorDb);
+    const depthLabel = rec.depth === '1' ? 'Original' : rec.depth === '3' ? 'Deep' : 'Normal';
+    const isApplied = String(currentDepth) === rec.depth && Number(currentAmt) === rec.amount;
+
+    recommendationHtml = (
+      <div style={{
+        marginTop: 6,
+        padding: '6px 10px',
+        background: 'rgba(255, 255, 255, 0.04)',
+        border: '1px solid rgba(58, 52, 43, 0.12)',
+        borderRadius: 8,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        maxWidth: 320
+      }}>
+        <div style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', lineHeight: 1.35 }}>
+          Recommended: <span style={{ fontWeight: 'bold', color: view.accent }}>{depthLabel}</span> (Depth) & <span style={{ fontWeight: 'bold', color: view.accent }}>{rec.amount}%</span> (Amt)
+          <div style={{ fontSize: 8.5, color: '#a99f8a', marginTop: 1 }}>SNR: {preAnalysis.snrDb.toFixed(1)} dB</div>
+          <div
+            style={{
+              fontFamily: 'Archivo',
+              fontSize: 9.5,
+              fontWeight: 'bold',
+              color: rec.color || view.accent,
+              animation: 'dkblink 1.2s infinite alternate',
+              marginTop: 4
+            }}
+          >
+            Suggested: {rec.text}
+          </div>
+        </div>
+        {isApplied ? (
+          <div
+            style={{
+              fontFamily: 'Archivo',
+              fontSize: 9,
+              fontWeight: 700,
+              color: '#46c06a',
+              background: 'rgba(70, 192, 106, 0.1)',
+              border: '1px solid rgba(70, 192, 106, 0.25)',
+              borderRadius: 6,
+              padding: '4px 8px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            ✓ Applied
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              setVal('pre.noiseDepth', rec.depth);
+              setVal('pre.denoiseAmt', rec.amount);
+            }}
+            style={{
+              fontFamily: 'Archivo',
+              fontSize: 9,
+              fontWeight: 700,
+              color: view.pal.pSeg,
+              background: view.pal.paperCtl,
+              border: '1px solid rgba(58, 52, 43, 0.15)',
+              borderRadius: 6,
+              padding: '4px 8px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Apply
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
         {denoise && <div style={{ flex: 'none' }}><ControlItem c={denoise} view={view} /></div>}
-        <div style={{ flex: 'none', whiteSpace: 'nowrap', fontFamily: 'Archivo', fontSize: 9.5, lineHeight: 1.45, color: '#8a8070', marginTop: 1 }}>
-          Note: The <span style={{ fontWeight: 700, color: '#a99f8a' }}>denoise</span> feature is processing-intensive and may take a while.
+        <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 1 }}>
+          <div style={{ whiteSpace: 'nowrap', fontFamily: 'Archivo', fontSize: 9.5, lineHeight: 1.45, color: '#8a8070' }}>
+            Note: The <span style={{ fontWeight: 'bold', color: '#a99f8a' }}>denoise</span> feature is processing-intensive and may take a while.
+          </div>
+          {recommendationHtml}
         </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '16px 22px' }}>
@@ -165,22 +252,265 @@ function DynamicsExtra({ view }: { view: DeskView }) {
 function SpectralControls({ view }: { view: DeskView }) {
   const pal = view.pal;
   const applyPreset = useAppStore((s) => s.applyPreset);
+  const recallUserPreset = useAppStore((s) => s.recallUserPreset);
+  const saveUserPreset = useAppStore((s) => s.saveUserPreset);
+  const renameUserPreset = useAppStore((s) => s.renameUserPreset);
   const toggleAdv = useAppStore((s) => s.toggleAdv);
+
+  const [openMenuIdx, setOpenMenuIdx] = useState<number | null>(null);
+  const [renamingIdx, setRenamingIdx] = useState<number | null>(null);
+  const [tempName, setTempName] = useState<string>('');
+  const menuContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (openMenuIdx !== null && menuContainerRef.current && !menuContainerRef.current.contains(e.target as Node)) {
+        setOpenMenuIdx(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [openMenuIdx]);
+
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 }}>
-        <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070' }}>Preset · <span style={{ fontWeight: 700, color: view.presetColor }}>{view.presetName}</span></span>
+        <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070' }}>
+          Preset ·{' '}
+          {view.isEqEdited ? (
+            <span
+              style={{
+                fontWeight: 700,
+                color: '#9a6fd0',
+                display: 'inline-block',
+              }}
+            >
+              Edited
+            </span>
+          ) : (
+            <span style={{ fontWeight: 700, color: view.presetColor }}>
+              {view.presetName}
+            </span>
+          )}
+        </span>
         <button onClick={toggleAdv} style={css(view.advBtnStyle)}>{view.advLabel}</button>
       </div>
       {view.eqShowPresets && (
-        <div style={{ display: 'flex', gap: 9 }}>
-          {view.presetCards.map((p: any) => (
-            <div key={p.name} onClick={() => applyPreset(p.name)} style={css(p.cardStyle)}>
-              <span style={css(p.dotStyle)} />
-              <span style={{ fontFamily: 'Archivo', fontSize: 12.5, fontWeight: 700, color: p.nameColor }}>{p.name}</span>
-              <span style={{ fontFamily: 'Archivo', fontSize: 8.5, color: '#8a8070', textAlign: 'center', lineHeight: 1.3 }}>{p.desc}</span>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', gap: 9 }}>
+            {view.presetCards.map((p: any) => (
+              <div key={p.name} onClick={() => applyPreset(p.name)} style={css(p.cardStyle)}>
+                <span style={css(p.dotStyle)} />
+                <span style={{ fontFamily: 'Archivo', fontSize: 12.5, fontWeight: 700, color: p.nameColor }}>{p.name}</span>
+                <span style={{ fontFamily: 'Archivo', fontSize: 8.5, color: '#8a8070', textAlign: 'center', lineHeight: 1.3 }}>{p.desc}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* User Subpresets Expansion Panel */}
+          {view.isUserActive && (
+            <div
+              ref={menuContainerRef}
+              style={{
+                display: 'flex',
+                gap: 8,
+                marginTop: 12,
+                borderTop: '1px solid rgba(58,52,43,0.12)',
+                paddingTop: 12,
+              }}
+            >
+              {view.userPresets.map((up: any, idx: number) => {
+                const isSelected = view.activeUserPresetIdx === idx;
+                const textColor = isSelected ? pal.aMain : pal.pInk;
+                const cardStyle = `
+                  flex: 1;
+                  min-width: 0;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 6px;
+                  padding: 12px 6px;
+                  border-radius: 9px;
+                  cursor: pointer;
+                  position: relative;
+                  background: ${isSelected ? 'rgba(58,52,43,0.05)' : 'transparent'};
+                  box-shadow: inset 0 0 0 ${isSelected ? 2 : 1.2}px ${isSelected ? pal.aMain : 'rgba(58,52,43,0.14)'}${isSelected ? ',0 4px 12px -5px ' + pal.aMain : ''};
+                `;
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (renamingIdx !== idx) {
+                        recallUserPreset(idx);
+                      }
+                    }}
+                    style={css(cardStyle)}
+                  >
+                    <span
+                      style={css(
+                        `width:7px;height:7px;border-radius:50%;background:${isSelected ? pal.aMain : 'rgba(58,52,43,0.25)'};` +
+                          (isSelected ? `box-shadow:0 0 6px ${pal.aMain};` : '')
+                      )}
+                    />
+                    {renamingIdx === idx ? (
+                      <input
+                        type="text"
+                        value={tempName}
+                        onChange={(e) => setTempName(e.target.value)}
+                        onBlur={() => {
+                          if (tempName.trim() !== '') {
+                            renameUserPreset(idx, tempName.trim());
+                          }
+                          setRenamingIdx(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (tempName.trim() !== '') {
+                              renameUserPreset(idx, tempName.trim());
+                            }
+                            setRenamingIdx(null);
+                          } else if (e.key === 'Escape') {
+                            setRenamingIdx(null);
+                          }
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          fontFamily: 'Archivo',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: textColor,
+                          textAlign: 'center',
+                          width: '100%',
+                          background: 'rgba(0,0,0,0.05)',
+                          border: `1px solid ${pal.aMain}`,
+                          borderRadius: '4px',
+                          outline: 'none',
+                          padding: '2px 0',
+                        }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          fontFamily: 'Archivo',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: textColor,
+                          textAlign: 'center',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          width: '100%',
+                          padding: '0 4px',
+                        }}
+                        title={up.name}
+                      >
+                        {up.name}
+                      </span>
+                    )}
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuIdx(openMenuIdx === idx ? null : idx);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        border: 'none',
+                        background: openMenuIdx === idx ? 'rgba(0,0,0,0.08)' : 'transparent',
+                        cursor: 'pointer',
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontFamily: 'Archivo',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: pal.pInk2,
+                        outline: 'none',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(0,0,0,0.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (openMenuIdx !== idx) e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      ⋮
+                    </button>
+
+                    {openMenuIdx === idx && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: '100%',
+                          left: '50%',
+                          transform: 'translateX(-50%) translateY(-6px)',
+                          background: pal.paperInput,
+                          borderRadius: 6,
+                          boxShadow: '0 4px 14px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.12)',
+                          zIndex: 999,
+                          minWidth: 96,
+                          padding: '3px 0',
+                          display: 'flex',
+                          flexDirection: 'column',
+                        }}
+                      >
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTempName(up.name);
+                            setRenamingIdx(idx);
+                            setOpenMenuIdx(null);
+                          }}
+                          style={{
+                            padding: '6px 10px',
+                            fontFamily: 'Archivo',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: pal.pInk,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'left',
+                            borderBottom: '1px solid rgba(58,52,43,0.08)',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          Preset Name
+                        </div>
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            saveUserPreset(idx);
+                            setOpenMenuIdx(null);
+                          }}
+                          style={{
+                            padding: '6px 10px',
+                            fontFamily: 'Archivo',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: pal.pInk,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'left',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.06)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          Save
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          )}
         </div>
       )}
       {view.eqAdvanced && (

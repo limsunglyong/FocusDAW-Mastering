@@ -90,6 +90,9 @@
  *             재생을 끊지 않고 REPEAT 해제 후 선택 구간을 초기화.
  *  - v0.2.23: (Phase 1 Patch) 반복 구간 삭제 × 버튼을 고정 우측 상단에서 B 지점 경계 상단으로
  *             이동. 양쪽 끝에서는 CSS clamp로 버튼이 웨이브폼 밖으로 잘리지 않도록 제한.
+ *  - v0.4.0 : Phase 3 EQ 작업 착수 및 프리셋 변경 개시.
+ *  - v0.4.1 : (Patch) 앱 아이콘을 assets/logo-main.png 로 등록 (package.json의 build.win.icon 설정 및 electron/main.cjs 창 생성 icon 옵션 적용).
+ *  - v0.4.2 : (Patch) 앱 아이콘 이미지를 assets/logo-main2.png 로 변경.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

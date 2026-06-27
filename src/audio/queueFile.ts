@@ -32,6 +32,12 @@ export type QueueFile = FileItem & {
   lufsState: LufsState;
   /** v0.2.8: duration 이 헤더로 확정됐는지(MP3 추정은 false → 디코딩 시 보정). */
   durationExact: boolean;
+
+  // 노래별 개별 Denoise 파라미터 저장용
+  denoise?: boolean;
+  noiseDepth?: string;
+  denoiseAmt?: number;
+  denoiseRecommended?: { depth: string; amount: number; text: string };
 };
 
 /**
@@ -119,6 +125,9 @@ export function buildQueueFileFromHeader(file: File, hm: HeaderMeta): QueueFile 
     meta,
     lufsState: 'pending',
     durationExact: hm.durationExact,
+    denoise: false,
+    noiseDepth: '2',
+    denoiseAmt: 35,
   };
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "focusdaw-mastering-desk",
   "private": true,
-  "version": "0.2.32",
+  "version": "0.4.2",
   "description": "FocusDAW - Mastering Desk",
   "author": "FocusDAW",
   "type": "module",
@@ -48,7 +48,8 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "assets/logo-main2.png"
     ],
     "publish": {
       "provider": "github",
@@ -56,6 +57,7 @@
       "repo": "FocusDAW-Mastering"
     },
     "win": {
+      "icon": "assets/logo-main2.png",
       "target": [
         "nsis"
       ]

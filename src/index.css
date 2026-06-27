@@ -197,3 +197,13 @@ body {
   background: var(--t-paperCtl, #cdbfa4);
   border-radius: 4px;
 }
+
+
+@keyframes dkblink {
+  0% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 1;
+  }
+}

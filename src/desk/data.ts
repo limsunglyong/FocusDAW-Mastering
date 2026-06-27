@@ -93,9 +93,9 @@ export type EqPreset = { color: string; desc: string; f: number[]; g: number[]; 
 
 export const EQPRESETS: Record<string, EqPreset> = {
   Normal: { color: '#6f6657', desc: 'Flat reference', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
-  Pop: { color: '#e0568f', desc: 'Bright vocal lift', f: [80, 300, 1200, 5000, 12000], g: [2, -2, 0, 3, 4], q: [0.71, 1.2, 1.0, 1.0, 0.71] },
-  Dance: { color: '#3fb6d6', desc: 'Big low & air', f: [60, 250, 900, 4500, 13000], g: [5, -1, -2, 2, 5], q: [0.71, 1.4, 1.0, 1.0, 0.71] },
-  Classic: { color: '#c79a3f', desc: 'Warm & smooth', f: [70, 220, 1000, 3500, 11000], g: [1, 1, 0, -1, 2], q: [0.71, 0.9, 1.0, 1.0, 0.71] },
+  Pop: { color: '#e0568f', desc: 'Bright vocal lift', f: [57, 126, 300, 4400, 17100], g: [6.2, 7.4, 6.6, 5.0, 4.0], q: [0.7, 1.7, 1.3, 1.0, 0.7] },
+  Dance: { color: '#3fb6d6', desc: 'Big low & air', f: [66, 120, 300, 9000, 15700], g: [9.6, 12.0, 6.8, 1.6, 12.0], q: [0.7, 0.9, 1.3, 1.0, 0.7] },
+  Classic: { color: '#c79a3f', desc: 'Warm & smooth', f: [37, 134, 1900, 3800, 7300], g: [-1.2, 2.4, 3.1, 4.5, 1.1], q: [0.7, 0.9, 1.0, 1.0, 0.7] },
   User: { color: '#9a6fd0', desc: 'Your settings', f: [60, 250, 1000, 4000, 12000], g: [0, -3, 0, 1, 4], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
 };
 
@@ -146,6 +146,7 @@ export type DeskState = {
   eqAdvanced: boolean;
   enabled: Record<ModId, boolean>;
   vals: Vals;
+  lastActivePresetName?: string;
 };
 
 export const DEFAULT_STATE: DeskState = {
@@ -154,6 +155,7 @@ export const DEFAULT_STATE: DeskState = {
   openMenu: null,
   eqAdvanced: false,
   enabled: { input: true, pre: true, spectral: true, dynamics: true, stereo: true, loudness: true, export: true },
+  lastActivePresetName: 'Normal',
   vals: {
     'input.source': 'Files', 'input.bit': '24', 'input.rate': '48k', 'input.scope': 'Sub Folder', 'input.normimp': false,
     'pre.denoise': false, 'pre.noiseDepth': '2', 'pre.denoiseAmt': 35, 'pre.fadein': 20, 'pre.fadeout': 600, 'pre.lufs': -14, 'pre.tp': -1, 'pre.rms': -12,

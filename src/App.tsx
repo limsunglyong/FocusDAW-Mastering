@@ -36,12 +36,20 @@ export default function App() {
   const processingCurrentName = useAppStore((s) => s.processingCurrentName);
   const processingDone = useAppStore((s) => s.processingDone);
   const processingTotal = useAppStore((s) => s.processingTotal);
+  const userPresets = useAppStore((s) => s.userPresets);
+  const activeUserPresetIdx = useAppStore((s) => s.activeUserPresetIdx);
+  const lastActivePresetName = useAppStore((s) => s.lastActivePresetName);
+  const initUserPresets = useAppStore((s) => s.initUserPresets);
 
   const [dragOver, setDragOver] = useState(false);
 
+  useEffect(() => {
+    void initUserPresets();
+  }, [initUserPresets]);
+
   const view = useMemo(
-    () => computeView({ open, curFile, openMenu, eqAdvanced, enabled, vals }, theme, files),
-    [open, curFile, openMenu, eqAdvanced, enabled, vals, theme, files],
+    () => computeView({ open, curFile, openMenu, eqAdvanced, enabled, vals, userPresets, activeUserPresetIdx, lastActivePresetName } as any, theme, files),
+    [open, curFile, openMenu, eqAdvanced, enabled, vals, theme, files, userPresets, activeUserPresetIdx, lastActivePresetName],
   );
 
   const onDrop = useCallback(

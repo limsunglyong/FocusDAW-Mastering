@@ -10,7 +10,7 @@ import { buildQueueFileFromHeader, applyDecodedMeta, markLufsFailed, type QueueF
 import { previewEngine, type PreviewParams } from '../audio/previewEngine';
 import { resampleAudioBuffer, sampleRateFromInputRate } from '../audio/resample';
 import { analyzePre, type PreAnalysis } from '../audio/preAnalysis';
-import { denoiseBuffer, denoiseKeyOf } from '../audio/denoise';
+import { denoiseBuffer, denoiseKeyOf, getDenoiseRecommendation } from '../audio/denoise';
 
 type AppState = DeskState & {
   theme: ThemeName;
@@ -45,11 +45,20 @@ type AppState = DeskState & {
   processingDone: number;
   processingTotal: number;
 
+  // v0.4.0: User EQ Presets State
+  userPresets: { name: string; f: number[]; g: number[]; q: number[] }[];
+  activeUserPresetIdx: number;
+  lastActivePresetName: string;
+
   setTheme: (t: ThemeName) => void;
   setOpen: (i: number) => void;
   toggleEnabled: (id: ModId) => void;
   setVal: (fk: string, v: number | string | boolean) => void;
   applyPreset: (name: string) => void;
+  recallUserPreset: (idx: number) => void;
+  saveUserPreset: (idx: number) => void;
+  renameUserPreset: (idx: number, name: string) => void;
+  initUserPresets: () => Promise<void>;
   setEqNode: (n: number, f: number, g: number) => void;
   toggleAdv: () => void;
   toggleMenu: (name: string) => void;
@@ -117,7 +126,10 @@ function denoiseActive(s: AppState): boolean {
 }
 function currentDenoiseKey(s: AppState): string {
   const rate = sampleRateFromInputRate(s.vals['input.rate']);
-  return denoiseKeyOf(rate, String(s.vals['pre.noiseDepth']), Number(s.vals['pre.denoiseAmt']) || 0);
+  const file = s.files[s.curFile];
+  const depth = file?.noiseDepth !== undefined ? String(file.noiseDepth) : String(s.vals['pre.noiseDepth']);
+  const amt = file?.denoiseAmt !== undefined ? Number(file.denoiseAmt) : Number(s.vals['pre.denoiseAmt']);
+  return denoiseKeyOf(rate, depth, amt);
 }
 
 let originalSelectionResumeSeq = 0;
@@ -249,6 +261,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   processingCurrentName: '',
   processingDone: 0,
   processingTotal: 0,
+  userPresets: [
+    { name: 'User 1', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
+    { name: 'User 2', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
+    { name: 'User 3', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
+    { name: 'User 4', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
+    { name: 'User 5', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] }
+  ],
+  activeUserPresetIdx: -1,
+  lastActivePresetName: 'Normal',
 
   setTheme: (t) => { applyTheme(t); set({ theme: t }); },
   setOpen: (i) => {
@@ -270,8 +291,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       set((s) => {
         const extra = /^spectral\.[fgq]\d/.test(fk) ? { 'spectral.preset': 'User' } : null;
+        let activeUserPresetIdx = s.activeUserPresetIdx;
+        if (extra && s.vals['spectral.preset'] !== 'User') {
+          activeUserPresetIdx = -1;
+        }
         const vals = { ...s.vals, [fk]: v, ...(extra || {}) };
-        return { vals };
+        let files = s.files;
+        if (fk === 'pre.noiseDepth' || fk === 'pre.denoiseAmt') {
+          files = s.files.map((f, idx) => {
+            if (idx === s.curFile) {
+              const patch: Partial<QueueFile> = {};
+              if (fk === 'pre.noiseDepth') patch.noiseDepth = String(v);
+              if (fk === 'pre.denoiseAmt') patch.denoiseAmt = Number(v);
+              return { ...f, ...patch };
+            }
+            return f;
+          });
+        }
+        return { vals, files, activeUserPresetIdx };
       });
       get().syncPreviewParams();
       // v0.2.28: Denoise 관련 파라미터는 유효 버퍼를 재계산해야 하므로 디바운스 갱신.
@@ -281,18 +318,103 @@ export const useAppStore = create<AppState>((set, get) => ({
   applyPreset: (name) =>
     {
       set((s) => {
-      const p = EQPRESETS[name];
-      if (!p) return {};
-      const patch: Record<string, number | string> = { 'spectral.preset': name };
-      for (let n = 0; n < 5; n++) { patch['spectral.f' + n] = p.f[n]; patch['spectral.g' + n] = p.g[n]; patch['spectral.q' + n] = p.q[n]; }
-      return { vals: { ...s.vals, ...patch } };
+        if (name === 'User') {
+          return { vals: { ...s.vals, 'spectral.preset': 'User' }, activeUserPresetIdx: -1 };
+        }
+        const p = EQPRESETS[name];
+        if (!p) return {};
+        const patch: Record<string, number | string> = { 'spectral.preset': name };
+        for (let n = 0; n < 5; n++) { patch['spectral.f' + n] = p.f[n]; patch['spectral.g' + n] = p.g[n]; patch['spectral.q' + n] = p.q[n]; }
+        return { vals: { ...s.vals, ...patch }, activeUserPresetIdx: -1, lastActivePresetName: name };
       });
       get().syncPreviewParams();
     },
 
+  recallUserPreset: (idx) => {
+    const p = get().userPresets[idx];
+    if (!p) return;
+    set((state) => {
+      const patch: Record<string, number | string> = { 'spectral.preset': 'User' };
+      for (let n = 0; n < 5; n++) {
+        patch['spectral.f' + n] = p.f[n];
+        patch['spectral.g' + n] = p.g[n];
+        patch['spectral.q' + n] = p.q[n];
+      }
+      return { vals: { ...state.vals, ...patch }, activeUserPresetIdx: idx, lastActivePresetName: p.name };
+    });
+    get().syncPreviewParams();
+  },
+
+  saveUserPreset: (idx) => {
+    set((state) => {
+      const currentPreset = state.userPresets[idx];
+      if (!currentPreset) return {};
+      const f: number[] = [];
+      const g: number[] = [];
+      const q: number[] = [];
+      for (let n = 0; n < 5; n++) {
+        f.push(Number(state.vals['spectral.f' + n]));
+        g.push(Number(state.vals['spectral.g' + n]));
+        q.push(Number(state.vals['spectral.q' + n]));
+      }
+      const updatedPresets = state.userPresets.map((p, i) =>
+        i === idx ? { ...p, f, g, q } : p
+      );
+      
+      // Persist to Disk & LocalStorage
+      void window.focusdaw?.saveUserPresets?.(updatedPresets);
+      localStorage.setItem('user_presets', JSON.stringify(updatedPresets));
+
+      return { userPresets: updatedPresets, activeUserPresetIdx: idx, lastActivePresetName: currentPreset.name };
+    });
+  },
+
+  renameUserPreset: (idx, name) => {
+    set((state) => {
+      const updatedPresets = state.userPresets.map((p, i) =>
+        i === idx ? { ...p, name } : p
+      );
+      
+      // Persist to Disk & LocalStorage
+      void window.focusdaw?.saveUserPresets?.(updatedPresets);
+      localStorage.setItem('user_presets', JSON.stringify(updatedPresets));
+
+      const isCurrentActive = state.activeUserPresetIdx === idx;
+      const extraPatch = isCurrentActive ? { lastActivePresetName: name } : {};
+
+      return { userPresets: updatedPresets, ...extraPatch };
+    });
+  },
+
+  initUserPresets: async () => {
+    try {
+      let presets = await window.focusdaw?.loadUserPresets?.();
+      if (!presets) {
+        const local = localStorage.getItem('user_presets');
+        if (local) {
+          presets = JSON.parse(local);
+        }
+      }
+      if (presets && Array.isArray(presets) && presets.length === 5) {
+        set({ userPresets: presets });
+      }
+    } catch (err) {
+      console.error('Error initializing user presets:', err);
+    }
+  },
+
   setEqNode: (n, f, g) =>
     {
-      set((s) => ({ vals: { ...s.vals, ['spectral.f' + n]: f, ['spectral.g' + n]: g, 'spectral.band': String(n + 1), 'spectral.preset': 'User' } }));
+      set((s) => {
+        let activeUserPresetIdx = s.activeUserPresetIdx;
+        if (s.vals['spectral.preset'] !== 'User') {
+          activeUserPresetIdx = -1;
+        }
+        return {
+          vals: { ...s.vals, ['spectral.f' + n]: f, ['spectral.g' + n]: g, 'spectral.band': String(n + 1), 'spectral.preset': 'User' },
+          activeUserPresetIdx
+        };
+      });
       get().syncPreviewParams();
     },
 
@@ -306,7 +428,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     previewEngine.stop();
     previewEngine.setLoop(false, 0, 0);
     set({ isOriginalPlaying: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
-    set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile - 1 + s.files.length) % s.files.length }));
+    set((s) => {
+      if (s.files.length === 0) return {};
+      const nextIdx = (s.curFile - 1 + s.files.length) % s.files.length;
+      const file = s.files[nextIdx];
+      const vals = { ...s.vals };
+      if (file) {
+        vals['pre.noiseDepth'] = file.noiseDepth ?? '2';
+        vals['pre.denoiseAmt'] = file.denoiseAmt ?? 35;
+      }
+      return { curFile: nextIdx, vals };
+    });
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
     prioritizeSelectedDecode();
   },
@@ -316,7 +448,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     previewEngine.stop();
     previewEngine.setLoop(false, 0, 0);
     set({ isOriginalPlaying: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
-    set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile + 1) % s.files.length }));
+    set((s) => {
+      if (s.files.length === 0) return {};
+      const nextIdx = (s.curFile + 1) % s.files.length;
+      const file = s.files[nextIdx];
+      const vals = { ...s.vals };
+      if (file) {
+        vals['pre.noiseDepth'] = file.noiseDepth ?? '2';
+        vals['pre.denoiseAmt'] = file.denoiseAmt ?? 35;
+      }
+      return { curFile: nextIdx, vals };
+    });
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
     prioritizeSelectedDecode();
   },
@@ -326,7 +468,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     previewEngine.stop();
     previewEngine.setLoop(false, 0, 0);
     set({ isOriginalPlaying: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
-    set((s) => (i >= 0 && i < s.files.length ? { curFile: i } : {}));
+    set((s) => {
+      if (i < 0 || i >= s.files.length) return {};
+      const file = s.files[i];
+      const vals = { ...s.vals };
+      if (file) {
+        vals['pre.noiseDepth'] = file.noiseDepth ?? '2';
+        vals['pre.denoiseAmt'] = file.denoiseAmt ?? 35;
+      }
+      return { curFile: i, vals };
+    });
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
     prioritizeSelectedDecode();
   },
@@ -353,6 +504,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => {
       const wasEmpty = s.files.length === 0;
       const files = [...s.files, ...added];
+      const curFileIdx = wasEmpty && added.length ? s.files.length : Math.min(s.curFile, Math.max(0, files.length - 1));
+      const firstFile = files[curFileIdx];
+      const vals = { ...s.vals };
+      if (wasEmpty && firstFile) {
+        vals['pre.noiseDepth'] = firstFile.noiseDepth ?? '2';
+        vals['pre.denoiseAmt'] = firstFile.denoiseAmt ?? 35;
+      }
       return {
         files,
         importing: false,
@@ -361,7 +519,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         importCurrentName: '',
         importError: errors.length ? errors.join('\n') : null,
         // 빈 큐였다면 첫 추가 파일을 선택, 아니면 현재 선택 유지(범위 보정)
-        curFile: wasEmpty && added.length ? s.files.length : Math.min(s.curFile, Math.max(0, files.length - 1)),
+        curFile: curFileIdx,
+        vals,
       };
     });
     // 백그라운드 LUFS 측정 등록 + 현재 선택 파일 우선 디코딩
@@ -444,7 +603,35 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const analysis = await analyzePre(file.id, key, buffer);
       if (seq !== preAnalysisSeq) return;
-      set({ preAnalysis: analysis });
+
+      const rec = getDenoiseRecommendation(analysis.snrDb, analysis.floorDb);
+      let autoApplied = false;
+
+      set((s) => {
+        const files = s.files.map((f) => {
+          if (f.id === file.id) {
+            const patch: Partial<QueueFile> = { denoiseRecommended: rec };
+            if (!f.denoiseRecommended) {
+              patch.noiseDepth = rec.depth;
+              patch.denoiseAmt = rec.amount;
+              autoApplied = true;
+            }
+            return { ...f, ...patch };
+          }
+          return f;
+        });
+        const vals = { ...s.vals };
+        const currentFile = files[s.curFile];
+        if (currentFile && currentFile.id === file.id && autoApplied) {
+          vals['pre.noiseDepth'] = rec.depth;
+          vals['pre.denoiseAmt'] = rec.amount;
+        }
+        return { preAnalysis: analysis, files, vals };
+      });
+
+      if (autoApplied) {
+        get().refreshDenoise();
+      }
     } catch (e) {
       // 분석 실패 시 절차적 워터폴 폴백 유지(원인 확인용 로그)
       console.warn('[Pre] STFT 워터폴 분석 실패 — 절차적 폴백 사용:', e);
@@ -474,11 +661,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const st = get();
     const file = st.files.find((f) => f.id === id);
     if (!file) throw new Error('File is no longer in the queue.');
-    const key = currentDenoiseKey(st);
+    const depth = file.noiseDepth !== undefined ? String(file.noiseDepth) : String(st.vals['pre.noiseDepth']);
+    const amt = file.denoiseAmt !== undefined ? Number(file.denoiseAmt) : Number(st.vals['pre.denoiseAmt']);
+    const key = denoiseKeyOf(processing.sampleRate, depth, amt);
     if (file.denoisedBuffer && file.denoiseKey === key) return file.denoisedBuffer;
 
-    const depth = String(st.vals['pre.noiseDepth']);
-    const amt = Number(st.vals['pre.denoiseAmt']) || 0;
     set({ processingAudio: true, processingMessage: 'Denoising', processingCurrentName: file.name, processingDone: 0, processingTotal: 1 });
     try {
       const denoised = await denoiseBuffer(processing, depth, amt);

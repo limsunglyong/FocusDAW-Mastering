@@ -11,6 +11,7 @@ export interface NoiseReductionOptions {
   thresholdDb: number;
   amount: number;
   floor: number;
+  oversubFactor?: number;
 }
 
 function dbToAmp(db: number): number {
@@ -62,6 +63,7 @@ function processChannel(
   const amount = clamp01(options.amount);
   const floor = clamp01(options.floor);
   const thresholdDb = Math.max(0, options.thresholdDb);
+  const oversub = options.oversubFactor !== undefined ? options.oversubFactor : 1.0;
   const progressEvery = Math.max(1, Math.floor(Math.max(1, frames) / 100));
 
   for (let f = 0; f < frames; f++) {
@@ -81,7 +83,7 @@ function processChannel(
       const profileDb = print.profileDb[Math.min(k, print.profileDb.length - 1)];
       if (db > profileDb + thresholdDb) continue;
 
-      const subtraction = (noiseAmp[k] / mag) * amount;
+      const subtraction = (noiseAmp[k] / mag) * amount * oversub;
       const gain = Math.max(floor, 1 - subtraction);
       re[k] *= gain;
       im[k] *= gain;

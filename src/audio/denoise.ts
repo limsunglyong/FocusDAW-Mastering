@@ -17,12 +17,34 @@ export function depthToOptions(depth: string, amtPct: number): NoiseReductionOpt
   const t = Math.max(0, Math.min(1, amtPct / 100));
   switch (depth) {
     case '1': // Original — 가벼움
-      return { thresholdDb: 6, amount: 0.6 * t, floor: 0.2 };
+      return { thresholdDb: 6, amount: 0.6 * t, floor: 0.2, oversubFactor: 2.0 };
     case '3': // Deep — 강함
-      return { thresholdDb: 20, amount: 1.0 * t, floor: 0.04 };
+      return { thresholdDb: 20, amount: 1.0 * t, floor: 0.04, oversubFactor: 3.0 };
     default: // '2' Normal — 표준
-      return { thresholdDb: 12, amount: 0.85 * t, floor: 0.1 };
+      return { thresholdDb: 12, amount: 0.85 * t, floor: 0.1, oversubFactor: 2.5 };
   }
+}
+
+/**
+ * 분석된 SNR 및 노이즈 플로어를 기반으로 최적의 Denoise 파라미터를 추천한다.
+ */
+export function getDenoiseRecommendation(snrDb: number, _floorDb: number) {
+  if (snrDb >= 100) {
+    return { depth: '1', amount: 5, text: 'Very Clean', color: '#4ea5ff' }; // Blue
+  }
+  if (snrDb >= 90) {
+    return { depth: '1', amount: 10, text: 'Clean', color: '#4ea5ff' }; // Blue
+  }
+  if (snrDb >= 80) {
+    return { depth: '1', amount: 25, text: 'Light Clean', color: '#46d36e' }; // Green
+  }
+  if (snrDb >= 60) {
+    return { depth: '2', amount: 10, text: 'Moderate Noise', color: '#a2db34' }; // Yellow-green
+  }
+  if (snrDb >= 40) {
+    return { depth: '2', amount: 30, text: 'Heavy Noise', color: '#ff983d' }; // Orange
+  }
+  return { depth: '3', amount: 50, text: 'Extreme Noise', color: '#ff5a5a' }; // Red
 }
 
 /** 캐시 무효화 키(rate+depth+amt). 동일 키면 재계산 생략. */

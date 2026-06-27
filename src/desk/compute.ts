@@ -101,7 +101,49 @@ function eqBandIdx(vals: Record<string, any>): number {
   return Math.max(0, Math.min(4, parseInt(vals['spectral.band'] || '1', 10) - 1));
 }
 
-export function computeView(state: DeskState, themeName: ThemeName, files: QueueFile[] = []) {
+function checkEqEdited(
+  vals: Record<string, any>,
+  presetName: string,
+  activeUserPresetIdx: number | undefined,
+  userPresets: any[] | undefined
+): boolean {
+  let refF: number[];
+  let refG: number[];
+  let refQ: number[];
+
+  if (presetName !== 'User' && EQPRESETS[presetName]) {
+    const p = EQPRESETS[presetName];
+    refF = p.f;
+    refG = p.g;
+    refQ = p.q;
+  } else {
+    if (activeUserPresetIdx !== undefined && activeUserPresetIdx >= 0 && userPresets && userPresets[activeUserPresetIdx]) {
+      const p = userPresets[activeUserPresetIdx];
+      refF = p.f;
+      refG = p.g;
+      refQ = p.q;
+    } else {
+      const p = EQPRESETS.User;
+      refF = p.f;
+      refG = p.g;
+      refQ = p.q;
+    }
+  }
+
+  for (let n = 0; n < 5; n++) {
+    const fVal = Number(vals['spectral.f' + n]);
+    const gVal = Number(vals['spectral.g' + n]);
+    const qVal = Number(vals['spectral.q' + n]);
+
+    if (Math.abs(fVal - refF[n]) > 0.001) return true;
+    if (Math.abs(gVal - refG[n]) > 0.001) return true;
+    if (Math.abs(qVal - refQ[n]) > 0.001) return true;
+  }
+
+  return false;
+}
+
+export function computeView(state: DeskState & { userPresets?: any[]; activeUserPresetIdx?: number }, themeName: ThemeName, files: QueueFile[] = []) {
   const pal: any = THEMES[themeName] || THEMES.Teal;
   const accent = pal.aMain;
   const { open, vals, enabled } = state;
@@ -224,7 +266,15 @@ export function computeView(state: DeskState, themeName: ThemeName, files: Queue
 
   let eqColumns: any[] = [], eqPresetCards: any[] = [];
   const eqPresetName = String(vals['spectral.preset'] || 'Normal');
-  const eqPresetColor = (EQPRESETS[eqPresetName] || EQPRESETS.Normal).color;
+  const effPresetName = (eqPresetName === 'User' && (state.activeUserPresetIdx === undefined || state.activeUserPresetIdx < 0))
+    ? (state.lastActivePresetName || 'Normal')
+    : eqPresetName;
+  const eqPresetColor = (EQPRESETS[effPresetName] || EQPRESETS.User).color;
+  const isEqEdited = checkEqEdited(vals, effPresetName, state.activeUserPresetIdx, state.userPresets);
+  let eqPresetNameDisplay = effPresetName;
+  if (eqPresetName === 'User' && state.activeUserPresetIdx !== undefined && state.activeUserPresetIdx >= 0 && state.userPresets && state.userPresets[state.activeUserPresetIdx]) {
+    eqPresetNameDisplay = state.userPresets[state.activeUserPresetIdx].name;
+  }
 
   let waterfall: any[] = [], fftInfo: any[] = [], noiseInfo: any[] = [];
   let eqLine = '', eqArea = '', eqDots: any[] = [], eqAxis: any[] = [];
@@ -359,7 +409,11 @@ export function computeView(state: DeskState, themeName: ThemeName, files: Queue
     genCtrl: id !== 'export' && id !== 'spectral',
     isInput, isPre, isSpectral, isDynamics, isStereo, isLoudness, isExport,
     controls, metaFields, eqColumns, eqAxis,
-    presetName: eqPresetName, presetNameUpper: eqPresetName.toUpperCase(), presetColor: eqPresetColor,
+    presetName: eqPresetNameDisplay, presetNameUpper: eqPresetNameDisplay.toUpperCase(), presetColor: eqPresetColor,
+    isUserActive: eqPresetName === 'User',
+    isEqEdited,
+    userPresets: state.userPresets || [],
+    activeUserPresetIdx: state.activeUserPresetIdx ?? -1,
     eqShowPresets: !state.eqAdvanced, eqAdvanced: state.eqAdvanced,
     advLabel: state.eqAdvanced ? 'Presets ▴' : 'Advanced ▾',
     advBtnStyle: `font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.04em;padding:6px 13px;border-radius:7px;cursor:pointer;border:none;` + (state.eqAdvanced ? `color:${pal.aInk};background:${accent};` : `color:${pal.pInk};background:${pal.paperCtl};`),

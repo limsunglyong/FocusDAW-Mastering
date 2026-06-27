@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 const DEV_SERVER_URL = process.env.ELECTRON_START_URL || 'http://localhost:5173';
 const isDev = !app.isPackaged;
@@ -13,6 +14,8 @@ let mainWindow = null;
 let baseWindowSize = null;
 
 function createWindow() {
+  // v0.4.2: Register app icon (assets/logo-main2.png)
+  const iconPath = path.join(__dirname, '..', 'assets', 'logo-main2.png');
   mainWindow = new BrowserWindow({
     width: BASE_W,
     height: BASE_H,
@@ -26,6 +29,7 @@ function createWindow() {
     fullscreenable: false,
     backgroundColor: '#0c0f12',
     show: false,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -83,6 +87,31 @@ ipcMain.on('win:transport', (_e, payload) => {
   if (!baseWindowSize) baseWindowSize = mainWindow.getSize();
   const [width, height] = baseWindowSize;
   mainWindow.setSize(width, height + (open ? TRANSPORT_H : 0));
+});
+
+// v0.4.0: User EQ Preset disk storage handlers (cache-proof)
+ipcMain.handle('win:load-user-presets', async () => {
+  const filePath = path.join(app.getPath('userData'), 'user-presets.json');
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.error('Failed to load user presets:', err);
+  }
+  return null;
+});
+
+ipcMain.handle('win:save-user-presets', async (_event, presets) => {
+  const filePath = path.join(app.getPath('userData'), 'user-presets.json');
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(presets, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('Failed to save user presets:', err);
+    return false;
+  }
 });
 
 app.whenReady().then(() => {

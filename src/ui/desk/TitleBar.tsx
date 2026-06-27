@@ -1,19 +1,15 @@
 // FocusDAW Mastering Desk v0.1.1 (Phase 0 UI) - 타이틀바 (원본 dc.html 이식)
-// Project/Edit/Help 메뉴(원본) + Theme 메뉴(8테마 전환) + 레이트/포맷 칩 + 윈도우 컨트롤(IPC).
+// Project/Edit/Help 메뉴(원본) + 레이트/포맷 칩 + 윈도우 컨트롤(IPC).
 import { useEffect } from 'react';
 import logoUrl from '../../../assets/logo.png';
 import { css } from '../../desk/css';
 import { useAppStore } from '../../store/appStore';
 import { openAudioFilePicker } from '../../audio/filePicker';
-import { THEME_NAMES } from '../../theme/themes';
 import type { DeskView } from '../../desk/compute';
 
 export function TitleBar({ view }: { view: DeskView }) {
-  const openMenu = useAppStore((s) => s.openMenu);
   const toggleMenu = useAppStore((s) => s.toggleMenu);
   const closeMenu = useAppStore((s) => s.closeMenu);
-  const setTheme = useAppStore((s) => s.setTheme);
-  const theme = useAppStore((s) => s.theme);
   const transportOpen = useAppStore((s) => s.transportOpen);
   const toggleTransport = useAppStore((s) => s.toggleTransport);
   const win = window.focusdaw?.win;
@@ -35,12 +31,32 @@ export function TitleBar({ view }: { view: DeskView }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // 메뉴 항목 동작 (현재 연결된 항목만 처리, 나머지는 후속 Phase)
+  // 메뉴 항목 동작
   const onMenuItem = async (label: string) => {
     closeMenu();
-    if (label === 'Import Files…') {
+    if (label === 'New Session') {
+      useAppStore.getState().clearFiles();
+    } else if (label === 'Open') {
+      const picked = await openAudioFilePicker({ directory: false });
+      if (picked.length) {
+        useAppStore.getState().clearFiles();
+        await useAppStore.getState().loadFiles(picked);
+      }
+    } else if (label === 'Import Files...' || label === 'Import Files…') {
       const picked = await openAudioFilePicker({ directory: false });
       if (picked.length) await useAppStore.getState().loadFiles(picked);
+    } else if (label === 'Import Folder') {
+      const recursive = useAppStore.getState().vals['input.scope'] === 'Sub Folder';
+      const picked = await openAudioFilePicker({ directory: true, recursive });
+      if (picked.length) await useAppStore.getState().loadFiles(picked);
+    } else if (label === 'Preference (Setup)') {
+      window.focusdaw?.win?.openPreferences?.();
+    } else if (label === 'About') {
+      window.focusdaw?.win?.openAbout?.();
+    } else if (label === 'Manual') {
+      window.focusdaw?.win?.openManual?.();
+    } else if (label === 'Quit') {
+      window.focusdaw?.win?.close?.();
     }
   };
 
@@ -71,21 +87,6 @@ export function TitleBar({ view }: { view: DeskView }) {
             )}
           </div>
         ))}
-
-        {/* Theme menu (8 색 테마) */}
-        <div style={{ position: 'relative' }}>
-          <div onClick={() => toggleMenu('Theme')} style={css(`font-family:'Archivo';font-size:11.5px;font-weight:500;color:${openMenu === 'Theme' ? '#e6f1f4' : '#9aa7af'};padding:5px 10px;border-radius:6px;cursor:pointer;background:${openMenu === 'Theme' ? '#283038' : 'transparent'};white-space:nowrap`)}>Theme</div>
-          {openMenu === 'Theme' && (
-            <div style={{ position: 'absolute', top: 30, left: 0, minWidth: 150, background: '#20262d', border: '1px solid #323b44', borderRadius: 8, boxShadow: '0 14px 34px -10px rgba(0,0,0,0.7)', padding: 5, zIndex: 30 }}>
-              {THEME_NAMES.map((name) => (
-                <div key={name} onClick={() => { setTheme(name); closeMenu(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Archivo', fontSize: 11.5, color: name === theme ? view.accent : '#cdd8de', padding: '7px 9px', borderRadius: 5, cursor: 'pointer' }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 3, background: view.pal.aMain, flex: 'none' }} />
-                  {name}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Transport 패널 토글 (v0.2.11) */}
         <div onClick={() => toggleTransport()} style={css(`font-family:'Archivo';font-size:11.5px;font-weight:500;color:${transportOpen ? view.accent : '#9aa7af'};padding:5px 10px;border-radius:6px;cursor:pointer;background:${transportOpen ? '#283038' : 'transparent'};white-space:nowrap`)}>Transport(F4)</div>

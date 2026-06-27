@@ -15,6 +15,11 @@ declare global {
         close: () => void;
         /** v0.2.14: Transport 패널 펼침/접힘 시 최초 실제 창 폭을 유지하고 높이만 변경. */
         setTransport: (open: boolean) => void;
+        openPreferences?: () => void;
+        openAbout?: () => void;
+        openManual?: () => void;
+        setTheme?: (theme: string) => void;
+        onThemeUpdated?: (callback: (theme: string) => void) => () => void;
       };
       // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
       loadUserPresets?: () => Promise<any>;

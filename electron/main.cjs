@@ -67,19 +67,35 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
-
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
-ipcMain.on('win:minimize', () => mainWindow?.minimize());
-ipcMain.on('win:toggle-maximize', () => {
-  if (!mainWindow) return;
-  if (mainWindow.isMaximized()) mainWindow.unmaximize();
-  else mainWindow.maximize();
+let preferencesWindow = null;
+const PREFERENCES_W = 900;
+const PREFERENCES_H = 480;
+let aboutWindow = null;
+let manualWindow = null;
+
+
+ipcMain.on('win:minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
 });
-ipcMain.on('win:close', () => mainWindow?.close());
+ipcMain.on('win:toggle-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  if (win.isMaximized()) win.unmaximize();
+  else win.maximize();
+});
+ipcMain.on('win:close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win === mainWindow) {
+    app.quit();
+  } else {
+    win?.close();
+  }
+});
 // v0.2.14: 최초 실제 outer 크기를 기준으로 width는 고정하고 height만 변경한다.
 ipcMain.on('win:transport', (_e, payload) => {
   if (!mainWindow) return;
@@ -87,6 +103,169 @@ ipcMain.on('win:transport', (_e, payload) => {
   if (!baseWindowSize) baseWindowSize = mainWindow.getSize();
   const [width, height] = baseWindowSize;
   mainWindow.setSize(width, height + (open ? TRANSPORT_H : 0));
+});
+
+ipcMain.on('win:open-preferences', (event) => {
+  if (preferencesWindow) {
+    preferencesWindow.focus();
+    return;
+  }
+
+  let x = undefined;
+  let y = undefined;
+  const parentWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  if (parentWindow) {
+    const parentBounds = parentWindow.getBounds();
+    x = Math.round(parentBounds.x + (parentBounds.width - PREFERENCES_W) / 2);
+    y = Math.round(parentBounds.y + (parentBounds.height - PREFERENCES_H) / 2);
+  }
+
+  const iconPath = path.join(__dirname, '..', 'assets', 'logo-main2.png');
+  preferencesWindow = new BrowserWindow({
+    width: PREFERENCES_W,
+    height: PREFERENCES_H,
+    x: x,
+    y: y,
+    parent: parentWindow || undefined,
+    modal: true,
+    frame: false,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    backgroundColor: '#c9c3b8',
+    show: false,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  preferencesWindow.once('ready-to-show', () => {
+    preferencesWindow?.show();
+  });
+
+  if (isDev) {
+    preferencesWindow.loadURL(DEV_SERVER_URL + '#preferences');
+  } else {
+    preferencesWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'preferences' });
+  }
+
+  preferencesWindow.on('closed', () => {
+    preferencesWindow = null;
+  });
+});
+
+ipcMain.on('win:open-about', () => {
+  if (aboutWindow) {
+    aboutWindow.focus();
+    return;
+  }
+
+  let x = undefined;
+  let y = undefined;
+  if (mainWindow) {
+    const parentBounds = mainWindow.getBounds();
+    x = Math.round(parentBounds.x + (parentBounds.width - 420) / 2);
+    y = Math.round(parentBounds.y + (parentBounds.height - 370) / 2);
+  }
+
+  aboutWindow = new BrowserWindow({
+    width: 420,
+    height: 370,
+    x: x,
+    y: y,
+    parent: mainWindow || undefined,
+    modal: true,
+    frame: false,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    backgroundColor: '#c9c3b8',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  aboutWindow.once('ready-to-show', () => {
+    aboutWindow?.show();
+  });
+
+  if (isDev) {
+    aboutWindow.loadURL(DEV_SERVER_URL + '#about');
+  } else {
+    aboutWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'about' });
+  }
+
+  aboutWindow.on('closed', () => {
+    aboutWindow = null;
+  });
+});
+
+ipcMain.on('win:open-manual', (event) => {
+  if (manualWindow) {
+    manualWindow.focus();
+    return;
+  }
+
+  const parentWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const width = 1100;
+  const height = 760;
+  let x;
+  let y;
+  if (parentWindow) {
+    const bounds = parentWindow.getBounds();
+    x = Math.round(bounds.x + (bounds.width - width) / 2);
+    y = Math.round(bounds.y + (bounds.height - height) / 2);
+  }
+
+  const iconPath = path.join(__dirname, '..', 'assets', 'logo-main2.png');
+  manualWindow = new BrowserWindow({
+    width,
+    height,
+    minWidth: 880,
+    minHeight: 620,
+    x,
+    y,
+    parent: parentWindow || undefined,
+    frame: false,
+    resizable: true,
+    maximizable: true,
+    fullscreenable: false,
+    backgroundColor: '#26374d',
+    show: false,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  manualWindow.once('ready-to-show', () => manualWindow?.show());
+
+  if (isDev) {
+    manualWindow.loadURL(DEV_SERVER_URL + '#manual');
+  } else {
+    manualWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'manual' });
+  }
+
+  manualWindow.on('closed', () => {
+    manualWindow = null;
+  });
+});
+
+ipcMain.on('win:set-theme', (event, themeName) => {
+  BrowserWindow.getAllWindows().forEach((win) => {
+    win.webContents.send('win:theme-updated', themeName);
+  });
 });
 
 // v0.4.0: User EQ Preset disk storage handlers (cache-proof)

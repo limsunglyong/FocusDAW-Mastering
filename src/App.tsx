@@ -12,9 +12,51 @@ import { TransportBar } from './ui/desk/TransportBar';
 import { Desk } from './ui/desk/Desk';
 import { DetailSheet } from './ui/desk/DetailSheet';
 import { TransportPanel } from './ui/desk/TransportPanel';
+import { PreferencesWindow } from './ui/desk/PreferencesWindow';
+import { AboutWindow } from './ui/desk/AboutWindow';
+import { ManualWindow } from './ui/desk/ManualWindow';
 import { Footer } from './ui/desk/Footer';
 
 export default function App() {
+  const isPreferences = window.location.hash === '#preferences' || window.location.search.includes('window=preferences');
+  const isAbout = window.location.hash === '#about' || window.location.search.includes('window=about');
+  const isManual = window.location.hash === '#manual' || window.location.search.includes('window=manual');
+
+  const theme = useAppStore((s) => s.theme);
+
+  // Apply theme dynamically to body or document even in sub-windows
+  useEffect(() => {
+    import('./theme/themes').then(({ applyTheme }) => {
+      applyTheme(theme);
+    });
+  }, [theme]);
+
+  // Listen to broadcast theme changes
+  useEffect(() => {
+    const unsub = window.focusdaw?.win?.onThemeUpdated?.((t: string) => {
+      useAppStore.getState().setTheme(t as any);
+    });
+    return () => {
+      unsub?.();
+    };
+  }, []);
+
+  if (isPreferences) {
+    return <PreferencesWindow />;
+  }
+
+  if (isAbout) {
+    return <AboutWindow />;
+  }
+
+  if (isManual) {
+    return <ManualWindow />;
+  }
+
+  return <StudioDesk />;
+}
+
+function StudioDesk() {
   useKnobInteractions();
 
   const open = useAppStore((s) => s.open);
@@ -56,8 +98,6 @@ export default function App() {
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      // 폴더 드롭은 비동기(엔트리 순회). 엔트리 캡처는 동기로 시작됨.
-      // Root/Sub Folder 스코프에 따라 하위 폴더 포함 여부 결정(stale 방지 위해 store 직접 조회).
       const recursive = useAppStore.getState().vals['input.scope'] === 'Sub Folder';
       void audioFilesFromDataTransfer(e.dataTransfer, recursive).then((dropped) => {
         if (dropped.length) void loadFiles(dropped);
@@ -74,11 +114,9 @@ export default function App() {
   }, []);
 
   const onDragLeave = useCallback((e: React.DragEvent) => {
-    // 윈도우 밖으로 나갈 때만 해제 (자식 간 이동은 무시)
     if (e.relatedTarget === null) setDragOver(false);
   }, []);
 
-  // v0.2.14: Transport 패널 펼침/접힘 시 main에서 최초 실제 창 폭을 유지하고 높이만 변경.
   const prevTransportOpen = useRef(transportOpen);
   useEffect(() => {
     if (prevTransportOpen.current === transportOpen) return;

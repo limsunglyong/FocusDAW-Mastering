@@ -122,9 +122,9 @@ export const META: MetaDef[] = [
 export type FileItem = { name: string; size: string; fmt: string; dur: string; sr: string; depth: string; ch: string; lufs: string };
 
 export const MENUS: Record<string, [string, string][]> = {
-  Project: [['New Session', '⌘N'], ['Open…', '⌘O'], ['Save Preset', '⌘S'], ['Import Files…', '⌘I'], ['__div', ''], ['Render Batch', '⌘R'], ['Quit', '⌘Q']],
-  Edit: [['Undo', '⌘Z'], ['Redo', '⇧⌘Z'], ['__div', ''], ['Copy Chain', '⌘C'], ['Paste Chain', '⌘V'], ['Reset All Pan', ''], ['Bypass All', '⌘B'], ['__div', ''], ['Preferences (Setup)…', '⌘,']],
-  Help: [['Documentation', ''], ['Keyboard Shortcuts', '?'], ['__div', ''], ['Check for Updates…', ''], ['About FocusDAW', '']],
+  Project: [['New Session', '⌘N'], ['Open', '⌘O'], ['Save Session', '⌘S'], ['__div', ''], ['Import Files...', '⌘I'], ['Import Folder', ''], ['Quit', '⌘Q']],
+  Edit: [['Undo', '⌘Z'], ['Redo', '⇧⌘Z'], ['__div', ''], ['Preference (Setup)', '⌘,']],
+  Help: [['Manual', ''], ['__div', ''], ['Check for Updates...', ''], ['About', '']],
 };
 
 // 신호 흐름 리본 (좌→우 물결)

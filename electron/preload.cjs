@@ -27,6 +27,17 @@ contextBridge.exposeInMainWorld('focusdaw', {
     close: () => ipcRenderer.send('win:close'),
     // v0.2.14: Transport 패널 펼침/접힘 — main의 최초 실제 창 크기 기준
     setTransport: (open) => ipcRenderer.send('win:transport', { open }),
+    openPreferences: () => ipcRenderer.send('win:open-preferences'),
+    openAbout: () => ipcRenderer.send('win:open-about'),
+    openManual: () => ipcRenderer.send('win:open-manual'),
+    setTheme: (theme) => ipcRenderer.send('win:set-theme', theme),
+    onThemeUpdated: (callback) => {
+      const listener = (_event, theme) => callback(theme);
+      ipcRenderer.on('win:theme-updated', listener);
+      return () => {
+        ipcRenderer.removeListener('win:theme-updated', listener);
+      };
+    },
   },
   // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
   loadUserPresets: () => ipcRenderer.invoke('win:load-user-presets'),

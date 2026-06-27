@@ -13,6 +13,10 @@
 //   섹션 BYPASS: sectionDry=1, sectionWet=0
 import type { Vals, ModId } from '../desk/data';
 import type { AudioMeta } from './decoder';
+import {
+  DYN_XOVER_LOW, DYN_XOVER_HIGH, DYN_EXCITER_HP, DYN_KEYS,
+  ratioFromVal, dynThreshold, dynMakeup, dynAttack, dynRelease, exciterBlend, exciterDrive,
+} from './dynamics';
 
 type EnabledMap = Record<ModId, boolean>;
 
@@ -24,6 +28,13 @@ export type PreviewParams = {
 
 type SectionGain = { dry: GainNode; wet: GainNode };
 type StereoMatrix = { lToL: GainNode; rToL: GainNode; lToR: GainNode; rToR: GainNode };
+// v0.5.0 (Phase 4): 멀티밴드 Dynamics 노드 참조(실시간 갱신용)
+type DynGraph = {
+  bands: DynamicsCompressorNode[];   // [low, mid, high] per-band 컴프
+  bandGains: GainNode[];             // 밴드별 make-up gain
+  exciterShaper: WaveShaperNode;     // 고역 하모닉 셰이퍼
+  exciterGain: GainNode;             // 익사이터 블렌드 게인
+};
 
 type ActiveGraph = {
   source: AudioBufferSourceNode;
@@ -37,8 +48,7 @@ type ActiveGraph = {
   inputGain: GainNode;
   fade: GainNode | null;
   eqFilters: BiquadFilterNode[];
-  comp: DynamicsCompressorNode | null;
-  exciter: WaveShaperNode | null;
+  dyn: DynGraph | null;
   stereo: StereoMatrix | null;
   loudnessGain: GainNode | null;
   loudnessSat: WaveShaperNode | null;
@@ -55,12 +65,6 @@ const num = (v: unknown, fallback = 0) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 };
-
-function ratioFromVal(v: unknown): number {
-  if (v === '8:1') return 8;
-  if (v === '2:1') return 2;
-  return 4;
-}
 
 // amount<=0 이면 항등(identity) 커브를 만들어 사실상 bypass 가 되게 한다.
 function saturatorCurve(amount: number): Float32Array<ArrayBuffer> {
@@ -87,6 +91,19 @@ function makeSaturator(ctx: AudioContext, amount: number): WaveShaperNode {
   return shaper;
 }
 
+// v0.5.0 (Phase 4): Linkwitz-Riley 4차(24dB/oct) = Butterworth(Q=0.7071) 2단 cascade.
+// LR4 는 인접 대역 lowpass+highpass 합이 평탄(동위상)이라 3밴드 분할/합산에 적합.
+function makeLR4(ctx: AudioContext, type: 'lowpass' | 'highpass', freq: number, nodes: AudioNode[]): { input: BiquadFilterNode; output: BiquadFilterNode } {
+  const a = ctx.createBiquadFilter();
+  const b = ctx.createBiquadFilter();
+  a.type = b.type = type;
+  a.frequency.value = b.frequency.value = freq;
+  a.Q.value = b.Q.value = Math.SQRT1_2;
+  a.connect(b);
+  nodes.push(a, b);
+  return { input: a, output: b };
+}
+
 function setParam(p: AudioParam, value: number, ctx: AudioContext) {
   p.cancelScheduledValues(ctx.currentTime);
   p.setTargetAtTime(value, ctx.currentTime, RAMP);
@@ -105,11 +122,8 @@ function eqQ(vals: Vals, i: number): number {
   return i === 0 || i === 4 ? 0.71 : Math.max(0.2, num(vals[`spectral.q${i}`], 1));
 }
 
-function compThreshold(vals: Vals): number {
-  const avg = (num(vals['dynamics.low'], -4) + num(vals['dynamics.mid'], -2) + num(vals['dynamics.high'], -3)) / 3;
-  return Math.max(-40, Math.min(-1, avg * 3));
-}
-const exciterAmount = (vals: Vals) => (num(vals['dynamics.exciter']) / 100) * 0.22;
+// IV Dynamics 의 노브→DSP 파라미터 매핑은 ./dynamics 로 추출(단위 시험 대상). LR4 노드 빌드만 여기 둔다.
+
 const loudnessSatAmount = (vals: Vals) => (num(vals['loudness.sat']) / 100) * 0.5;
 
 function loudnessGainValue(params: PreviewParams): number {
@@ -395,23 +409,62 @@ export class PreviewEngine {
       return t;
     });
 
-    // IV Dynamics — compressor + exciter(항상 존재, off 시 항등 커브)
-    let comp: DynamicsCompressorNode | null = null;
-    let exciter: WaveShaperNode | null = null;
+    // IV Dynamics — Linkwitz-Riley 3밴드 멀티밴드 컴프 + 트랜지언트(어택/릴리즈) + 익사이터(고역 하모닉)  (v0.5.0 Phase 4)
+    let dyn: DynGraph | null = null;
     tail = wrapSection('dynamics', tail, (input) => {
-      const c = ctx.createDynamicsCompressor();
-      c.threshold.value = compThreshold(vals);
-      c.knee.value = 12;
-      c.ratio.value = ratioFromVal(vals['dynamics.ratio']);
-      c.attack.value = Math.max(0.002, 0.02 - num(vals['dynamics.transient']) * 0.0002);
-      c.release.value = 0.22;
-      const sat = makeSaturator(ctx, exciterAmount(vals));
-      input.connect(c);
-      c.connect(sat);
-      nodes.push(c, sat);
-      comp = c;
-      exciter = sat;
-      return sat;
+      // 3-way LR4 split: low=LP(f1), mid=HP(f1)·LP(f2), high=HP(f2)
+      const lowBand = makeLR4(ctx, 'lowpass', DYN_XOVER_LOW, nodes);
+      const midHp = makeLR4(ctx, 'highpass', DYN_XOVER_LOW, nodes);
+      const midLp = makeLR4(ctx, 'lowpass', DYN_XOVER_HIGH, nodes);
+      const highBand = makeLR4(ctx, 'highpass', DYN_XOVER_HIGH, nodes);
+      input.connect(lowBand.input);
+      input.connect(midHp.input);
+      midHp.output.connect(midLp.input);
+      input.connect(highBand.input);
+      const bandOut = [lowBand.output, midLp.output, highBand.output];
+
+      const ratio = ratioFromVal(vals['dynamics.ratio']);
+      const bands: DynamicsCompressorNode[] = [];
+      const bandGains: GainNode[] = [];
+      const bandSum = ctx.createGain();
+      nodes.push(bandSum);
+      for (let b = 0; b < 3; b++) {
+        const c = ctx.createDynamicsCompressor();
+        c.threshold.value = dynThreshold(num(vals[DYN_KEYS[b]]));
+        c.knee.value = 6;
+        c.ratio.value = ratio;
+        c.attack.value = dynAttack(vals, b);
+        c.release.value = dynRelease(vals, b);
+        const mk = ctx.createGain();
+        mk.gain.value = dynMakeup(num(vals[DYN_KEYS[b]]));
+        bandOut[b].connect(c);
+        c.connect(mk);
+        mk.connect(bandSum);
+        nodes.push(c, mk);
+        bands.push(c);
+        bandGains.push(mk);
+      }
+
+      // 출력 + 익사이터(밴드 합 → 고역 추출 → 하모닉 셰이퍼 → 블렌드) 병렬 가산
+      const dynOut = ctx.createGain();
+      bandSum.connect(dynOut);
+      const exHp = ctx.createBiquadFilter();
+      exHp.type = 'highpass';
+      exHp.frequency.value = DYN_EXCITER_HP;
+      exHp.Q.value = Math.SQRT1_2;
+      const exShaper = ctx.createWaveShaper();
+      exShaper.curve = saturatorCurve(exciterDrive(vals));
+      exShaper.oversample = '4x';
+      const exGain = ctx.createGain();
+      exGain.gain.value = exciterBlend(vals);
+      bandSum.connect(exHp);
+      exHp.connect(exShaper);
+      exShaper.connect(exGain);
+      exGain.connect(dynOut);
+      nodes.push(dynOut, exHp, exShaper, exGain);
+
+      dyn = { bands, bandGains, exciterShaper: exShaper, exciterGain: exGain };
+      return dynOut;
     });
 
     // V Stereo — width matrix(스테레오만), 모노는 항등 통과
@@ -453,7 +506,7 @@ export class PreviewEngine {
 
     return {
       source, nodes, dryGain, wetGain, sections,
-      inputGain, fade, eqFilters, comp, exciter, stereo, loudnessGain, loudnessSat, limiter,
+      inputGain, fade, eqFilters, dyn, stereo, loudnessGain, loudnessSat, limiter,
       channels, startCtxTime: ctx.currentTime, startOffset: this.offset, onEnded: null,
     };
   }
@@ -556,13 +609,20 @@ export class PreviewEngine {
       setParam(f.Q, eqQ(vals, i), ctx);
     });
 
-    // IV Dynamics
-    if (graph.comp) {
-      setParam(graph.comp.threshold, compThreshold(vals), ctx);
-      setParam(graph.comp.ratio, ratioFromVal(vals['dynamics.ratio']), ctx);
-      setParam(graph.comp.attack, Math.max(0.002, 0.02 - num(vals['dynamics.transient']) * 0.0002), ctx);
+    // IV Dynamics — 멀티밴드 컴프 threshold/ratio/attack/release + make-up + 익사이터
+    if (graph.dyn) {
+      const ratio = ratioFromVal(vals['dynamics.ratio']);
+      const dynRef = graph.dyn;
+      dynRef.bands.forEach((c, b) => {
+        setParam(c.threshold, dynThreshold(num(vals[DYN_KEYS[b]])), ctx);
+        setParam(c.ratio, ratio, ctx);
+        setParam(c.attack, dynAttack(vals, b), ctx);
+        setParam(c.release, dynRelease(vals, b), ctx);
+        setParam(dynRef.bandGains[b].gain, dynMakeup(num(vals[DYN_KEYS[b]])), ctx);
+      });
+      dynRef.exciterShaper.curve = saturatorCurve(exciterDrive(vals));
+      setParam(dynRef.exciterGain.gain, exciterBlend(vals), ctx);
     }
-    if (graph.exciter) graph.exciter.curve = saturatorCurve(exciterAmount(vals));
 
     // V Stereo
     if (graph.stereo) {

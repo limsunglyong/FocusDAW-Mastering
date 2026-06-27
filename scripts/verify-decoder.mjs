@@ -98,8 +98,13 @@ const stftUrl = transpileToModule('src/audio/stft.ts', 'stft.mjs');
 const npUrl = transpileToModule('src/audio/noisePrint.ts', 'noisePrint.mjs');
 const nrUrl = transpileToModule('src/audio/noiseReduction.ts', 'noiseReduction.mjs');
 const dnUrl = transpileToModule('src/audio/denoise.ts', 'denoise.mjs');
+// Phase 4 Dynamics 파라미터 매핑(순수 함수)
+const dynUrl = transpileToModule('src/audio/dynamics.ts', 'dynamics.mjs');
 const { FFT } = await import(fftUrl);
 const { depthToOptions, denoiseKeyOf } = await import(dnUrl);
+const {
+  ratioFromVal, dynThreshold, dynMakeup, dynAttack, dynRelease, exciterBlend, exciterDrive,
+} = await import(dynUrl);
 const { parseAudioHeader, parseHeaderMeta } = await import(decUrl);
 const { formatBytes } = await import(qfUrl);
 const { integratedLufsFromChannels } = await import(loudUrl);
@@ -292,6 +297,40 @@ console.log('— Denoise depth mapping (Phase 2) —');
   checkClose('Normal amtPct 50 → 0.85*0.5', depthToOptions('2', 50).amount, 0.425, 1e-6);
   check('Deep floor < Original floor', o3.floor < o1.floor, true);
   check('denoiseKeyOf format', denoiseKeyOf(48000, '2', 35), '48000:2:35');
+}
+
+console.log('— Dynamics multiband mapping (Phase 4) —');
+{
+  // ratio 세그먼트 매핑
+  check('ratio 2:1 → 2', ratioFromVal('2:1'), 2);
+  check('ratio 4:1 → 4', ratioFromVal('4:1'), 4);
+  check('ratio 8:1 → 8', ratioFromVal('8:1'), 8);
+  check('ratio unknown → 4', ratioFromVal('x'), 4);
+
+  // threshold: val=0 → 0, val=-18 → -28.8, val=-30 → clamp -40
+  check('dynThreshold(0) = 0', dynThreshold(0), 0);
+  checkClose('dynThreshold(-18) = -28.8', dynThreshold(-18), -28.8, 1e-9);
+  check('dynThreshold(-30) clamps to -40', dynThreshold(-30), -40);
+
+  // make-up: val=0 → 1배, |val| 클수록 ↑
+  checkClose('dynMakeup(0) = 1', dynMakeup(0), 1, 1e-9);
+  check('dynMakeup(-18) > dynMakeup(-4) > 1', dynMakeup(-18) > dynMakeup(-4) && dynMakeup(-4) > 1, true);
+
+  // 어택: transient + → 어택↑, 밴드 배율 low>mid>high (동일 transient에서)
+  const vPlus = { 'dynamics.transient': 50 }, vMinus = { 'dynamics.transient': -50 }, vZero = { 'dynamics.transient': 0 };
+  check('attack: +transient > -transient (low)', dynAttack(vPlus, 0) > dynAttack(vMinus, 0), true);
+  check('attack band order low>mid>high', dynAttack(vZero, 0) > dynAttack(vZero, 1) && dynAttack(vZero, 1) > dynAttack(vZero, 2), true);
+  check('attack clamps ≥ 0.002', dynAttack(vMinus, 2) >= 0.002, true);
+
+  // 릴리즈: transient + → 릴리즈↓
+  check('release: +transient < -transient (mid)', dynRelease(vPlus, 1) < dynRelease(vMinus, 1), true);
+  check('release clamps within [0.04, 0.5]', dynRelease(vPlus, 2) >= 0.04 && dynRelease(vMinus, 0) <= 0.5, true);
+
+  // 익사이터: 0% → blend 0, 100% → 0.5 / drive 0.3~0.8
+  check('exciterBlend 0% = 0', exciterBlend({ 'dynamics.exciter': 0 }), 0);
+  checkClose('exciterBlend 100% = 0.5', exciterBlend({ 'dynamics.exciter': 100 }), 0.5, 1e-9);
+  checkClose('exciterDrive 0% = 0.3', exciterDrive({ 'dynamics.exciter': 0 }), 0.3, 1e-9);
+  checkClose('exciterDrive 100% = 0.8', exciterDrive({ 'dynamics.exciter': 100 }), 0.8, 1e-9);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -93,6 +93,10 @@
  *  - v0.4.0 : Phase 3 EQ 작업 착수 및 프리셋 변경 개시.
  *  - v0.4.1 : (Patch) 앱 아이콘을 assets/logo-main.png 로 등록 (package.json의 build.win.icon 설정 및 electron/main.cjs 창 생성 icon 옵션 적용).
  *  - v0.4.2 : (Patch) 앱 아이콘 이미지를 assets/logo-main2.png 로 변경.
+ *  - v0.5.0 : Phase 4 Dynamics — 단일 컴프 → Linkwitz-Riley 3밴드 멀티밴드 컴프(Low/Mid/High,
+ *             Ratio 2/4/8) + 트랜지언트(밴드별 어택/릴리즈 변조) + 익사이터(고역 추출→하모닉 블렌드).
+ *             섹션 dry/wet bypass·실시간 AudioParam 갱신 구조 유지. (Linear/Dynamic EQ 모드는
+ *             v0.4 범위 제외 확정.) 트랜지언트는 Preview 근사이며 정밀 셰이퍼/Export 정밀화는 후속.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

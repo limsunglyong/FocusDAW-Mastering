@@ -97,6 +97,25 @@
  *             Ratio 2/4/8) + 트랜지언트(밴드별 어택/릴리즈 변조) + 익사이터(고역 추출→하모닉 블렌드).
  *             섹션 dry/wet bypass·실시간 AudioParam 갱신 구조 유지. (Linear/Dynamic EQ 모드는
  *             v0.4 범위 제외 확정.) 트랜지언트는 Preview 근사이며 정밀 셰이퍼/Export 정밀화는 후속.
+ *  - v0.6.0 : Phase 5 Stereo — Width(M/S Side 게인) 위에 Bass Mono(Side 고역통과), Reverb/Delay
+ *             병렬 send, Mono Compatibility(모노 합 모니터, 기본 OFF) 추가. 최종 mix L/R 상관도·
+ *             모노 폴드로스를 AnalyserNode 로 실측해 Correlation 미터에 상시 표시(재생 중 실측,
+ *             정지 시 width 추정 폴백). 순수 매핑/상관도는 stereo.ts 로 분리해 단위 시험.
+ *  - v0.6.1 : (Phase 5 Patch) Correlation 미터 정지 시 마지막 실측값 유지(freeze). 기존에는 정지 시
+ *             실측 null → width 추정식으로 폴백되어 값이 고정 표시되던 혼란을 해소(재생 전에만 추정 폴백).
+ *  - v0.6.2 : (Phase 5 Patch) 'Mono Compatibility' → 'Mono Master' 로 명칭 변경. 청취 전용 모니터가
+ *             아니라 실제 모노 마스터 출력 토글로 정의(Export 반영, 기본 OFF). 사용자 결정(2026-06-28).
+ *  - v0.7.0 : Phase 6 Loudness/Limiter — True Peak 룩어헤드 리미터를 AudioWorklet(lookahead-limiter,
+ *             Blob 로드)으로 구현. 처리 순서 LUFS make-up 게인 → Saturation → TP 리미팅(최종) 확정.
+ *             리미터: 룩어헤드 윈도우 최소 desired 게인 선행 더킹(브릭월, 오버슈트 없음), 캐릭터별
+ *             릴리즈(Clear/Punchy/Loud), TP Limit 토글, ceiling(−3~0dB). 순수 매핑/True Peak 추정은
+ *             loudnessDsp.ts 로 분리해 단위 시험. THD 판정(GENTLE/MUSICAL/HOT)은 기존 viz 유지.
+ *             비고: 정밀 폴리페이즈 ISP True Peak·Export 정밀 렌더는 후속(Preview 는 샘플피크+헤드룸).
+ *  - v0.7.1 : (Phase 6 Patch) LUFS 를 올리면 음악이 깨지던 문제 수정. make-up 게인이 0dBFS 를 넘기면
+ *             Saturation WaveShaper(입력 ±1 하드클램프)에서 리미터 전에 하드클립되던 게인스테이징 버그를,
+ *             Loudness 새츄레이터에 ±DOMAIN(+18dB) prescale + 전용 커브를 적용해 해소(리미터가 천장 정리).
+ *  - v0.7.2 : (Phase 6 Patch) Loudness viz 중간행 UI 미세조정 — TRUE PEAK/LIMITER 검은 박스의 세로
+ *             padding(7→4px)·라벨 아래 값 줄간격(marginTop 3→1) 축소.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

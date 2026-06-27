@@ -65,7 +65,7 @@ export const CTRL: Record<ModId, CtrlDef[]> = {
     { key: 'delay', type: 'rot', label: 'Delay', min: 0, max: 30, step: 1, dec: 0 },
     { key: 'crossover', type: 'rot', label: 'Bass', min: 60, max: 300, step: 5, dec: 0 },
     { key: 'bassmono', type: 'sw', label: 'Bass Mono' },
-    { key: 'mono', type: 'sw', label: 'Mono Compatibility' },
+    { key: 'mono', type: 'sw', label: 'Mono Master' },
   ],
   loudness: [
     { key: 'ceiling', type: 'rot', label: 'True Peak', min: -3, max: 0, step: 0.1, dec: 1, warnAbove: -1, warnArc: '#f6465d', warnVal: '#e0344b' },
@@ -166,7 +166,7 @@ export const DEFAULT_STATE: DeskState = {
     'spectral.f3': 4000, 'spectral.g3': 0, 'spectral.q3': 1.2,
     'spectral.f4': 12000, 'spectral.g4': 0, 'spectral.q4': 0.71,
     'dynamics.low': -4, 'dynamics.mid': -2, 'dynamics.high': -3, 'dynamics.ratio': '4:1', 'dynamics.transient': 15, 'dynamics.exciter': 25,
-    'stereo.width': 120, 'stereo.reverb': 8, 'stereo.delay': 5, 'stereo.crossover': 120, 'stereo.bassmono': true, 'stereo.mono': true,
+    'stereo.width': 120, 'stereo.reverb': 8, 'stereo.delay': 5, 'stereo.crossover': 120, 'stereo.bassmono': true, 'stereo.mono': false,
     'loudness.ceiling': -1, 'loudness.target': -14, 'loudness.sat': 20, 'loudness.limiter': 'Punchy', 'loudness.tplimit': true,
     'export.album': '', 'export.artist': '', 'export.year': '', 'export.genre': '', 'export.format': 'WAV',
   },

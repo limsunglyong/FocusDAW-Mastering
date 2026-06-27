@@ -6,6 +6,8 @@ import { openAudioFilePicker } from '../../audio/filePicker';
 import { DeskIcon } from '../Icons';
 import { Knob } from './Knob';
 import { Spectrogram3D } from './Spectrogram3D';
+import { previewEngine } from '../../audio/previewEngine';
+import { correlationStatus, correlationColor } from '../../audio/stereo';
 import type { DeskView } from '../../desk/compute';
 
 function InputQueue({ view }: { view: DeskView }) {
@@ -302,6 +304,36 @@ function DynamicsViz({ view }: { view: DeskView }) {
 
 function StereoViz({ view }: { view: DeskView }) {
   const pal = view.pal;
+  // v0.6.0 (Phase 5): 메터를 실측 상관도/폴드로스로 갱신. v0.6.1: 정지 후에도 마지막 실측을 유지
+  // (freeze) — getStereoMetering 이 마지막 실측값을 반환. 한 번도 재생 전이면 null → width 추정 폴백.
+  // 프레임당 작은 DOM 갱신만 수행(React 리렌더 회피 — Transport 시간표시와 동일 패턴).
+  const viewRef = useRef(view); viewRef.current = view;
+  const markerRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLSpanElement>(null);
+  const lossRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const m = previewEngine.getStereoMetering();
+      let color: string, status: string, corrLabel: string, lossLabel: string, x: string;
+      if (m) {
+        const c = m.correlation;
+        color = correlationColor(c); status = correlationStatus(c);
+        corrLabel = (c >= 0 ? '+' : '') + c.toFixed(2);
+        lossLabel = (m.foldLoss > -0.05 ? '0.0' : m.foldLoss.toFixed(1)) + ' dB';
+        x = (((c + 1) / 2) * 100).toFixed(1) + '%';
+      } else {
+        const v = viewRef.current;
+        color = v.stCompatColor; status = v.stCompatStatus; corrLabel = v.stCorrLabel; lossLabel = v.stLossLabel; x = v.stCorrX;
+      }
+      if (markerRef.current) { markerRef.current.style.left = x; markerRef.current.style.background = color; markerRef.current.style.boxShadow = `0 0 7px ${color}`; }
+      if (statusRef.current) { statusRef.current.textContent = `${status} · ${corrLabel}`; statusRef.current.style.color = color; }
+      if (lossRef.current) { lossRef.current.textContent = lossLabel; lossRef.current.style.color = color; }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -337,16 +369,16 @@ function StereoViz({ view }: { view: DeskView }) {
       </div>
       <div style={{ background: 'rgba(0,0,0,0.18)', borderRadius: 7, padding: '7px 10px', marginTop: 8, opacity: view.compatDim }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: '#8a8070' }}>MONO COMPAT · CORRELATION</span>
-          <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070' }}>fold loss <span style={{ fontWeight: 700, color: view.stCompatColor }}>{view.stLossLabel}</span></span>
+          <span style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: '#8a8070' }}>MONO MASTER · CORRELATION</span>
+          <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070' }}>fold loss <span ref={lossRef} style={{ fontWeight: 700, color: view.stCompatColor }}>{view.stLossLabel}</span></span>
         </div>
         <div style={{ position: 'relative', height: 7, background: 'rgba(0,0,0,0.35)', borderRadius: 4 }}>
           <div style={{ position: 'absolute', left: '50%', top: -2, bottom: -2, width: 1, background: 'rgba(255,240,210,0.25)' }} />
-          <div style={{ position: 'absolute', top: '50%', left: view.stCorrX, width: 9, height: 9, borderRadius: '50%', background: view.stCompatColor, transform: 'translate(-50%,-50%)', boxShadow: `0 0 7px ${view.stCompatColor}` }} />
+          <div ref={markerRef} style={{ position: 'absolute', top: '50%', left: view.stCorrX, width: 9, height: 9, borderRadius: '50%', background: view.stCompatColor, transform: 'translate(-50%,-50%)', boxShadow: `0 0 7px ${view.stCompatColor}` }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
           <span style={{ fontFamily: 'Archivo', fontSize: 8, color: '#6f6657' }}>-1 · out of phase</span>
-          <span style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 700, color: view.stCompatColor }}>{view.stCompatStatus} · {view.stCorrLabel}</span>
+          <span ref={statusRef} style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 700, color: view.stCompatColor }}>{view.stCompatStatus} · {view.stCorrLabel}</span>
           <span style={{ fontFamily: 'Archivo', fontSize: 8, color: '#6f6657' }}>mono +1</span>
         </div>
       </div>
@@ -385,13 +417,13 @@ function LoudnessViz({ view }: { view: DeskView }) {
         <span>-30</span><span>-23</span><span>-14</span><span>-9</span><span>0</span>
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-        <div style={{ flex: 1, background: pal.panelDark, borderRadius: 8, padding: '7px 11px', opacity: view.tpDim }}>
+        <div style={{ flex: 1, background: pal.panelDark, borderRadius: 8, padding: '4px 11px', opacity: view.tpDim }}>
           <div style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070', letterSpacing: '0.04em' }}>TRUE PEAK</div>
-          <div style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: 700, color: pal.nInk, marginTop: 3 }}>{view.loudCeiling}</div>
+          <div style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: 700, color: pal.nInk, marginTop: 1 }}>{view.loudCeiling}</div>
         </div>
-        <div style={{ flex: 1, background: pal.panelDark, borderRadius: 8, padding: '7px 11px' }}>
+        <div style={{ flex: 1, background: pal.panelDark, borderRadius: 8, padding: '4px 11px' }}>
           <div style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070', letterSpacing: '0.04em' }}>LIMITER</div>
-          <div style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: 700, color: pal.nInk, marginTop: 3 }}>{view.loudMode}</div>
+          <div style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: 700, color: pal.nInk, marginTop: 1 }}>{view.loudMode}</div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>

@@ -100,11 +100,21 @@ const nrUrl = transpileToModule('src/audio/noiseReduction.ts', 'noiseReduction.m
 const dnUrl = transpileToModule('src/audio/denoise.ts', 'denoise.mjs');
 // Phase 4 Dynamics 파라미터 매핑(순수 함수)
 const dynUrl = transpileToModule('src/audio/dynamics.ts', 'dynamics.mjs');
+// Phase 5 Stereo 파라미터 매핑 + 상관도(순수 함수)
+const stUrl = transpileToModule('src/audio/stereo.ts', 'stereo.mjs');
+// Phase 6 Loudness/Limiter 파라미터 매핑 + True Peak(순수 함수)
+const ldUrl = transpileToModule('src/audio/loudnessDsp.ts', 'loudnessDsp.mjs');
 const { FFT } = await import(fftUrl);
 const { depthToOptions, denoiseKeyOf } = await import(dnUrl);
 const {
   ratioFromVal, dynThreshold, dynMakeup, dynAttack, dynRelease, exciterBlend, exciterDrive,
 } = await import(dynUrl);
+const {
+  stereoWidth, bassMonoFreq, reverbSend, delaySend, computeCorrelation, computeFoldLoss, correlationStatus,
+} = await import(stUrl);
+const {
+  truePeakDb, loudnessGain, saturationAmount, ceilingLinear, limiterEnabled, limiterReleaseSec, thdStatus,
+} = await import(ldUrl);
 const { parseAudioHeader, parseHeaderMeta } = await import(decUrl);
 const { formatBytes } = await import(qfUrl);
 const { integratedLufsFromChannels } = await import(loudUrl);
@@ -331,6 +341,83 @@ console.log('— Dynamics multiband mapping (Phase 4) —');
   checkClose('exciterBlend 100% = 0.5', exciterBlend({ 'dynamics.exciter': 100 }), 0.5, 1e-9);
   checkClose('exciterDrive 0% = 0.3', exciterDrive({ 'dynamics.exciter': 0 }), 0.3, 1e-9);
   checkClose('exciterDrive 100% = 0.8', exciterDrive({ 'dynamics.exciter': 100 }), 0.8, 1e-9);
+}
+
+console.log('— Stereo mapping + correlation (Phase 5) —');
+{
+  // 파라미터 매핑
+  check('stereoWidth 0% = 0', stereoWidth({ 'stereo.width': 0 }), 0);
+  check('stereoWidth 100% = 1', stereoWidth({ 'stereo.width': 100 }), 1);
+  check('stereoWidth 200% = 2', stereoWidth({ 'stereo.width': 200 }), 2);
+  check('stereoWidth 250% clamps to 2', stereoWidth({ 'stereo.width': 250 }), 2);
+  check('bassMonoFreq ON = crossover', bassMonoFreq({ 'stereo.bassmono': true, 'stereo.crossover': 150 }), 150);
+  check('bassMonoFreq OFF = 20', bassMonoFreq({ 'stereo.bassmono': false, 'stereo.crossover': 150 }), 20);
+  checkClose('reverbSend 30% = 0.5', reverbSend({ 'stereo.reverb': 30 }), 0.5, 1e-9);
+  check('reverbSend 0% = 0', reverbSend({ 'stereo.reverb': 0 }), 0);
+  checkClose('delaySend 30% = 0.5', delaySend({ 'stereo.delay': 30 }), 0.5, 1e-9);
+
+  // 상관도: 동위상(+1) / 역위상(-1) / 무음(null)
+  const N = 1024;
+  const a = new Float32Array(N), aNeg = new Float32Array(N), sil = new Float32Array(N);
+  let seed = 333;
+  const rng = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff) * 2 - 1;
+  for (let i = 0; i < N; i++) { a[i] = rng(); aNeg[i] = -a[i]; }
+  checkClose('correlation identical = +1', computeCorrelation(a, a), 1, 1e-6);
+  checkClose('correlation inverted = -1', computeCorrelation(a, aNeg), -1, 1e-6);
+  check('correlation silence = null', computeCorrelation(sil, sil), null);
+  // 무상관(독립 신호) → 0 근방
+  const b = new Float32Array(N);
+  for (let i = 0; i < N; i++) b[i] = rng();
+  {
+    const c = computeCorrelation(a, b);
+    const ok = c !== null && Math.abs(c) < 0.2;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  correlation independent ≈ 0` + (ok ? '' : `  got ${c}`));
+    ok ? pass++ : fail++;
+  }
+
+  // 폴드로스: 동위상 0dB / 역위상 -24(clamp) / 무상관 ≈ -3dB
+  checkClose('foldLoss identical ≈ 0dB', computeFoldLoss(a, a), 0, 1e-6);
+  check('foldLoss inverted clamps -24', computeFoldLoss(a, aNeg), -24);
+  checkClose('foldLoss independent ≈ -3dB', computeFoldLoss(a, b), -3, 0.7);
+
+  // 상태 임계값
+  check('status +0.8 = GOOD', correlationStatus(0.8), 'GOOD');
+  check('status +0.2 = CHECK', correlationStatus(0.2), 'CHECK');
+  check('status -0.3 = RISK', correlationStatus(-0.3), 'RISK');
+}
+
+console.log('— Loudness / Limiter mapping + True Peak (Phase 6) —');
+{
+  // LUFS make-up gain
+  checkClose('loudnessGain target==measured → 1', loudnessGain(-14, -14), 1, 1e-9);
+  checkClose('loudnessGain +6LU → 1.995', loudnessGain(-8, -14), 1.99526, 1e-4);
+  check('loudnessGain non-finite measured → 1', loudnessGain(-14, -Infinity), 1);
+  check('loudnessGain clamps ≤ 6', loudnessGain(0, -60), 6);
+
+  // saturation amount
+  check('saturationAmount 0% = 0', saturationAmount({ 'loudness.sat': 0 }), 0);
+  checkClose('saturationAmount 100% = 0.5', saturationAmount({ 'loudness.sat': 100 }), 0.5, 1e-9);
+
+  // ceiling linear
+  checkClose('ceilingLinear -1dB ≈ 0.891', ceilingLinear({ 'loudness.ceiling': -1 }), 0.89125, 1e-4);
+  checkClose('ceilingLinear 0dB = 1', ceilingLinear({ 'loudness.ceiling': 0 }), 1, 1e-9);
+
+  // limiter enable + character release
+  check('limiterEnabled tplimit true', limiterEnabled({ 'loudness.tplimit': true }), true);
+  check('limiterEnabled tplimit false', limiterEnabled({ 'loudness.tplimit': false }), false);
+  check('release Clear = 0.18', limiterReleaseSec({ 'loudness.limiter': 'Clear' }), 0.18);
+  check('release Punchy = 0.12', limiterReleaseSec({ 'loudness.limiter': 'Punchy' }), 0.12);
+  check('release Loud = 0.08', limiterReleaseSec({ 'loudness.limiter': 'Loud' }), 0.08);
+
+  // True peak(dB) 추정
+  checkClose('truePeakDb full-scale = 0dB', truePeakDb(new Float32Array([1, -1, 1, -1])), 0, 1e-6);
+  checkClose('truePeakDb 0.5 = -6.02dB', truePeakDb(new Float32Array([0.5, -0.5, 0.25])), -6.0206, 1e-3);
+  check('truePeakDb silence = -Infinity', truePeakDb(new Float32Array([0, 0, 0])), -Infinity);
+
+  // THD 판정
+  check('thdStatus 0.5 = GENTLE', thdStatus(0.5), 'GENTLE');
+  check('thdStatus 2 = MUSICAL', thdStatus(2), 'MUSICAL');
+  check('thdStatus 4 = HOT', thdStatus(4), 'HOT');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

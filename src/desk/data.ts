@@ -156,7 +156,7 @@ export const DEFAULT_STATE: DeskState = {
   enabled: { input: true, pre: true, spectral: true, dynamics: true, stereo: true, loudness: true, export: true },
   vals: {
     'input.source': 'Files', 'input.bit': '24', 'input.rate': '48k', 'input.scope': 'Sub Folder', 'input.normimp': false,
-    'pre.denoise': true, 'pre.noiseDepth': '2', 'pre.denoiseAmt': 35, 'pre.fadein': 20, 'pre.fadeout': 600, 'pre.lufs': -14, 'pre.tp': -1, 'pre.rms': -12,
+    'pre.denoise': false, 'pre.noiseDepth': '2', 'pre.denoiseAmt': 35, 'pre.fadein': 20, 'pre.fadeout': 600, 'pre.lufs': -14, 'pre.tp': -1, 'pre.rms': -12,
     'spectral.band': '2', 'spectral.preset': 'Normal',
     'spectral.f0': 60, 'spectral.g0': 0, 'spectral.q0': 0.71,
     'spectral.f1': 250, 'spectral.g1': 0, 'spectral.q1': 1.0,

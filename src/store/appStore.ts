@@ -10,7 +10,7 @@ import { buildQueueFileFromHeader, applyDecodedMeta, markLufsFailed, type QueueF
 import { previewEngine, type PreviewParams } from '../audio/previewEngine';
 import { resampleAudioBuffer, sampleRateFromInputRate } from '../audio/resample';
 import { analyzePre, type PreAnalysis } from '../audio/preAnalysis';
-import { denoiseAudioBuffer, denoiseKeyOf } from '../audio/denoise';
+import { denoiseBuffer, denoiseKeyOf } from '../audio/denoise';
 
 type AppState = DeskState & {
   theme: ThemeName;
@@ -428,15 +428,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ preAnalysis: null });
       return;
     }
-    const rate = sampleRateFromInputRate(st.vals['input.rate']);
     // v0.2.28: Denoise 적용 후 기준으로 표시(P2-4) — denoise on 이면 denoised 버퍼를 분석.
+    // dry 는 원본 sourceBuffer 로 분석(resample 생략, 빠른 진입). 주파수 내용은 rate 무관.
     const active = denoiseActive(st);
-    const key = `${file.id}:${active ? 'dn:' + currentDenoiseKey(st) : 'dry:' + rate}`;
+    const key = `${file.id}:${active ? 'dn:' + currentDenoiseKey(st) : 'dry'}`;
     if (st.preAnalysis?.key === key) return; // 이미 동일 조건으로 분석됨
     const seq = ++preAnalysisSeq;
     let buffer: AudioBuffer;
     try {
-      buffer = active ? await get().ensureDenoisedBuffer(file.id) : await get().ensureProcessingBuffer(file.id);
+      buffer = active ? await get().ensureDenoisedBuffer(file.id) : await get().ensureSourceBuffer(file.id);
     } catch {
       return; // 디코딩/처리 실패 → 절차적 폴백 유지
     }
@@ -481,7 +481,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const amt = Number(st.vals['pre.denoiseAmt']) || 0;
     set({ processingAudio: true, processingMessage: 'Denoising', processingCurrentName: file.name, processingDone: 0, processingTotal: 1 });
     try {
-      const denoised = await denoiseAudioBuffer(processing, depth, amt);
+      const denoised = await denoiseBuffer(processing, depth, amt);
       set((state) => ({
         files: state.files.map((f) => (f.id === id ? { ...f, denoisedBuffer: denoised, denoiseKey: key } : f)),
         processingDone: 1,

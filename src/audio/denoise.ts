@@ -4,6 +4,8 @@
 import { bufferToMono, computeSpectrogram, DEFAULT_STFT_PARAMS } from './stft';
 import { buildNoisePrint, findQuietNoiseRange } from './noisePrint';
 import { reduceNoiseBuffer, type NoiseReductionOptions } from './noiseReduction';
+import { getAudioContext } from './decoder';
+import type { DenoiseWorkerReq, DenoiseWorkerRes } from './denoise.worker';
 
 /**
  * Noise Depth(1/2/3) → 스펙트럴 게이팅 옵션 매핑.
@@ -57,4 +59,40 @@ export async function denoiseAudioBuffer(
     return buffer;
   }
   return reduceNoiseBuffer(buffer, print, params, opts, onProgress);
+}
+
+/**
+ * v0.2.29: Web Worker 기반 denoise. 전체 STFT 게이팅을 메인 스레드 밖에서 수행해 UI freeze 를 막는다.
+ * 채널 PCM 을 복사(원본 AudioBuffer detach 방지)해 worker 로 transfer 하고, 결과로 새 AudioBuffer 를 만든다.
+ */
+export function denoiseBuffer(buffer: AudioBuffer, depth: string, amtPct: number): Promise<AudioBuffer> {
+  return new Promise((resolve, reject) => {
+    const numCh = buffer.numberOfChannels;
+    const length = buffer.length;
+    const channels: ArrayBuffer[] = [];
+    for (let ch = 0; ch < numCh; ch++) {
+      const copy = new Float32Array(buffer.getChannelData(ch)); // 복사: source 버퍼 detach 방지
+      channels.push(copy.buffer);
+    }
+    const worker = new Worker(new URL('./denoise.worker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<DenoiseWorkerRes>) => {
+      const msg = e.data;
+      if (msg.type === 'done') {
+        worker.terminate();
+        const ctx = getAudioContext();
+        const out = ctx.createBuffer(numCh, length, buffer.sampleRate);
+        msg.channels.forEach((b, ch) => out.copyToChannel(new Float32Array(b), ch));
+        resolve(out);
+      } else {
+        worker.terminate();
+        reject(new Error(msg.message));
+      }
+    };
+    worker.onerror = (err) => {
+      worker.terminate();
+      reject(err instanceof ErrorEvent ? new Error(err.message) : new Error('Denoise worker failed'));
+    };
+    const req: DenoiseWorkerReq = { channels, sampleRate: buffer.sampleRate, depth, amtPct };
+    worker.postMessage(req, channels);
+  });
 }

@@ -65,6 +65,25 @@ function ControlItem({ c, view }: { c: Control; view: DeskView }) {
   );
 }
 
+// v0.2.31: Pre(II) 전용 레이아웃 — Denoise 스위치(옆 설명) → Noise Depth → 그 아래 노브 3개(가로).
+function PreControls({ view }: { view: DeskView }) {
+  const denoise = view.controls.find((c) => c.key === 'denoise');
+  const knobs = view.controls.filter((c) => c.isRot); // Noise Reduction, Fade In, Fade Out
+  return (
+    <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18 }}>
+        {denoise && <div style={{ flex: 'none' }}><ControlItem c={denoise} view={view} /></div>}
+        <div style={{ flex: 'none', whiteSpace: 'nowrap', fontFamily: 'Archivo', fontSize: 9.5, lineHeight: 1.45, color: '#8a8070', marginTop: 1 }}>
+          Note: The <span style={{ fontWeight: 700, color: '#a99f8a' }}>denoise</span> feature is processing-intensive and may take a while.
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '16px 22px' }}>
+        {knobs.map((c) => <ControlItem key={c.key} c={c} view={view} />)}
+      </div>
+    </div>
+  );
+}
+
 function InputPanels({ view }: { view: DeskView }) {
   const pal = view.pal;
   return (
@@ -212,7 +231,9 @@ export function Controls({ view }: { view: DeskView }) {
     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a', marginBottom: 11 }}>PARAMETERS</div>
 
-      {view.genCtrl && (
+      {view.isPre ? (
+        <PreControls view={view} />
+      ) : view.genCtrl && (
         <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '16px 22px', alignContent: 'flex-start' }}>
           {view.controls.map((c) => <ControlItem key={c.key} c={c} view={view} />)}
         </div>

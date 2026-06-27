@@ -69,6 +69,9 @@ export function TransportPanel({ view }: { view: DeskView }) {
   const curTimeRef = useRef<HTMLSpanElement>(null);
   const dragStartRef = useRef<number | null>(null);
   const dragStartXRef = useRef(0);
+  // v0.2.29: «/» 길게 누르기(1초) 판정용
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didHoldRef = useRef(false);
   const [draftLoop, setDraftLoop] = useState<{ start: number; end: number } | null>(null);
   const [waveW, setWaveW] = useState(600);
   const shownLoop = draftLoop ?? (loopEnd - loopStart >= 0.25 ? { start: loopStart, end: loopEnd } : null);
@@ -218,6 +221,36 @@ export function TransportPanel({ view }: { view: DeskView }) {
     >{label}</div>
   );
 
+  // v0.2.29: «/» 길게(1초) 누르면 곡 처음/끝으로 이동, 짧게 누르면 ±SKIP_SEC.
+  const startHold = (onHold: () => void) => {
+    didHoldRef.current = false;
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = setTimeout(() => { didHoldRef.current = true; onHold(); }, 1000);
+  };
+  const endHold = (onTap: () => void) => {
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+    if (!didHoldRef.current) onTap();
+  };
+  const cancelHold = () => {
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+  };
+  const holdBtn = (onTap: () => void, onHold: () => void, label: React.ReactNode, title: string) => (
+    <div
+      title={title}
+      onPointerDown={hasFile ? () => startHold(onHold) : undefined}
+      onPointerUp={hasFile ? () => endHold(onTap) : undefined}
+      onPointerLeave={cancelHold}
+      onPointerCancel={cancelHold}
+      style={{
+        width: 30, height: 30, borderRadius: 7,
+        display: 'grid', placeItems: 'center', flex: 'none',
+        background: '#222830', border: '1px solid #303841',
+        color: '#9aa7af', fontSize: 12, cursor: hasFile ? 'pointer' : 'not-allowed', opacity: hasFile ? 1 : 0.55,
+        touchAction: 'none', userSelect: 'none',
+      }}
+    >{label}</div>
+  );
+
   return (
     <div className="dk-transport-roll" style={{ flex: 'none', height: PANEL_H, boxSizing: 'border-box', background: '#13171c', borderTop: '1px solid #0a0d10', padding: '10px 15px 12px' }}>
       {/* 웨이브폼 */}
@@ -304,7 +337,7 @@ export function TransportPanel({ view }: { view: DeskView }) {
 
       {/* 컨트롤 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
-        {ctlBtn(() => skip(-SKIP_SEC), '«', `Back ${SKIP_SEC}s`)}
+        {holdBtn(() => skip(-SKIP_SEC), () => seekPreview(0), '«', `Back ${SKIP_SEC}s · hold: to start`)}
         {ctlBtn(
           () => { void toggleOriginalPlayback(); },
           isPlaying ? (
@@ -318,7 +351,7 @@ export function TransportPanel({ view }: { view: DeskView }) {
           hasFile ? 'Play/Pause (Space)' : 'Load an audio file',
           true,
         )}
-        {ctlBtn(() => skip(SKIP_SEC), '»', `Forward ${SKIP_SEC}s`)}
+        {holdBtn(() => skip(SKIP_SEC), () => seekPreview(Math.max(0, duration)), '»', `Forward ${SKIP_SEC}s · hold: to end`)}
 
         {/* v0.2.18: 현재 시간은 tabular UI sans, 전체 길이는 --mono */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginLeft: 6, minWidth: 128, whiteSpace: 'nowrap' }}>

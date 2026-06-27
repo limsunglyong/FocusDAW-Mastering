@@ -5,15 +5,21 @@ import { useAppStore } from '../../store/appStore';
 import { SpectrogramScene } from '../../viz/SpectrogramScene';
 import type { DeskView } from '../../desk/compute';
 
-// 마우스 아이콘: side='left' → 좌클릭 버튼 강조(회전), side='right' → 우클릭 버튼 강조(PAN).
-function MouseIcon({ side, accent, body }: { side: 'left' | 'right'; accent: string; body: string }) {
+// 마우스 아이콘: side='left' → 좌클릭(회전), 'right' → 우클릭(PAN), 'wheel' → 휠(Zoom).
+function MouseIcon({ side, accent, body }: { side: 'left' | 'right' | 'wheel'; accent: string; body: string }) {
   const leftBtn = 'M12 3 L5 3 A9 9 0 0 0 2.2 9.5 L12 9.5 Z';
   const rightBtn = 'M12 3 L19 3 A9 9 0 0 1 21.8 9.5 L12 9.5 Z';
   return (
     <svg width="13" height="18" viewBox="0 0 24 34" style={{ display: 'block' }}>
       <rect x="2" y="2" width="20" height="30" rx="10" fill="none" stroke={body} strokeWidth="2" />
-      <line x1="12" y1="2.5" x2="12" y2="9.5" stroke={body} strokeWidth="1.4" />
-      <path d={side === 'left' ? leftBtn : rightBtn} fill={accent} opacity="0.92" />
+      {side === 'wheel' ? (
+        <rect x="10" y="6" width="4" height="8" rx="2" fill={accent} opacity="0.92" />
+      ) : (
+        <>
+          <line x1="12" y1="2.5" x2="12" y2="9.5" stroke={body} strokeWidth="1.4" />
+          <path d={side === 'left' ? leftBtn : rightBtn} fill={accent} opacity="0.92" />
+        </>
+      )}
     </svg>
   );
 }
@@ -53,8 +59,13 @@ export function Spectrogram3D({ view, height = 168 }: { view: DeskView; height?:
     <div style={{ position: 'relative', width: '100%', height, borderRadius: 10, overflow: 'hidden', background: '#031716', border: `1px solid ${pal.panelDark}` }}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
 
-      {/* 좌상단 라벨 */}
-      <span style={{ position: 'absolute', top: 8, left: 10, fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070', pointerEvents: 'none' }}>SPECTRO · 3D</span>
+      {/* 좌상단: 휠=Zoom 안내 (서피스 표시 중에만) */}
+      {ready && (
+        <div style={{ position: 'absolute', top: 6, left: 8, display: 'flex', alignItems: 'center', gap: 5, pointerEvents: 'none' }}>
+          <MouseIcon side="wheel" accent={accent} body="rgba(230,240,235,0.6)" />
+          <span style={{ fontFamily: 'Archivo', fontSize: 8.5, fontWeight: 600, letterSpacing: '0.04em', color: 'rgba(230,240,235,0.6)' }}>Zoom</span>
+        </div>
+      )}
 
       {/* 우상단 Reset View 버튼 */}
       <button

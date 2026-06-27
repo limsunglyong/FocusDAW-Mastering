@@ -142,13 +142,22 @@ function downsampleGrid(spec: Spectrogram, nt: number, nf: number): Float32Array
  * 선택 파일 버퍼를 분석해 워터폴 그리드 + noise floor/SNR 을 산출한다.
  * @param key 캐시 무효화 판정용 키(fileId+rate 등)
  */
+/** 워터폴 시각화용 목표 프레임 수(이를 넘으면 hop 을 키워 worker STFT 비용을 줄인다). */
+const ANALYSIS_TARGET_FRAMES = 2200;
+
 export async function analyzePre(
   fileId: string,
   key: string,
   buffer: AudioBuffer,
-  params: StftParams = DEFAULT_STFT_PARAMS,
 ): Promise<PreAnalysis> {
   const mono = bufferToMono(buffer);
+  // v0.2.29: 시각화/노이즈 추정에는 고해상 시간축이 불필요 → 긴 곡은 hop 을 키워 분석을 가속(off-thread).
+  // fftSize 2048·Hann 은 유지(주파수 해상도·binHz 동일), hop 만 적응적으로 확대.
+  const adaptiveHop = Math.max(
+    DEFAULT_STFT_PARAMS.hopSize,
+    Math.floor((mono.length - DEFAULT_STFT_PARAMS.fftSize) / ANALYSIS_TARGET_FRAMES),
+  );
+  const params: StftParams = { ...DEFAULT_STFT_PARAMS, hopSize: adaptiveHop };
   const spec = await runStftWorker(mono, buffer.sampleRate, params);
 
   const grid = downsampleGrid(spec, WATERFALL_NT, WATERFALL_NF);

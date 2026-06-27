@@ -32,7 +32,7 @@ function transpileToModule(srcPath, outName) {
 // ── 합성 헤더 빌더 ───────────────────────────────────────────────
 function ascii(u8, off, str) { for (let i = 0; i < str.length; i++) u8[off + i] = str.charCodeAt(i); }
 
-function makeWav(sampleRate, bits, channels) {
+function makeWav(sampleRate, bits, channels, dataBytes = 0) {
   const u8 = new Uint8Array(44);
   const dv = new DataView(u8.buffer);
   ascii(u8, 0, 'RIFF'); dv.setUint32(4, 36, true); ascii(u8, 8, 'WAVE');
@@ -43,7 +43,7 @@ function makeWav(sampleRate, bits, channels) {
   dv.setUint32(28, sampleRate * channels * bits / 8, true); // byteRate
   dv.setUint16(32, channels * bits / 8, true); // blockAlign
   dv.setUint16(34, bits, true);           // bitsPerSample
-  ascii(u8, 36, 'data'); dv.setUint32(40, 0, true);
+  ascii(u8, 36, 'data'); dv.setUint32(40, dataBytes, true);
   return u8.buffer;
 }
 
@@ -65,13 +65,13 @@ function makeMp3() {
   return u8.buffer;
 }
 
-function makeAiff(sampleRate, bits, channels) {
+function makeAiff(sampleRate, bits, channels, frames = 0) {
   const u8 = new Uint8Array(12 + 8 + 18);
   const dv = new DataView(u8.buffer);
   ascii(u8, 0, 'FORM'); dv.setUint32(4, u8.length - 8, false); ascii(u8, 8, 'AIFF');
   ascii(u8, 12, 'COMM'); dv.setUint32(16, 18, false);
   dv.setUint16(20, channels, false);   // numChannels
-  dv.setUint32(22, 0, false);          // numSampleFrames
+  dv.setUint32(22, frames, false);     // numSampleFrames
   dv.setUint16(26, bits, false);       // sampleSize
   // 80-bit extended sampleRate (48000 = exp 0x400E, hiMant 0xBB800000)
   if (sampleRate !== 48000) throw new Error('test AIFF helper only encodes 48000');
@@ -92,7 +92,7 @@ function check(name, got, expected) {
 const decUrl = transpileToModule('src/audio/decoder.ts', 'decoder.mjs');
 const qfUrl = transpileToModule('src/audio/queueFile.ts', 'queueFile.mjs');
 const loudUrl = transpileToModule('src/audio/loudness.ts', 'loudness.mjs');
-const { parseAudioHeader } = await import(decUrl);
+const { parseAudioHeader, parseHeaderMeta } = await import(decUrl);
 const { formatBytes } = await import(qfUrl);
 const { integratedLufsFromChannels } = await import(loudUrl);
 
@@ -115,6 +115,24 @@ check('FLAC 48000/24-bit', parseAudioHeader(makeFlac(), '.flac'),            { s
 check('AIFF 48000/24-bit', parseAudioHeader(makeAiff(48000, 24, 2), '.aiff'),{ sampleRate: 48000, bitDepth: 24 });
 check('MP3 48000 (no bitDepth)', parseAudioHeader(makeMp3(), '.mp3'),        { sampleRate: 48000, bitDepth: null });
 check('Unknown ext → WAV signature fallback', parseAudioHeader(makeWav(44100, 16, 2), '.dat'), { sampleRate: 44100, bitDepth: 16 });
+
+console.log('— Header-only meta (channels/duration) —');
+// WAV: byteRate = 44100*2*2 = 176400 B/s, data 176400B → 1.0s, stereo, 정확
+check('WAV header meta 1s stereo', parseHeaderMeta(makeWav(44100, 16, 2, 176400), '.wav', 1024),
+  { sampleRate: 44100, bitDepth: 16, channels: 2, duration: 1, durationExact: true });
+// AIFF: 48000 frames @ 48000 → 1.0s, stereo, 정확
+check('AIFF header meta 1s stereo', parseHeaderMeta(makeAiff(48000, 24, 2, 48000), '.aiff', 1024),
+  { sampleRate: 48000, bitDepth: 24, channels: 2, duration: 1, durationExact: true });
+// FLAC: STREAMINFO 채널/비트뎁스(총샘플 0 → duration 미정)
+check('FLAC header meta channels', parseHeaderMeta(makeFlac(), '.flac', 1024),
+  { sampleRate: 48000, bitDepth: 24, channels: 2, duration: null, durationExact: false });
+// MP3: 채널은 프레임 모드(0x00 → stereo), duration 은 추정(부정확)
+{
+  const hm = parseHeaderMeta(makeMp3(), '.mp3', 100000);
+  const ok = hm.sampleRate === 48000 && hm.channels === 2 && hm.durationExact === false && hm.duration > 0;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  MP3 header meta (channels/estimate)` + (ok ? '' : `  got ${JSON.stringify(hm)}`));
+  ok ? pass++ : fail++;
+}
 
 console.log('— formatBytes —');
 check('50 MB',  formatBytes(50 * 1024 * 1024), '50.0 MB');

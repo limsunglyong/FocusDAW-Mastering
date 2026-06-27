@@ -221,6 +221,195 @@ export function parseAudioHeader(buf: ArrayBuffer, ext: string): HeaderInfo {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 헤더 전용 메타(파일 디코딩 없이 리스트 표시용): sampleRate/bitDepth/channels/duration
+// v0.2.8: lazy 로딩 — import 시 풀 디코딩 없이 헤더만 파싱해 리스트를 즉시 구성한다.
+//   WAV/AIFF/FLAC 는 헤더로 정확한 duration/channels 산출, MP3 는 첫 프레임 기반 추정(디코딩 시 보정).
+// ---------------------------------------------------------------------------
+
+export interface HeaderMeta {
+  sampleRate: number | null;
+  bitDepth: number | null;
+  channels: number | null;
+  /** 초. MP3 등은 추정값일 수 있다. */
+  duration: number | null;
+  /** duration 이 헤더로 확정된 정확값이면 true, 추정이면 false */
+  durationExact: boolean;
+}
+
+const EMPTY_HEADER_META: HeaderMeta = { sampleRate: null, bitDepth: null, channels: null, duration: null, durationExact: false };
+
+function wavHeaderMeta(view: DataView): HeaderMeta {
+  if (view.byteLength < 44) return EMPTY_HEADER_META;
+  if (readAscii(view, 0, 4) !== 'RIFF' || readAscii(view, 8, 4) !== 'WAVE') return EMPTY_HEADER_META;
+  let off = 12;
+  let sampleRate: number | null = null;
+  let bitDepth: number | null = null;
+  let channels: number | null = null;
+  let byteRate = 0;
+  let dataBytes = 0;
+  while (off + 8 <= view.byteLength) {
+    const id = readAscii(view, off, 4);
+    const size = view.getUint32(off + 4, true);
+    if (id === 'fmt ') {
+      channels = view.getUint16(off + 10, true) || null;
+      sampleRate = view.getUint32(off + 12, true);
+      byteRate = view.getUint32(off + 16, true);
+      bitDepth = view.getUint16(off + 22, true) || null;
+    } else if (id === 'data') {
+      dataBytes = size;
+      break;
+    }
+    off += 8 + size + (size & 1);
+  }
+  const duration = byteRate > 0 && dataBytes > 0 ? dataBytes / byteRate : null;
+  return { sampleRate: sampleRate || null, bitDepth, channels, duration, durationExact: duration != null };
+}
+
+function aiffHeaderMeta(view: DataView): HeaderMeta {
+  if (view.byteLength < 12 || readAscii(view, 0, 4) !== 'FORM') return EMPTY_HEADER_META;
+  const form = readAscii(view, 8, 4);
+  if (form !== 'AIFF' && form !== 'AIFC') return EMPTY_HEADER_META;
+  let off = 12;
+  while (off + 8 <= view.byteLength) {
+    const id = readAscii(view, off, 4);
+    const size = view.getUint32(off + 4, false);
+    if (id === 'COMM') {
+      const channels = view.getUint16(off + 8, false) || null;
+      const numSampleFrames = view.getUint32(off + 10, false);
+      const bitDepth = view.getUint16(off + 14, false) || null;
+      const sampleRate = read80BitFloat(view, off + 16);
+      const sr = sampleRate ? Math.round(sampleRate) : null;
+      const duration = sr && numSampleFrames > 0 ? numSampleFrames / sr : null;
+      return { sampleRate: sr, bitDepth, channels, duration, durationExact: duration != null };
+    }
+    off += 8 + size + (size & 1);
+  }
+  return EMPTY_HEADER_META;
+}
+
+function flacHeaderMeta(view: DataView): HeaderMeta {
+  let off = 0;
+  if (view.byteLength > 10 && readAscii(view, 0, 3) === 'ID3') {
+    const size = (view.getUint8(6) << 21) | (view.getUint8(7) << 14) | (view.getUint8(8) << 7) | view.getUint8(9);
+    off = 10 + size;
+  }
+  if (off + 4 > view.byteLength || readAscii(view, off, 4) !== 'fLaC') return EMPTY_HEADER_META;
+  off += 4;
+  while (off + 4 <= view.byteLength) {
+    const header = view.getUint8(off);
+    const blockType = header & 0x7f;
+    const length = (view.getUint8(off + 1) << 16) | (view.getUint8(off + 2) << 8) | view.getUint8(off + 3);
+    const dataOff = off + 4;
+    if (dataOff + length > view.byteLength) return EMPTY_HEADER_META;
+    if (blockType === 0 && length >= 18) {
+      const sr = (view.getUint8(dataOff + 10) << 12) | (view.getUint8(dataOff + 11) << 4) | (view.getUint8(dataOff + 12) >> 4);
+      const channels = ((view.getUint8(dataOff + 12) >> 1) & 0x07) + 1;
+      const bits = (((view.getUint8(dataOff + 12) & 0x01) << 4) | (view.getUint8(dataOff + 13) >> 4)) + 1;
+      // 36-bit total samples: byte13 하위4bit + byte14..17 (32bit). JS 32bit 한계 회피 위해 산술 사용.
+      const high4 = view.getUint8(dataOff + 13) & 0x0f;
+      const low32 = view.getUint32(dataOff + 14, false);
+      const totalSamples = high4 * 2 ** 32 + low32;
+      const duration = sr > 0 && totalSamples > 0 ? totalSamples / sr : null;
+      return { sampleRate: sr > 0 ? sr : null, bitDepth: bits > 1 ? bits : null, channels, duration, durationExact: duration != null };
+    }
+    off = dataOff + length;
+    if (header & 0x80) break;
+  }
+  return EMPTY_HEADER_META;
+}
+
+// MPEG Layer III 비트레이트(kbps) — CBR 기준 duration 추정용
+const MP3_BITRATES_V1_L3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+const MP3_BITRATES_V2_L3 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+
+function mp3HeaderMeta(view: DataView, fileBytes: number): HeaderMeta {
+  let start = 0;
+  if (view.byteLength > 10 && readAscii(view, 0, 3) === 'ID3') {
+    const size = (view.getUint8(6) << 21) | (view.getUint8(7) << 14) | (view.getUint8(8) << 7) | view.getUint8(9);
+    start = 10 + size;
+  }
+  for (let i = start; i < view.byteLength - 4; i++) {
+    if (view.getUint8(i) !== 0xff) continue;
+    const b1 = view.getUint8(i + 1);
+    if ((b1 & 0xe0) !== 0xe0) continue;
+    const version = (b1 >> 3) & 0x03; // 3=MPEG1, 2=MPEG2, 0=MPEG2.5
+    const layer = (b1 >> 1) & 0x03; // 1=Layer III
+    const b2 = view.getUint8(i + 2);
+    const srIndex = (b2 >> 2) & 0x03;
+    const brIndex = (b2 >> 4) & 0x0f;
+    const table = MP3_SAMPLE_RATES[version];
+    if (!table || srIndex >= 3 || layer !== 1) continue;
+    const sampleRate = table[srIndex];
+    const b3 = view.getUint8(i + 3);
+    const channels = ((b3 >> 6) & 0x03) === 3 ? 1 : 2;
+    const brTable = version === 3 ? MP3_BITRATES_V1_L3 : MP3_BITRATES_V2_L3;
+    const kbps = brIndex > 0 && brIndex < brTable.length ? brTable[brIndex] : 0;
+    const audioBytes = Math.max(0, fileBytes - start);
+    const duration = kbps > 0 ? (audioBytes * 8) / (kbps * 1000) : null;
+    return { sampleRate, bitDepth: null, channels, duration, durationExact: false };
+  }
+  return EMPTY_HEADER_META;
+}
+
+/** 디코딩 없이 헤더만으로 메타 추출(리스트 표시용). fileBytes 는 MP3 duration 추정에 사용. */
+export function parseHeaderMeta(buf: ArrayBuffer, ext: string, fileBytes: number): HeaderMeta {
+  const view = new DataView(buf);
+  try {
+    if (ext === '.wav') return wavHeaderMeta(view);
+    if (ext === '.aiff' || ext === '.aif') return aiffHeaderMeta(view);
+    if (ext === '.flac') return flacHeaderMeta(view);
+    if (ext === '.mp3') return mp3HeaderMeta(view, fileBytes);
+    // 확장자 모호 시 시그니처 순서로 시도
+    const wav = wavHeaderMeta(view);
+    if (wav.sampleRate) return wav;
+    const flac = flacHeaderMeta(view);
+    if (flac.sampleRate) return flac;
+    const aiff = aiffHeaderMeta(view);
+    if (aiff.sampleRate) return aiff;
+    return mp3HeaderMeta(view, fileBytes);
+  } catch {
+    return EMPTY_HEADER_META;
+  }
+}
+
+/** 파일 앞부분만 읽어 헤더 메타를 파싱한다(풀 디코딩 없음). */
+export async function readHeaderMeta(file: File): Promise<HeaderMeta> {
+  const ext = extOf(file.name);
+  if (ext && !ACCEPTED_EXTENSIONS.includes(ext as (typeof ACCEPTED_EXTENSIONS)[number])) {
+    throw new AudioDecodeError(`Unsupported format: ${ext} (recommended: mp3, wav)`);
+  }
+  if (file.size === 0) throw new AudioDecodeError('Empty file.');
+  const SLICE = 1 << 20; // 1MB: ID3 태그/첫 프레임/데이터 청크 헤더 커버
+  let buf: ArrayBuffer;
+  try {
+    buf = await file.slice(0, Math.min(file.size, SLICE)).arrayBuffer();
+  } catch {
+    throw new AudioDecodeError('Could not read file.');
+  }
+  return parseHeaderMeta(buf, ext, file.size);
+}
+
+/** 헤더 메타 → AudioMeta. peak/LUFS 는 디코딩 전이라 미측정(-Infinity)으로 둔다. */
+export function metaFromHeader(file: File, hm: HeaderMeta): AudioMeta {
+  const sampleRate = hm.sampleRate ?? 44100;
+  const channels = hm.channels ?? 2;
+  const duration = hm.duration ?? 0;
+  return {
+    fileName: file.name,
+    sampleRate,
+    analysisSampleRate: sampleRate,
+    sampleRateIsOriginal: hm.sampleRate != null,
+    channels,
+    duration,
+    length: Math.round(duration * sampleRate),
+    peakDb: -Infinity,
+    integratedLufs: -Infinity,
+    sourceBitDepth: hm.bitDepth,
+    bitDepthLabel: '32-BIT FLOAT',
+  };
+}
+
 /** 채널 전체를 훑어 최대 절대 진폭을 구한 뒤 dBFS 로 변환 */
 function computePeakDb(buffer: AudioBuffer): number {
   let peak = 0;

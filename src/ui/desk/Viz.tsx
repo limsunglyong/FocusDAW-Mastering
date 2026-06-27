@@ -15,13 +15,16 @@ function InputQueue({ view }: { view: DeskView }) {
   const importing = useAppStore((s) => s.importing);
   const importError = useAppStore((s) => s.importError);
   const source = useAppStore((s) => s.vals['input.source']);
+  const scope = useAppStore((s) => s.vals['input.scope']);
+  // v0.2.9: 백그라운드 디코딩/LUFS 측정이 진행 중이면 [Decoding...] 표시
+  const decoding = useAppStore((s) => s.files.some((f) => f.lufsState !== 'done'));
   const ref = useRef<HTMLDivElement>(null);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
   const handleImport = async () => {
-    const picked = await openAudioFilePicker({ directory: source === 'Folder' });
+    const picked = await openAudioFilePicker({ directory: source === 'Folder', recursive: scope === 'Sub Folder' });
     if (picked.length) await loadFiles(picked);
   };
 
@@ -52,7 +55,12 @@ function InputQueue({ view }: { view: DeskView }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9, flex: 'none' }}>
-        <span style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>BATCH QUEUE</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>BATCH QUEUE</span>
+          {decoding && (
+            <span style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: view.accent, animation: 'dkdecoding 1.3s ease-in-out infinite' }}>[Decoding…]</span>
+          )}
+        </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#6f6657' }}>{view.batchCount} · {view.batchSize}</span>
           <button

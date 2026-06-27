@@ -52,6 +52,19 @@ body {
   }
 }
 
+/* v0.2.9: BATCH QUEUE [Decoding...] 숨쉬기(네온) 표시 */
+@keyframes dkdecoding {
+  0%,
+  100% {
+    opacity: 0.45;
+    text-shadow: 0 0 2px currentColor;
+  }
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 7px currentColor, 0 0 12px currentColor;
+  }
+}
+
 /* v0.1.5: 로딩 카드의 오디오 웨이브폼 막대 펄스 */
 @keyframes dkwave {
   0%,

@@ -5,8 +5,8 @@
 import { create } from 'zustand';
 import { DEFAULT_THEME, applyTheme, type ThemeName } from '../theme/themes';
 import { DEFAULT_STATE, EQPRESETS, type DeskState, type ModId } from '../desk/data';
-import { decodeAudioFile, AudioDecodeError } from '../audio/decoder';
-import { buildQueueFile, type QueueFile } from '../audio/queueFile';
+import { decodeAudioFile, readHeaderMeta, AudioDecodeError, type DecodedAudio } from '../audio/decoder';
+import { buildQueueFileFromHeader, applyDecodedMeta, markLufsFailed, type QueueFile } from '../audio/queueFile';
 import { previewEngine, type PreviewParams } from '../audio/previewEngine';
 import { resampleAudioBuffer, sampleRateFromInputRate } from '../audio/resample';
 
@@ -54,6 +54,8 @@ type AppState = DeskState & {
   stopPreview: () => void;
   syncPreviewParams: () => void;
   ensureProcessingBuffer: (id: string) => Promise<AudioBuffer>;
+  /** v0.2.8: lazy 디코딩 — 필요 시 원본 버퍼를 확보(없으면 디코딩, LRU=현재 파일만 유지). */
+  ensureSourceBuffer: (id: string) => Promise<AudioBuffer>;
   changeInputRate: (rate: string) => Promise<void>;
   toggleOriginalPlayback: () => Promise<void>;
   stopOriginalPlayback: () => void;
@@ -79,6 +81,73 @@ function invalidateProcessingBuffers(files: QueueFile[]): QueueFile[] {
 }
 
 let originalSelectionResumeSeq = 0;
+
+// ── v0.2.8: lazy 디코딩 + 백그라운드 LUFS 측정 ──────────────────────────────
+// 같은 파일을 동시에 디코딩하지 않도록 in-flight 프로미스를 공유한다.
+const decodeInFlight = new Map<string, Promise<DecodedAudio>>();
+function decodeOnce(file: QueueFile): Promise<DecodedAudio> {
+  let p = decodeInFlight.get(file.id);
+  if (!p) {
+    p = decodeAudioFile(file.file).finally(() => decodeInFlight.delete(file.id));
+    decodeInFlight.set(file.id, p);
+  }
+  return p;
+}
+
+function updateQueueFile(id: string, fn: (f: QueueFile) => QueueFile) {
+  useAppStore.setState((s) => ({ files: s.files.map((f) => (f.id === id ? fn(f) : f)) }));
+}
+
+// 백그라운드 측정 큐: 한 곡씩 디코딩→LUFS 측정→버퍼 해제(메모리 일정).
+let measureQueue: string[] = [];
+let measuring = false;
+function enqueueMeasure(id: string, front = false) {
+  measureQueue = measureQueue.filter((x) => x !== id);
+  if (front) measureQueue.unshift(id);
+  else measureQueue.push(id);
+}
+function dropFromMeasureQueue(id: string) {
+  measureQueue = measureQueue.filter((x) => x !== id);
+}
+async function pumpMeasureQueue() {
+  if (measuring) return;
+  measuring = true;
+  try {
+    while (measureQueue.length) {
+      const id = measureQueue[0];
+      const file = useAppStore.getState().files.find((f) => f.id === id);
+      if (!file || file.lufsState === 'done') {
+        measureQueue.shift();
+        continue;
+      }
+      if (file.sourceBuffer) {
+        // 이미 디코딩됨(선택 등) → 메타가 done 으로 갱신됐을 것이므로 측정 생략.
+        measureQueue.shift();
+        continue;
+      }
+      updateQueueFile(id, (f) => ({ ...f, lufsState: 'measuring' }));
+      try {
+        const decoded = await decodeOnce(file);
+        updateQueueFile(id, (f) => applyDecodedMeta(f, decoded, false));
+      } catch {
+        updateQueueFile(id, (f) => markLufsFailed(f));
+      }
+      measureQueue.shift();
+    }
+  } finally {
+    measuring = false;
+  }
+}
+
+// 선택된 파일을 측정 큐 맨 앞으로 올리고 즉시 디코딩(재생/Preview/웨이브폼 준비 + LUFS 채움).
+function prioritizeSelectedDecode() {
+  const st = useAppStore.getState();
+  const sel = st.files[st.curFile];
+  if (!sel) return;
+  enqueueMeasure(sel.id, true);
+  void pumpMeasureQueue();
+  if (!sel.sourceBuffer) void st.ensureSourceBuffer(sel.id).catch(() => {});
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   ...clone(DEFAULT_STATE),
@@ -149,6 +218,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isOriginalPlaying: false });
     set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile - 1 + s.files.length) % s.files.length }));
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
+    prioritizeSelectedDecode();
   },
   nextFile: () => {
     const shouldResumeOriginal = get().isOriginalPlaying;
@@ -157,6 +227,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isOriginalPlaying: false });
     set((s) => (s.files.length === 0 ? {} : { curFile: (s.curFile + 1) % s.files.length }));
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
+    prioritizeSelectedDecode();
   },
   pickFile: (i) => {
     const shouldResumeOriginal = get().isOriginalPlaying;
@@ -165,9 +236,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isOriginalPlaying: false });
     set((s) => (i >= 0 && i < s.files.length ? { curFile: i } : {}));
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
+    prioritizeSelectedDecode();
   },
 
-  // 선택된 File 들을 순차 디코딩해 큐에 추가. 진행 중 importing 표시, 실패 항목은 메시지로 수집.
+  // v0.2.8: 헤더만 읽어 큐에 추가(풀 디코딩 없음). LUFS 는 백그라운드에서 채우고,
+  //   선택 파일은 우선순위로 즉시 디코딩한다. 실패(미지원/읽기오류) 항목은 메시지로 수집.
   loadFiles: async (fileList) => {
     const incoming = Array.from(fileList);
     if (incoming.length === 0) return;
@@ -177,10 +250,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     for (const file of incoming) {
       set({ importCurrentName: file.name });
       try {
-        const decoded = await decodeAudioFile(file);
-        added.push(buildQueueFile(file, decoded));
+        const hm = await readHeaderMeta(file);
+        added.push(buildQueueFileFromHeader(file, hm));
       } catch (e) {
-        const msg = e instanceof AudioDecodeError ? e.message : 'Decoding failed';
+        const msg = e instanceof AudioDecodeError ? e.message : 'Reading failed';
         errors.push(`${file.name}: ${msg}`);
       }
       set((s) => ({ importDone: s.importDone + 1 }));
@@ -199,12 +272,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         curFile: wasEmpty && added.length ? s.files.length : Math.min(s.curFile, Math.max(0, files.length - 1)),
       };
     });
+    // 백그라운드 LUFS 측정 등록 + 현재 선택 파일 우선 디코딩
+    for (const qf of added) enqueueMeasure(qf.id);
+    prioritizeSelectedDecode();
   },
 
   removeFile: (id) =>
     {
       get().stopPreview();
       get().stopOriginalPlayback();
+      dropFromMeasureQueue(id);
       set((s) => {
       const idx = s.files.findIndex((f) => f.id === id);
       if (idx < 0) return {};
@@ -219,6 +296,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearFiles: () => {
     get().stopPreview();
     get().stopOriginalPlayback();
+    measureQueue = [];
     set({ files: [], curFile: 0, importError: null });
   },
 
@@ -246,20 +324,38 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   ensureProcessingBuffer: async (id) => {
-    const s = get();
-    const file = s.files.find((f) => f.id === id);
+    const targetSampleRate = sampleRateFromInputRate(get().vals['input.rate']);
+    const file = get().files.find((f) => f.id === id);
     if (!file) throw new Error('File is no longer in the queue.');
-    const targetSampleRate = sampleRateFromInputRate(s.vals['input.rate']);
     if (file.processingBuffer && file.processingSampleRate === targetSampleRate) {
       return file.processingBuffer;
     }
-    const processingBuffer = await resampleAudioBuffer(file.sourceBuffer, targetSampleRate);
+    const sourceBuffer = await get().ensureSourceBuffer(id);
+    const processingBuffer = await resampleAudioBuffer(sourceBuffer, targetSampleRate);
     set((state) => ({
       files: state.files.map((f) => (
         f.id === id ? { ...f, processingBuffer, processingSampleRate: targetSampleRate } : f
       )),
     }));
     return processingBuffer;
+  },
+
+  // v0.2.8: 원본 버퍼 확보(lazy). 없으면 디코딩하고, 현재 파일만 버퍼를 유지(LRU=1)하도록 나머지를 evict.
+  ensureSourceBuffer: async (id) => {
+    const existing = get().files.find((f) => f.id === id);
+    if (!existing) throw new Error('File is no longer in the queue.');
+    if (existing.sourceBuffer) return existing.sourceBuffer;
+    const decoded = await decodeOnce(existing);
+    set((state) => ({
+      files: state.files.map((f) => {
+        if (f.id === id) return applyDecodedMeta(f, decoded, true);
+        if (f.sourceBuffer || f.processingBuffer) {
+          return { ...f, sourceBuffer: undefined, processingBuffer: undefined, processingSampleRate: undefined };
+        }
+        return f;
+      }),
+    }));
+    return decoded.buffer;
   },
 
   changeInputRate: async (rate) => {

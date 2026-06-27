@@ -1,6 +1,16 @@
-// FocusDAW Mastering Desk v0.2.0 (Phase 1) - Preview 오디오 엔진 코어
-// 선택된 AudioBuffer 를 7단계 직렬 Web Audio 그래프로 재생한다. 현재 Phase 1에서는
-// 실시간 청취용 기본 DSP(EQ/간단 dynamics/stereo/loudness)를 연결하고, 고급 단계는 후속 Phase에서 확장한다.
+// FocusDAW Mastering Desk v0.2.6 (Phase 1) - Preview 오디오 엔진 코어
+// 하나의 transport(좌측 Play/Space) 위에서 dry/effect A/B와 섹션별 On/Bypass를 모두
+// "재생을 끊지 않는 gain/AudioParam crossfade"로 처리한다. AudioBufferSource 는 one-shot 이므로
+// Preview 토글·섹션 Bypass·노브 변경 때 source 를 새로 만들지 않는다(구현 원칙 #2/#7~9).
+//
+// 그래프 구조:
+//   source ─ dryGain ───────────────────────────────────────────────┐(top preview dry)
+//   source ─ inputGain ─ [pre] ─ [spectral] ─ [dynamics] ─ [stereo] ─ [loudness] ─ wetGain ┤→ dest
+// 각 [section] 은 내부적으로 dry/wet 병렬 구조를 가진다:
+//   in ─ sectionDry ─────────────┐
+//   in ─ sectionDSP ─ sectionWet ┤→ sum ─ (다음 섹션)
+//   섹션 ON  : sectionDry=0, sectionWet=1
+//   섹션 BYPASS: sectionDry=1, sectionWet=0
 import type { Vals, ModId } from '../desk/data';
 import type { AudioMeta } from './decoder';
 
@@ -12,13 +22,34 @@ export type PreviewParams = {
   meta: AudioMeta;
 };
 
+type SectionGain = { dry: GainNode; wet: GainNode };
+type StereoMatrix = { lToL: GainNode; rToL: GainNode; lToR: GainNode; rToR: GainNode };
+
 type ActiveGraph = {
   source: AudioBufferSourceNode;
   nodes: AudioNode[];
+  // top-level Preview A/B (dry vs 전체 effect 체인)
   dryGain: GainNode;
   wetGain: GainNode;
+  // 섹션별 dry/wet (On/Bypass)
+  sections: Partial<Record<ModId, SectionGain>>;
+  // 실시간 갱신용 DSP 노드 참조
+  inputGain: GainNode;
+  fade: GainNode | null;
+  eqFilters: BiquadFilterNode[];
+  comp: DynamicsCompressorNode | null;
+  exciter: WaveShaperNode | null;
+  stereo: StereoMatrix | null;
+  loudnessGain: GainNode | null;
+  loudnessSat: WaveShaperNode | null;
+  limiter: DynamicsCompressorNode | null;
+  channels: number;
+  startCtxTime: number;
+  startOffset: number;
   onEnded: (() => void) | null;
 };
+
+const RAMP = 0.015;
 
 const num = (v: unknown, fallback = 0) => {
   const n = Number(v);
@@ -31,32 +62,71 @@ function ratioFromVal(v: unknown): number {
   return 4;
 }
 
-function makeSaturator(ctx: AudioContext, amount: number): WaveShaperNode {
-  const shaper = ctx.createWaveShaper();
+// amount<=0 이면 항등(identity) 커브를 만들어 사실상 bypass 가 되게 한다.
+function saturatorCurve(amount: number): Float32Array<ArrayBuffer> {
   const n = 1024;
   const curve = new Float32Array(n);
-  const drive = 1 + Math.max(0, Math.min(1, amount)) * 8;
+  const a = Math.max(0, Math.min(1, amount));
+  if (a <= 0.001) {
+    for (let i = 0; i < n; i++) curve[i] = (i / (n - 1)) * 2 - 1;
+    return curve;
+  }
+  const drive = 1 + a * 8;
   const norm = Math.tanh(drive);
   for (let i = 0; i < n; i++) {
     const x = (i / (n - 1)) * 2 - 1;
     curve[i] = Math.tanh(x * drive) / norm;
   }
-  shaper.curve = curve;
+  return curve;
+}
+
+function makeSaturator(ctx: AudioContext, amount: number): WaveShaperNode {
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = saturatorCurve(amount);
   shaper.oversample = '4x';
   return shaper;
 }
 
 function setParam(p: AudioParam, value: number, ctx: AudioContext) {
   p.cancelScheduledValues(ctx.currentTime);
-  p.setTargetAtTime(value, ctx.currentTime, 0.015);
+  p.setTargetAtTime(value, ctx.currentTime, RAMP);
+}
+
+// ── 파라미터 → 목표값 계산 (build/update 공용) ────────────────────────────
+function inputGainValue(params: PreviewParams): number {
+  const peak = Number.isFinite(params.meta.peakDb) ? Math.pow(10, params.meta.peakDb / 20) : 1;
+  return params.vals['input.normimp'] ? Math.min(8, Math.pow(10, -0.1 / 20) / peak) : 1;
+}
+
+function eqFreq(vals: Vals, i: number, nyq: number): number {
+  return Math.max(20, Math.min(nyq - 1, num(vals[`spectral.f${i}`], 1000)));
+}
+function eqQ(vals: Vals, i: number): number {
+  return i === 0 || i === 4 ? 0.71 : Math.max(0.2, num(vals[`spectral.q${i}`], 1));
+}
+
+function compThreshold(vals: Vals): number {
+  const avg = (num(vals['dynamics.low'], -4) + num(vals['dynamics.mid'], -2) + num(vals['dynamics.high'], -3)) / 3;
+  return Math.max(-40, Math.min(-1, avg * 3));
+}
+const exciterAmount = (vals: Vals) => (num(vals['dynamics.exciter']) / 100) * 0.22;
+const loudnessSatAmount = (vals: Vals) => (num(vals['loudness.sat']) / 100) * 0.5;
+
+function loudnessGainValue(params: PreviewParams): number {
+  const target = num(params.vals['loudness.target'], -14);
+  const lufs = params.meta.integratedLufs;
+  if (!Number.isFinite(lufs)) return 1;
+  return Math.max(0.05, Math.min(6, Math.pow(10, (target - lufs) / 20)));
+}
+
+function limiterRelease(vals: Vals): number {
+  return vals['loudness.limiter'] === 'Loud' ? 0.08 : vals['loudness.limiter'] === 'Clear' ? 0.18 : 0.12;
 }
 
 export class PreviewEngine {
   private ctx: AudioContext | null = null;
   private graph: ActiveGraph | null = null;
   private params: PreviewParams | null = null;
-  private currentBuffer: AudioBuffer | null = null;
-  private currentOnEnded: (() => void) | null = null;
   private startedAt = 0;
   private offset = 0;
   private playing = false;
@@ -76,8 +146,6 @@ export class PreviewEngine {
     await this.ensureContext(buffer.sampleRate);
     this.stop(false);
     this.params = params;
-    this.currentBuffer = buffer;
-    this.currentOnEnded = onEnded;
     this.offset = Math.max(0, offset);
     this.previewEnabled = previewEnabled;
     this.start(buffer, onEnded);
@@ -101,21 +169,14 @@ export class PreviewEngine {
     this.playing = false;
     if (resetOffset) {
       this.offset = 0;
-      this.currentBuffer = null;
-      this.currentOnEnded = null;
     }
   }
 
+  // 노브/세그먼트/섹션 On-Bypass 변경: 재생을 끊지 않고 live 반영한다.
   update(params: PreviewParams) {
     this.params = params;
     if (!this.ctx || !this.graph) return;
     this.applyLiveParams(params);
-    if (this.playing && this.currentBuffer && this.currentOnEnded) {
-      this.offset = Math.min(this.getCurrentTime(), Math.max(0, this.currentBuffer.duration - 0.001));
-      this.stopGraph();
-      this.playing = false;
-      this.start(this.currentBuffer, this.currentOnEnded);
-    }
   }
 
   setPreviewEnabled(enabled: boolean) {
@@ -143,12 +204,12 @@ export class PreviewEngine {
     const graph = this.buildGraph(ctx, source, params);
     source.onended = () => {
       if (this.graph !== graph) return;
+      // stopGraph() 가 graph.onEnded 를 null 로 만들기 전에 콜백을 캡처한다.
+      const notifyEnded = graph.onEnded;
       this.stopGraph();
       this.playing = false;
       this.offset = 0;
-      this.currentBuffer = null;
-      this.currentOnEnded = null;
-      graph.onEnded?.();
+      notifyEnded?.();
     };
     graph.onEnded = onEnded;
     this.graph = graph;
@@ -170,104 +231,141 @@ export class PreviewEngine {
   }
 
   private buildGraph(ctx: AudioContext, source: AudioBufferSourceNode, params: PreviewParams): ActiveGraph {
+    const vals = params.vals;
+    const enabled = params.enabled;
+    const channels = params.meta.channels;
+    const nyq = Math.min(source.buffer?.sampleRate ?? ctx.sampleRate, ctx.sampleRate) / 2;
+    const nodes: AudioNode[] = [source];
+    const sections: Partial<Record<ModId, SectionGain>> = {};
+
+    // top-level Preview A/B
     const dryGain = ctx.createGain();
     const wetGain = ctx.createGain();
     dryGain.gain.value = this.previewEnabled ? 0 : 1;
     wetGain.gain.value = this.previewEnabled ? 1 : 0;
-
     source.connect(dryGain);
     dryGain.connect(ctx.destination);
+    nodes.push(dryGain, wetGain, ctx.destination);
 
-    const nodes: AudioNode[] = [source, dryGain, wetGain];
-    let tail: AudioNode = source;
-    const append = (node: AudioNode) => {
-      tail.connect(node);
-      tail = node;
-      nodes.push(node);
+    // 섹션을 dry/wet 병렬로 감싸 sum 을 반환한다. buildDSP 는 input 에서 시작해 output 노드를 반환.
+    const wrapSection = (id: ModId, input: AudioNode, buildDSP: (input: AudioNode) => AudioNode): AudioNode => {
+      const dry = ctx.createGain();
+      const wet = ctx.createGain();
+      const sum = ctx.createGain();
+      const on = enabled[id];
+      dry.gain.value = on ? 0 : 1;
+      wet.gain.value = on ? 1 : 0;
+      input.connect(dry);
+      dry.connect(sum);
+      const out = buildDSP(input);
+      out.connect(wet);
+      wet.connect(sum);
+      nodes.push(dry, wet, sum);
+      sections[id] = { dry, wet };
+      return sum;
     };
-    const vals = params.vals;
-    const enabled = params.enabled;
-    const nyq = Math.min(source.buffer?.sampleRate ?? ctx.sampleRate, ctx.sampleRate) / 2;
 
+    // I Input — bypass 없음, 항상 적용
     const inputGain = ctx.createGain();
-    const peak = Number.isFinite(params.meta.peakDb) ? Math.pow(10, params.meta.peakDb / 20) : 1;
-    inputGain.gain.value = vals['input.normimp'] ? Math.min(8, Math.pow(10, -0.1 / 20) / peak) : 1;
-    append(inputGain);
+    inputGain.gain.value = inputGainValue(params);
+    source.connect(inputGain);
+    nodes.push(inputGain);
+    let tail: AudioNode = inputGain;
 
-    if (enabled.pre) {
-      const fade = ctx.createGain();
-      fade.gain.value = 1;
-      const fadeIn = Math.max(0, num(vals['pre.fadein']) / 1000);
-      const fadeOut = Math.max(0, num(vals['pre.fadeout']) / 1000);
-      const start = ctx.currentTime;
-      if (fadeIn > 0) {
-        fade.gain.setValueAtTime(0, start);
-        fade.gain.linearRampToValueAtTime(1, start + fadeIn);
-      }
-      if (fadeOut > 0 && params.meta.duration > fadeOut) {
-        fade.gain.setValueAtTime(1, start + params.meta.duration - fadeOut);
-        fade.gain.linearRampToValueAtTime(0, start + params.meta.duration);
-      }
-      append(fade);
-    }
+    // II Pre — fade in/out 엔벨로프
+    let fade: GainNode | null = null;
+    tail = wrapSection('pre', tail, (input) => {
+      const g = ctx.createGain();
+      g.gain.value = 1;
+      input.connect(g);
+      nodes.push(g);
+      fade = g;
+      this.scheduleFade(g, params, ctx.currentTime, this.offset);
+      return g;
+    });
 
-    if (enabled.spectral) {
+    // III Spectral EQ — 5 band biquad
+    const eqFilters: BiquadFilterNode[] = [];
+    tail = wrapSection('spectral', tail, (input) => {
+      let t = input;
       for (let i = 0; i < 5; i++) {
         const f = ctx.createBiquadFilter();
         f.type = i === 0 ? 'lowshelf' : i === 4 ? 'highshelf' : 'peaking';
-        f.frequency.value = Math.max(20, Math.min(nyq - 1, num(vals[`spectral.f${i}`], 1000)));
+        f.frequency.value = eqFreq(vals, i, nyq);
         f.gain.value = num(vals[`spectral.g${i}`]);
-        f.Q.value = i === 0 || i === 4 ? 0.71 : Math.max(0.2, num(vals[`spectral.q${i}`], 1));
-        append(f);
+        f.Q.value = eqQ(vals, i);
+        t.connect(f);
+        nodes.push(f);
+        eqFilters.push(f);
+        t = f;
       }
-    }
+      return t;
+    });
 
-    if (enabled.dynamics) {
-      const comp = ctx.createDynamicsCompressor();
-      const avgThreshold = (num(vals['dynamics.low'], -4) + num(vals['dynamics.mid'], -2) + num(vals['dynamics.high'], -3)) / 3;
-      comp.threshold.value = Math.max(-40, Math.min(-1, avgThreshold * 3));
-      comp.knee.value = 12;
-      comp.ratio.value = ratioFromVal(vals['dynamics.ratio']);
-      comp.attack.value = Math.max(0.002, 0.02 - num(vals['dynamics.transient']) * 0.0002);
-      comp.release.value = 0.22;
-      append(comp);
+    // IV Dynamics — compressor + exciter(항상 존재, off 시 항등 커브)
+    let comp: DynamicsCompressorNode | null = null;
+    let exciter: WaveShaperNode | null = null;
+    tail = wrapSection('dynamics', tail, (input) => {
+      const c = ctx.createDynamicsCompressor();
+      c.threshold.value = compThreshold(vals);
+      c.knee.value = 12;
+      c.ratio.value = ratioFromVal(vals['dynamics.ratio']);
+      c.attack.value = Math.max(0.002, 0.02 - num(vals['dynamics.transient']) * 0.0002);
+      c.release.value = 0.22;
+      const sat = makeSaturator(ctx, exciterAmount(vals));
+      input.connect(c);
+      c.connect(sat);
+      nodes.push(c, sat);
+      comp = c;
+      exciter = sat;
+      return sat;
+    });
 
-      const exciter = num(vals['dynamics.exciter']) / 100;
-      if (exciter > 0.01) append(makeSaturator(ctx, exciter * 0.22));
-    }
-
-    if (enabled.stereo && params.meta.channels >= 2) {
-      tail = this.appendStereoWidth(ctx, tail, num(vals['stereo.width'], 100) / 100, nodes);
-    }
-
-    if (enabled.loudness) {
-      const target = num(vals['loudness.target'], -14);
-      const lufs = params.meta.integratedLufs;
-      if (Number.isFinite(lufs)) {
-        const gain = ctx.createGain();
-        gain.gain.value = Math.max(0.05, Math.min(6, Math.pow(10, (target - lufs) / 20)));
-        append(gain);
+    // V Stereo — width matrix(스테레오만), 모노는 항등 통과
+    let stereo: StereoMatrix | null = null;
+    tail = wrapSection('stereo', tail, (input) => {
+      if (channels < 2) {
+        const g = ctx.createGain();
+        input.connect(g);
+        nodes.push(g);
+        return g;
       }
-      const sat = num(vals['loudness.sat']) / 100;
-      if (sat > 0.01) append(makeSaturator(ctx, sat * 0.5));
-      if (vals['loudness.tplimit']) {
-        const limiter = ctx.createDynamicsCompressor();
-        limiter.threshold.value = num(vals['loudness.ceiling'], -1);
-        limiter.knee.value = 0;
-        limiter.ratio.value = 20;
-        limiter.attack.value = 0.001;
-        limiter.release.value = vals['loudness.limiter'] === 'Loud' ? 0.08 : vals['loudness.limiter'] === 'Clear' ? 0.18 : 0.12;
-        append(limiter);
-      }
-    }
+      const built = this.buildStereoWidth(ctx, input, num(vals['stereo.width'], 100) / 100, nodes);
+      stereo = built.matrix;
+      return built.out;
+    });
+
+    // VI Loudness — make-up gain + saturate + true peak limiter(항상 존재)
+    let loudnessGain: GainNode | null = null;
+    let loudnessSat: WaveShaperNode | null = null;
+    let limiter: DynamicsCompressorNode | null = null;
+    tail = wrapSection('loudness', tail, (input) => {
+      const g = ctx.createGain();
+      g.gain.value = loudnessGainValue(params);
+      const sat = makeSaturator(ctx, loudnessSatAmount(vals));
+      const lim = ctx.createDynamicsCompressor();
+      this.applyLimiter(lim, vals);
+      input.connect(g);
+      g.connect(sat);
+      sat.connect(lim);
+      nodes.push(g, sat, lim);
+      loudnessGain = g;
+      loudnessSat = sat;
+      limiter = lim;
+      return lim;
+    });
 
     tail.connect(wetGain);
     wetGain.connect(ctx.destination);
-    nodes.push(ctx.destination);
-    return { source, nodes, dryGain, wetGain, onEnded: null };
+
+    return {
+      source, nodes, dryGain, wetGain, sections,
+      inputGain, fade, eqFilters, comp, exciter, stereo, loudnessGain, loudnessSat, limiter,
+      channels, startCtxTime: ctx.currentTime, startOffset: this.offset, onEnded: null,
+    };
   }
 
-  private appendStereoWidth(ctx: AudioContext, inputFrom: AudioNode, width: number, ownedNodes: AudioNode[]): AudioNode {
+  private buildStereoWidth(ctx: AudioContext, inputFrom: AudioNode, width: number, ownedNodes: AudioNode[]): { out: AudioNode; matrix: StereoMatrix } {
     const splitter = ctx.createChannelSplitter(2);
     const merger = ctx.createChannelMerger(2);
     const lToL = ctx.createGain();
@@ -291,25 +389,101 @@ export class PreviewEngine {
     rToR.connect(merger, 0, 1);
 
     ownedNodes.push(splitter, lToL, rToL, lToR, rToR, merger);
-    return merger;
+    return { out: merger, matrix: { lToL, rToL, lToR, rToR } };
+  }
+
+  private applyLimiter(lim: DynamicsCompressorNode, vals: Vals) {
+    if (vals['loudness.tplimit']) {
+      lim.threshold.value = num(vals['loudness.ceiling'], -1);
+      lim.knee.value = 0;
+      lim.ratio.value = 20;
+      lim.attack.value = 0.001;
+      lim.release.value = limiterRelease(vals);
+    } else {
+      // 항등 통과: ratio 1
+      lim.threshold.value = 0;
+      lim.knee.value = 0;
+      lim.ratio.value = 1;
+      lim.attack.value = 0.003;
+      lim.release.value = 0.1;
+    }
+  }
+
+  private scheduleFade(fade: GainNode, params: PreviewParams, startCtxTime: number, startOffset: number) {
+    const fadeIn = Math.max(0, num(params.vals['pre.fadein']) / 1000);
+    const fadeOut = Math.max(0, num(params.vals['pre.fadeout']) / 1000);
+    const duration = params.meta.duration;
+    // 재생 위치(startOffset) 기준으로 절대 시간 엔벨로프를 다시 건다.
+    fade.gain.cancelScheduledValues(startCtxTime);
+    fade.gain.setValueAtTime(1, startCtxTime);
+    if (fadeIn > 0 && startOffset < fadeIn) {
+      const remain = fadeIn - startOffset;
+      fade.gain.setValueAtTime(startOffset / fadeIn, startCtxTime);
+      fade.gain.linearRampToValueAtTime(1, startCtxTime + remain);
+    }
+    if (fadeOut > 0 && duration > fadeOut) {
+      const outStart = duration - fadeOut;
+      if (startOffset < duration) {
+        const at = startCtxTime + Math.max(0, outStart - startOffset);
+        fade.gain.setValueAtTime(1, at);
+        fade.gain.linearRampToValueAtTime(0, at + fadeOut);
+      }
+    }
   }
 
   private applyLiveParams(params: PreviewParams) {
     const ctx = this.ctx;
     const graph = this.graph;
     if (!ctx || !graph) return;
-    const nodes = graph.nodes;
-    let eqIndex = 0;
     const vals = params.vals;
+    const enabled = params.enabled;
     const nyq = ctx.sampleRate / 2;
-    for (const node of nodes) {
-      if (node instanceof BiquadFilterNode && eqIndex < 5) {
-        setParam(node.frequency, Math.max(20, Math.min(nyq - 1, num(vals[`spectral.f${eqIndex}`], 1000))), ctx);
-        setParam(node.gain, params.enabled.spectral ? num(vals[`spectral.g${eqIndex}`]) : 0, ctx);
-        setParam(node.Q, eqIndex === 0 || eqIndex === 4 ? 0.71 : Math.max(0.2, num(vals[`spectral.q${eqIndex}`], 1)), ctx);
-        eqIndex++;
-      }
+
+    // 섹션 On/Bypass crossfade
+    for (const id of ['pre', 'spectral', 'dynamics', 'stereo', 'loudness'] as ModId[]) {
+      const sg = graph.sections[id];
+      if (!sg) continue;
+      const on = enabled[id];
+      setParam(sg.dry.gain, on ? 0 : 1, ctx);
+      setParam(sg.wet.gain, on ? 1 : 0, ctx);
     }
+
+    // I Input
+    setParam(graph.inputGain.gain, inputGainValue(params), ctx);
+
+    // II Pre fade — 현재 재생 위치 기준으로 엔벨로프 재설정
+    if (graph.fade) {
+      this.scheduleFade(graph.fade, params, ctx.currentTime, this.getCurrentTime());
+    }
+
+    // III Spectral EQ
+    graph.eqFilters.forEach((f, i) => {
+      setParam(f.frequency, eqFreq(vals, i, nyq), ctx);
+      setParam(f.gain, num(vals[`spectral.g${i}`]), ctx);
+      setParam(f.Q, eqQ(vals, i), ctx);
+    });
+
+    // IV Dynamics
+    if (graph.comp) {
+      setParam(graph.comp.threshold, compThreshold(vals), ctx);
+      setParam(graph.comp.ratio, ratioFromVal(vals['dynamics.ratio']), ctx);
+      setParam(graph.comp.attack, Math.max(0.002, 0.02 - num(vals['dynamics.transient']) * 0.0002), ctx);
+    }
+    if (graph.exciter) graph.exciter.curve = saturatorCurve(exciterAmount(vals));
+
+    // V Stereo
+    if (graph.stereo) {
+      const w = num(vals['stereo.width'], 100) / 100;
+      setParam(graph.stereo.lToL.gain, 0.5 * (1 + w), ctx);
+      setParam(graph.stereo.rToL.gain, 0.5 * (1 - w), ctx);
+      setParam(graph.stereo.lToR.gain, 0.5 * (1 - w), ctx);
+      setParam(graph.stereo.rToR.gain, 0.5 * (1 + w), ctx);
+    }
+
+    // VI Loudness
+    if (graph.loudnessGain) setParam(graph.loudnessGain.gain, loudnessGainValue(params), ctx);
+    if (graph.loudnessSat) graph.loudnessSat.curve = saturatorCurve(loudnessSatAmount(vals));
+    if (graph.limiter) this.applyLimiter(graph.limiter, vals);
   }
 
   private crossfadePreview(enabled: boolean) {
@@ -319,8 +493,8 @@ export class PreviewEngine {
     const now = ctx.currentTime;
     graph.dryGain.gain.cancelScheduledValues(now);
     graph.wetGain.gain.cancelScheduledValues(now);
-    graph.dryGain.gain.setTargetAtTime(enabled ? 0 : 1, now, 0.015);
-    graph.wetGain.gain.setTargetAtTime(enabled ? 1 : 0, now, 0.015);
+    graph.dryGain.gain.setTargetAtTime(enabled ? 0 : 1, now, RAMP);
+    graph.wetGain.gain.setTargetAtTime(enabled ? 1 : 0, now, RAMP);
   }
 }
 

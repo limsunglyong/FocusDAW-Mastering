@@ -42,6 +42,19 @@
  *             새 선택 파일을 자동 재생하도록 transport 의도 유지.
  *  - v0.2.5 : (Phase 1 Patch) 중앙 Preview를 별도 play/stop이 아닌 효과 모니터 ON/OFF
  *             토글로 전환. 좌측 Play/Space가 dry/effect 통합 transport를 담당.
+ *  - v0.2.6 : (Phase 1 Patch) 섹션별 dry/wet bypass 구조 — 모든 섹션 DSP를 항상 빌드하고
+ *             dry/wet 병렬+sum 으로 감싸, 재생 중 섹션 On/Bypass·노브 변경을 source 재생성 없이
+ *             gain/AudioParam crossfade 로 반영.
+ *  - v0.2.7 : (Phase 1 Patch) 곡 종료 시 transport 상태 미복귀 버그 수정 — onended 콜백을
+ *             stopGraph 전에 캡처. 종료 시 정지+위치 0 리셋+Play 아이콘 복귀.
+ *  - v0.2.8 : (Phase 1 Patch) 파일 lazy 로딩 — import 시 헤더만 파싱해 리스트 즉시 표시,
+ *             백그라운드로 곡별 디코딩→LUFS 측정→해제(메모리 일정), 선택 파일은 우선 디코딩.
+ *             원본 버퍼는 현재 파일만 유지(LRU=1)하도록 ensureSourceBuffer 도입.
+ *  - v0.2.9 : (Phase 1 Patch) A4 수정요청 — 백그라운드 디코딩 중 BATCH QUEUE 옆 [Decoding…]
+ *             숨쉬기(네온) 표시. Input 의 Recursive 스위치를 Root/Sub Folder 세그먼트로 바꾸고
+ *             실제 폴더 스캔 깊이(Root=최상위만 / Sub Folder=하위 포함)에 연결.
+ *  - v0.2.10: (Phase 1 Patch) 세그먼트 선택 버튼(Source/PCM/Rate 등 CTRL seg) Y높이 약 80% 축소
+ *             (세로 패딩 6→4px). VII Export 의 Format 세그먼트는 별도 스타일이라 제외.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

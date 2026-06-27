@@ -46,8 +46,10 @@ export default function App() {
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
-      // 폴더 드롭은 비동기(엔트리 재귀 순회). 엔트리 캡처는 동기로 시작됨.
-      void audioFilesFromDataTransfer(e.dataTransfer).then((dropped) => {
+      // 폴더 드롭은 비동기(엔트리 순회). 엔트리 캡처는 동기로 시작됨.
+      // Root/Sub Folder 스코프에 따라 하위 폴더 포함 여부 결정(stale 방지 위해 store 직접 조회).
+      const recursive = useAppStore.getState().vals['input.scope'] === 'Sub Folder';
+      void audioFilesFromDataTransfer(e.dataTransfer, recursive).then((dropped) => {
         if (dropped.length) void loadFiles(dropped);
       });
     },

@@ -162,8 +162,10 @@ export function computeView(state: DeskState, themeName: ThemeName, files: Queue
   const satCol = _thd >= 3 ? '#e6502e' : _thd >= 1 ? '#e6c23c' : accent;
 
   const defs = id === 'spectral' ? eqDefs(vals) : CTRL[id] || [];
+  // v0.2.10: 세그먼트 선택 버튼 Y높이 약 80% 축소(세로 패딩 6→4px). VII Export 의 Format
+  //   세그먼트는 별도 스타일(metaFields)이라 영향받지 않음.
   const segStyle = (selected: boolean) =>
-    `text-align:center;font-family:'Archivo';font-size:10px;font-weight:600;padding:6px 9px;border-radius:6px;cursor:pointer;white-space:nowrap;` +
+    `text-align:center;font-family:'Archivo';font-size:10px;font-weight:600;padding:4px 9px;border-radius:6px;cursor:pointer;white-space:nowrap;` +
     (selected ? `color:#f3ecdd;background:${accent};` : `color:${pal.pSeg};`);
 
   let controls: Control[] = defs.map((def) => {

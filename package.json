@@ -1,7 +1,7 @@
 {
   "name": "focusdaw-mastering-desk",
   "private": true,
-  "version": "0.8.3",
+  "version": "0.8.5",
   "description": "FocusDAW - Mastering Desk",
   "author": "FocusDAW",
   "type": "module",
@@ -19,8 +19,10 @@
     "verify": "node scripts/verify-decoder.mjs"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@types/three": "^0.185.0",
     "electron-updater": "^6.3.9",
+    "libflacjs": "^5.4.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.185.0",

@@ -116,7 +116,7 @@ export const META: MetaDef[] = [
   { key: 'artist', type: 'text', label: 'Artist / Composer', ph: '—' },
   { key: 'year', type: 'text', label: 'Year', ph: '2026' },
   { key: 'genre', type: 'text', label: 'Genre', ph: '—' },
-  { key: 'format', type: 'seg', label: 'Format', opts: ['WAV', 'MP3 320', 'FLAC'] },
+  { key: 'format', type: 'seg', label: 'Format', opts: ['WAV', 'MP3', 'FLAC'] },
 ];
 
 // v0.2.0(Phase 1): 표시용 파일 항목 타입. 실제 데이터는 store 의 큐(QueueFile)에서 채운다.

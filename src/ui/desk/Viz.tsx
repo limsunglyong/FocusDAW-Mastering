@@ -478,6 +478,8 @@ function ExportViz({ view }: { view: DeskView }) {
       <div style={{ display: 'flex', gap: 13, marginTop: 12 }}>
         <div
           onClick={() => artInputRef.current?.click()}
+          // v0.8.5: stopPropagation 으로 루트(App) onDrop(오디오 로더)에 이미지가 흘러가 큐에 에러가
+          // 뜨던 문제 방지. 'Drop audio files' 오버레이 해제는 App 의 window 캡처 'drop' 리스너가 담당.
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); loadArt(e.dataTransfer.files?.[0]); }}
           title={artworkDataUrl ? 'Click to replace · double-click area to clear' : 'Drop or click to add artwork'}

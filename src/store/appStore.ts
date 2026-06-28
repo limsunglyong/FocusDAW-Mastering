@@ -57,6 +57,8 @@ type AppState = DeskState & {
   exportDir: string | null;
   /** 마지막으로 저장된 파일 경로(완료 후 Reveal 용). */
   exportLastPath: string | null;
+  /** v0.8.5: Export 완료 알림(성공/실패 요약). 모달로 표시 후 사용자가 닫으면 null. */
+  exportNotice: { ok: boolean; saved: number; total: number; path: string | null; error: string | null } | null;
   /** Album Artwork 미리보기 dataURL(현재 라운드는 표시 전용 — WAV 미임베드). */
   artworkDataUrl: string | null;
 
@@ -120,6 +122,7 @@ type AppState = DeskState & {
   exportBatch: () => Promise<void>;
   cancelExport: () => void;
   revealLastExport: () => void;
+  clearExportNotice: () => void;
 };
 
 const clone = (s: DeskState): DeskState => ({
@@ -288,7 +291,7 @@ async function runExport(ids: string[]) {
   }
   const format = String(s0.vals['export.format']);
   if (!isSupportedFormat(format)) {
-    useAppStore.setState({ exportError: `${format} export is not available yet (WAV only in this build).` });
+    useAppStore.setState({ exportError: `${format} export is not supported (use WAV, MP3, or FLAC).` });
     return;
   }
   // 렌더는 오프라인 컨텍스트지만, 진행 중 버퍼 evict 가 재생을 끊을 수 있으므로 재생을 멈춘다.
@@ -298,7 +301,9 @@ async function runExport(ids: string[]) {
 
   const dir = await resolveExportDir(s0);
   const bit = s0.vals['input.bit'];
-  useAppStore.setState({ exporting: true, exportError: null, exportTotal: ids.length, exportDone: 0, exportCurrentName: '', exportLastPath: null });
+  useAppStore.setState({ exporting: true, exportError: null, exportNotice: null, exportTotal: ids.length, exportDone: 0, exportCurrentName: '', exportLastPath: null });
+  // v0.8.5: 무거운 렌더/인코딩 전에 한 프레임 양보 → 로딩 오버레이가 먼저 그려지게 한다.
+  await new Promise((r) => setTimeout(r, 30));
 
   let lastPath: string | null = null;
   const errors: string[] = [];
@@ -308,11 +313,22 @@ async function runExport(ids: string[]) {
       const st = useAppStore.getState();
       const file = st.files.find((f) => f.id === ids[i]);
       if (!file) continue;
-      useAppStore.setState({ exportCurrentName: file.name, exportDone: i });
+      // v0.8.5: 로딩 표시는 소스명이 아니라 출력 파일명(현재 포맷 확장자)으로.
+      const outExt = format === 'MP3' ? 'mp3' : format === 'FLAC' ? 'flac' : 'wav';
+      useAppStore.setState({ exportCurrentName: `${baseName(file.name)}.${outExt}`, exportDone: i });
       try {
         const buffer = await st.effectivePlaybackBuffer(file.id);
         const params = previewParamsFromState(useAppStore.getState(), file);
-        const { bytes, ext } = await encodeMaster(buffer, params, format, bit);
+        // v0.8.4 (7-E): MP3/FLAC 태그·아트워크. 트랙 제목은 파일명(별도 title 필드 없음), 나머지는 Export 메타.
+        const meta = {
+          title: baseName(file.name),
+          artist: String(st.vals['export.artist'] || ''),
+          album: String(st.vals['export.album'] || ''),
+          year: String(st.vals['export.year'] || ''),
+          genre: String(st.vals['export.genre'] || ''),
+          artworkDataUrl: st.artworkDataUrl,
+        };
+        const { bytes, ext } = await encodeMaster(buffer, params, format, bit, meta);
         const filename = `${baseName(file.name)}.${ext}`;
         const res = await io.saveFile(dir, filename, bytes, false);
         if (res.ok && res.path) lastPath = res.path;
@@ -325,11 +341,17 @@ async function runExport(ids: string[]) {
     useAppStore.setState({ exportDone: ids.length });
   } finally {
     const cancelled = exportCancelled;
+    const saved = ids.length - errors.length;
+    // v0.8.5: 완료 알림 — 취소가 아니면 항상 모달로 결과를 알린다(저장 위치 포함).
+    const notice = cancelled
+      ? null
+      : { ok: errors.length === 0, saved, total: ids.length, path: lastPath, error: errors.length ? errors.join('\n') : null };
     useAppStore.setState({
       exporting: false,
       exportCurrentName: '',
       exportLastPath: lastPath,
       exportError: errors.length ? errors.join('\n') : cancelled ? 'Export cancelled.' : null,
+      exportNotice: notice,
     });
   }
 }
@@ -366,6 +388,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   exportError: null,
   exportDir: null,
   exportLastPath: null,
+  exportNotice: null,
   artworkDataUrl: null,
   userPresets: [
     { name: 'User 1', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
@@ -1018,4 +1041,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const p = get().exportLastPath;
     if (p) void window.focusdaw?.exportIO?.reveal?.(p);
   },
+
+  clearExportNotice: () => set({ exportNotice: null }),
 }));

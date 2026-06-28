@@ -83,8 +83,25 @@ function StudioDesk() {
   const activeUserPresetIdx = useAppStore((s) => s.activeUserPresetIdx);
   const lastActivePresetName = useAppStore((s) => s.lastActivePresetName);
   const initUserPresets = useAppStore((s) => s.initUserPresets);
+  // v0.8.5: Export 진행 오버레이 + 완료 알림
+  const exporting = useAppStore((s) => s.exporting);
+  const exportDone = useAppStore((s) => s.exportDone);
+  const exportTotal = useAppStore((s) => s.exportTotal);
+  const exportCurrentName = useAppStore((s) => s.exportCurrentName);
+  const exportNotice = useAppStore((s) => s.exportNotice);
+  const clearExportNotice = useAppStore((s) => s.clearExportNotice);
+  const revealLastExport = useAppStore((s) => s.revealLastExport);
 
   const [dragOver, setDragOver] = useState(false);
+
+  // v0.8.5: 어떤 드롭/드래그 종료에도 'Drop audio files' 오버레이를 확실히 해제(캡처 단계 → 자식의
+  // stopPropagation 과 무관하게 실행). 아트워크(섹션 VII) 이미지 드롭 후 오버레이 고착 방지.
+  useEffect(() => {
+    const reset = () => setDragOver(false);
+    window.addEventListener('drop', reset, true);
+    window.addEventListener('dragend', reset, true);
+    return () => { window.removeEventListener('drop', reset, true); window.removeEventListener('dragend', reset, true); };
+  }, []);
 
   useEffect(() => {
     void initUserPresets();
@@ -183,13 +200,70 @@ function StudioDesk() {
           unit="buffer"
         />
       )}
+
+      {exporting && (
+        <LoadingCard
+          accent={view.accent}
+          bright={view.pal.aBright}
+          glow={view.pal.glow}
+          track={view.pal.panelDark}
+          done={exportDone}
+          total={exportTotal}
+          name={exportCurrentName || 'Rendering…'}
+          title="EXPORTING"
+          unit="files"
+          indeterminate={exportTotal <= 1}
+        />
+      )}
+
+      {exportNotice && (
+        <ExportNotice
+          notice={exportNotice}
+          accent={view.accent}
+          glow={view.pal.glow}
+          onReveal={revealLastExport}
+          onClose={clearExportNotice}
+        />
+      )}
+    </div>
+  );
+}
+
+// v0.8.5: Export 완료 알림 모달 — 저장 개수·위치 + Reveal/OK.
+function ExportNotice({ notice, accent, glow, onReveal, onClose }: {
+  notice: { ok: boolean; saved: number; total: number; path: string | null; error: string | null };
+  accent: string; glow: string; onReveal: () => void; onClose: () => void;
+}) {
+  const ok = notice.ok;
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,11,14,0.66)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 380, padding: '26px 28px 22px', borderRadius: 18, background: 'linear-gradient(160deg, rgba(40,48,56,0.74), rgba(18,23,28,0.84))', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(18px) saturate(1.3)', boxShadow: `0 30px 70px -18px rgba(0,0,0,0.85), 0 0 44px ${glow}` }}>
+        <div style={{ fontFamily: 'Spectral, serif', fontSize: 20, fontWeight: 600, color: ok ? '#efe7d6' : '#f0a8a8', textAlign: 'center' }}>
+          {ok ? 'Export complete' : 'Export finished with errors'}
+        </div>
+        <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 12.5, color: '#cdd3da', textAlign: 'center', lineHeight: 1.5 }}>
+          {notice.saved} / {notice.total} file{notice.total === 1 ? '' : 's'} saved
+          {notice.path && (
+            <div style={{ marginTop: 6, fontSize: 11, color: '#8a9099', wordBreak: 'break-all' }}>{notice.path}</div>
+          )}
+          {notice.error && (
+            <div style={{ marginTop: 8, fontSize: 11, color: '#e0a0a0', whiteSpace: 'pre-wrap', maxHeight: 90, overflow: 'auto', textAlign: 'left' }}>{notice.error}</div>
+          )}
+        </div>
+        <div style={{ marginTop: 18, display: 'flex', gap: 9, justifyContent: 'center' }}>
+          {notice.path && (
+            <button onClick={() => { onReveal(); onClose(); }} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#10151a', background: accent }}>Reveal</button>
+          )}
+          <button onClick={onClose} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', color: '#dfe5ea', background: 'rgba(255,255,255,0.06)' }}>OK</button>
+        </div>
+      </div>
     </div>
   );
 }
 
 // v0.1.5: Glass 로딩 카드 — 회전하는 원형 링(가운데 퍼센트) + 현재 파일/진행률
-function LoadingCard({ accent, bright, glow, track, done, total, name, title = 'DECODING AUDIO', unit = 'files' }: {
-  accent: string; bright: string; glow: string; track: string; done: number; total: number; name: string; title?: string; unit?: string;
+function LoadingCard({ accent, bright, glow, track, done, total, name, title = 'DECODING AUDIO', unit = 'files', indeterminate = false }: {
+  accent: string; bright: string; glow: string; track: string; done: number; total: number; name: string; title?: string; unit?: string; indeterminate?: boolean;
 }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   // 링 두께를 만드는 마스크: 바깥은 보이고 안쪽(반지름 - 2px)은 투명 → 글래스 배경이 비침 (v0.1.7: 두께 50%↓)
@@ -210,16 +284,22 @@ function LoadingCard({ accent, bright, glow, track, done, total, name, title = '
               animation: 'dkspin 0.85s linear infinite',
             }}
           />
-          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontFamily: 'Spectral, serif', fontSize: 17, fontWeight: 600, color: accent }}>{pct}<span style={{ fontSize: 10 }}>%</span></div>
+          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontFamily: 'Spectral, serif', fontSize: indeterminate ? 13 : 17, fontWeight: 600, color: accent }}>{indeterminate ? '···' : <>{pct}<span style={{ fontSize: 10 }}>%</span></>}</div>
         </div>
 
         <div style={{ marginTop: 16, fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', color: '#a99f8a', textAlign: 'center' }}>{title}</div>
         <div style={{ marginTop: 6, fontFamily: 'Archivo', fontSize: 12.5, fontWeight: 600, color: '#efe7d6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>{name || '—'}</div>
 
-        <div style={{ width: '100%', height: 5, marginTop: 13, borderRadius: 4, background: track, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${pct}%`, borderRadius: 4, background: `linear-gradient(90deg, ${accent}, ${bright})`, transition: 'width 0.2s ease', boxShadow: `0 0 10px ${glow}` }} />
-        </div>
-        <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 10.5, color: '#8a9099', textAlign: 'right' }}>{done} / {total} {unit}</div>
+        {indeterminate ? (
+          <div style={{ marginTop: 14, fontFamily: 'Archivo', fontSize: 10.5, color: '#8a9099', textAlign: 'center' }}>Rendering &amp; encoding… please wait</div>
+        ) : (
+          <>
+            <div style={{ width: '100%', height: 5, marginTop: 13, borderRadius: 4, background: track, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, borderRadius: 4, background: `linear-gradient(90deg, ${accent}, ${bright})`, transition: 'width 0.2s ease', boxShadow: `0 0 10px ${glow}` }} />
+            </div>
+            <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 10.5, color: '#8a9099', textAlign: 'right' }}>{done} / {total} {unit}</div>
+          </>
+        )}
       </div>
     </div>
   );

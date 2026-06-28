@@ -266,6 +266,25 @@
  *             ② **기본값 정리(깨끗한 디폴트)** — Multiband **OFF**, Low/Mid/High −4/−2/−3 → −2/−1/−1,
  *             Transient 15→10%, Exciter 25→15%. (desk/data.ts, audio/masterChain.ts, desk/compute.ts)
  *             검증: lint·build 통과.
+ *  - v0.8.4 : (Phase 7, 7-E) Export MP3 320·FLAC 인코더 + 태그·아트워크 추가. ① **MP3**(@breezystack/
+ *             lamejs, CBR 320) — export/mp3.ts. 96kHz 등 MP3 미지원 레이트는 48kHz 로 리샘플. **ID3v2.3
+ *             태그**(TIT2/TPE1/TALB/TYER/TCON, UTF-16) + **APIC 앨범아트**(export/id3.ts). ② **FLAC**
+ *             (libflacjs 자체완결 asm.js) — export/flac.ts. Input PCM 16/24(32f→24) 정수 인코딩. 인코딩 후
+ *             **VORBIS_COMMENT(TITLE/ARTIST/ALBUM/DATE/GENRE) + PICTURE 메타 블록을 직접 삽입**(libflacjs
+ *             인코딩-시 메타 주입 API 부재). ③ 디스패처(exportRunner.encodeMaster)에 meta 전달,
+ *             SUPPORTED_EXPORT_FORMATS = WAV/MP3 320/FLAC. 트랙 제목=파일명, 나머지 태그=Export 메타·
+ *             아트워크(store). 인코더는 **동적 import**(메인 번들·기동 비용 절감, 로딩 이슈 격리).
+ *             검증: lint·build 통과. *(실제 파일 재생/태그 확인은 사용자 시험 필요.)*
+ *  - v0.8.5 : (Phase 7, 7-E 보완) Export 사용성/버그 수정. ① Format 라벨/값 'MP3 320'→'MP3'.
+ *             ② **앨범아트(섹션 VII) 이미지 드롭이 섹션 I 큐로 흘러가 에러**나던 것 수정 — 아트워크 드롭존은
+ *             stopPropagation 유지(루트 오디오 로더 차단), 'Drop audio files' 오버레이 해제는 App 의
+ *             **window 캡처 'drop'/'dragend' 리스너**가 담당(자식 stopPropagation 과 무관하게 해제).
+ *             ③ **Export 진행 오버레이 + 완료 알림 모달** — exporting 중 LoadingCard(EXPORTING), 완료 시
+ *             ExportNotice 모달(저장 개수·경로·Reveal/OK). 무거운 작업 전 30ms 양보 + MP3/FLAC 인코드 루프
+ *             주기적 yield. 로딩 표시는 **출력 파일명(현재 포맷 확장자)**, 단일 파일은 하위 진행률이 없어
+ *             **불확정(스피너)** 표시(오해되는 0% 제거). ④ **FLAC require 번들 오류 수정** — 고수준
+ *             `libflacjs/lib/encoder`(UMD 내부 require) 대신 **자체완결 `dist/libflac.js` 저수준 API 직접
+ *             호출**. ⑤ MP3 사용자 확인 완료(태그·아트워크 정상).
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

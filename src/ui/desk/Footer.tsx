@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import type { DeskView } from '../../desk/compute';
 import { previewEngine } from '../../audio/previewEngine';
 import { useAppStore } from '../../store/appStore';
+import { APP_VERSION_LABEL } from '../../version';
 
 export function Footer({ view }: { view: DeskView }) {
   const transportOpen = useAppStore((s) => s.transportOpen);
@@ -52,8 +53,8 @@ export function Footer({ view }: { view: DeskView }) {
           />
         </div>
       )}
-      <span style={{ fontFamily: 'Archivo', fontSize: 10, color: '#5e6b73' }}>Signal flows left → right · {view.activeCount}/7 stages engaged</span>
       <span style={{ fontFamily: 'Archivo', fontSize: 10, color: '#5e6b73' }}>{view.batchCount} files queued · {view.batchSize}</span>
+      <span style={{ fontFamily: 'Archivo', fontSize: 10, color: '#5e6b73' }}>{APP_VERSION_LABEL}</span>
     </div>
   );
 }

@@ -116,6 +116,12 @@ function StudioDesk() {
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
+      // Export 앨범 아트워크 영역의 파일은 이 루트 오디오 로더가 절대 처리하지 않는다.
+      // 자식 stopPropagation 여부와 무관하게 native composed path로 출처를 확인한다.
+      const fromArtwork = e.nativeEvent.composedPath().some(
+        (node) => node instanceof HTMLElement && node.dataset.exportArtworkDropzone === 'true',
+      );
+      if (fromArtwork) return;
       const recursive = useAppStore.getState().vals['input.scope'] === 'Sub Folder';
       void audioFilesFromDataTransfer(e.dataTransfer, recursive).then((dropped) => {
         if (dropped.length) void loadFiles(dropped);
@@ -127,6 +133,13 @@ function StudioDesk() {
   const onDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer?.types?.includes('Files')) {
       e.preventDefault();
+      const overArtwork = e.nativeEvent.composedPath().some(
+        (node) => node instanceof HTMLElement && node.dataset.exportArtworkDropzone === 'true',
+      );
+      if (overArtwork) {
+        setDragOver(false);
+        return;
+      }
       setDragOver(true);
     }
   }, []);

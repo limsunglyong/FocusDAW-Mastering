@@ -38,8 +38,15 @@ function createWindow() {
     },
   });
 
-  mainWindow.once('ready-to-show', () => {
+  mainWindow.once('ready-to-show', async () => {
     if (!mainWindow) return;
+    // 로컬 웹폰트가 실제 레이아웃에 적용된 뒤 창을 표시해 시작 시 font swap을 숨긴다.
+    try {
+      await mainWindow.webContents.executeJavaScript('document.fonts.ready.then(() => true)');
+    } catch {
+      // 폰트 대기 실패가 앱 실행 자체를 막지는 않도록 기존 표시 경로를 계속 진행한다.
+    }
+    if (!mainWindow || mainWindow.isDestroyed()) return;
     // v0.2.14: 창을 표시하기 전에 첫 setSize를 실행해 Windows/DPI의
     // outer bounds 정규화가 사용자에게 보이지 않도록 한다.
     const initialSize = mainWindow.getSize();

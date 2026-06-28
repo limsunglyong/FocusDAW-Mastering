@@ -477,11 +477,17 @@ function ExportViz({ view }: { view: DeskView }) {
       <span style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>ALBUM ARTWORK</span>
       <div style={{ display: 'flex', gap: 13, marginTop: 12 }}>
         <div
+          className="dk-destination-card"
+          data-export-artwork-dropzone="true"
           onClick={() => artInputRef.current?.click()}
-          // v0.8.5: stopPropagation 으로 루트(App) onDrop(오디오 로더)에 이미지가 흘러가 큐에 에러가
-          // 뜨던 문제 방지. 'Drop audio files' 오버레이 해제는 App 의 window 캡처 'drop' 리스너가 담당.
-          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); loadArt(e.dataTransfer.files?.[0]); }}
+          // 캡처 단계에서 파일 드롭을 소유해 하위 img/button 위에 놓아도 루트 App의
+          // 오디오 드롭 핸들러로 전파되지 않게 한다. 이미지가 아니면 Export에서 조용히 거부한다.
+          onDragOverCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDropCapture={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            loadArt(Array.from(e.dataTransfer.files).find((file) => file.type.startsWith('image/')));
+          }}
           title={artworkDataUrl ? 'Click to replace · double-click area to clear' : 'Drop or click to add artwork'}
           style={{ width: 98, height: 98, flex: 'none', borderRadius: 9, border: '1.5px dashed rgba(255,240,210,0.22)', background: pal.panelDark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: '#8a8070', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
         >
@@ -503,7 +509,7 @@ function ExportViz({ view }: { view: DeskView }) {
         </div>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 9 }}>
           <div style={{ background: pal.panelDark, borderRadius: 8, padding: '9px 11px' }}><div style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070', letterSpacing: '0.04em' }}>OUTPUT FORMAT</div><div style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: 700, color: pal.nInk, marginTop: 2 }}>{view.exportFormat}</div></div>
-          <div onClick={() => void pickExportDir()} title="Click to choose a destination folder" style={{ background: pal.panelDark, borderRadius: 8, padding: '9px 11px', cursor: 'pointer' }}>
+          <div className="dk-destination-card" onClick={() => void pickExportDir()} title="Click to choose a destination folder" style={{ background: pal.panelDark, borderRadius: 8, padding: '9px 11px', cursor: 'pointer' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070', letterSpacing: '0.04em' }}>DESTINATION</span>
               {exportDir && <span onClick={(e) => { e.stopPropagation(); resetExportDir(); }} style={{ fontFamily: 'Archivo', fontSize: 8.5, color: pal.nInk2, textDecoration: 'underline' }}>default</span>}

@@ -168,7 +168,7 @@ export const DEFAULT_STATE: DeskState = {
     'spectral.f3': 4000, 'spectral.g3': 0, 'spectral.q3': 1.2,
     'spectral.f4': 12000, 'spectral.g4': 0, 'spectral.q4': 0.71,
     'dynamics.multiband': false, 'dynamics.low': -2, 'dynamics.mid': -1, 'dynamics.high': -1, 'dynamics.ratio': '4:1', 'dynamics.transient': 10, 'dynamics.exciter': 15,
-    'stereo.width': 120, 'stereo.reverb': 8, 'stereo.delay': 5, 'stereo.crossover': 120, 'stereo.bassmono': true, 'stereo.mono': false,
+    'stereo.width': 120, 'stereo.reverb': 5, 'stereo.delay': 2, 'stereo.crossover': 120, 'stereo.bassmono': true, 'stereo.mono': false,
     'loudness.ceiling': -1, 'loudness.target': -14, 'loudness.sat': 5, 'loudness.limiter': 'Punchy', 'loudness.tplimit': true,
     'export.album': '', 'export.artist': '', 'export.year': '', 'export.genre': '', 'export.format': 'WAV',
   },

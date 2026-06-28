@@ -7,7 +7,6 @@ import {
 } from './data';
 import type { QueueFile } from '../audio/queueFile';
 import { formatBytes } from '../audio/queueFile';
-import { APP_VERSION_LABEL } from '../version';
 
 // 큐가 비었을 때 NOW SELECTED/칩 등에서 참조할 빈 파일 표시값
 const EMPTY_FILE: FileItem = { name: 'No file loaded', size: '—', fmt: '—', dur: '—', sr: '—', depth: '—', ch: '—', lufs: '—' };
@@ -390,7 +389,7 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
   const menus = Object.keys(MENUS).map((name) => ({
     label: name, open: state.openMenu === name,
     btnStyle: `font-family:'Archivo';font-size:11.5px;font-weight:500;color:${state.openMenu === name ? '#e6f1f4' : '#9aa7af'};padding:5px 10px;border-radius:6px;cursor:pointer;background:${state.openMenu === name ? '#283038' : 'transparent'};white-space:nowrap`,
-    items: MENUS[name].map(([label, key]) => label === '__div' ? { isDiv: true, label: '', key: '' } : { isDiv: false, label, key: label === 'About' ? APP_VERSION_LABEL : key }),
+    items: MENUS[name].map(([label, key]) => label === '__div' ? { isDiv: true, label: '', key: '' } : { isDiv: false, label, key }),
   }));
 
   return {

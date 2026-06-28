@@ -1,6 +1,7 @@
 import logoUrl from '../../../assets/logo-main2.png';
 import { useAppStore } from '../../store/appStore';
 import { THEMES } from '../../theme/themes';
+import { APP_VERSION_LABEL } from '../../version';
 
 export function AboutWindow() {
   const theme = useAppStore((s) => s.theme);
@@ -146,7 +147,7 @@ export function AboutWindow() {
             letterSpacing: '0.02em',
           }}
         >
-          Station Edition v0.7.4
+          Station Edition {APP_VERSION_LABEL}
         </div>
 
         {/* Short Description */}

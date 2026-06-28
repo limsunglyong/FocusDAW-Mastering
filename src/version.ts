@@ -234,6 +234,37 @@
  *  - v0.7.4 : (Patch) Fixed Preferences black screen issue by loading routing synchronously during
  *             the first render. Implemented Help -> About modal window featuring application logo,
  *             name, version pill, brief description, and confirmation button.
+ *  - v0.8.0 : Phase 7 Export 착수 — WAV 일괄/단일 내보내기 end-to-end. Preview 의 섹션 DSP 구성을
+ *             컨텍스트 무관 빌더(audio/masterChain.buildMasterChain)로 추출해 Preview(실시간)와
+ *             Export(OfflineAudioContext) 가 동일 체인을 공유(7-A). 오프라인 정밀 렌더(리미터 워클릿
+ *             addModule + 룩어헤드 지연 보정, Mono Master ON=1ch)로 마스터 PCM 산출(7-B), WAV(RIFF)
+ *             인코더 Input PCM(16/24/32f) 연동(7-C), Electron 파일 저장 IO(saveFile/pickDir/defaultDir/
+ *             reveal, 기본 <Music>/Masters/<Album>, 중복 시 " (n)" 회피)(7-D). Export 패널에 단일/배치
+ *             버튼·진행률·취소·에러·Reveal, Album Artwork 드롭/미리보기, Destination 폴더 선택 추가(7-F/7-G).
+ *             비고: MP3 320(lamejs)·FLAC(libflac.js) 인코더+태그(7-E)와 Preview↔Export 정합 시험(7-H)은
+ *             후속(WAV 외 포맷 선택 시 안내). 메타/아트워크는 현재 표시·수집만(WAV 미임베드).
+ *  - v0.8.1 : (Phase 7 Patch) Export 결과물 하드클립/찌그러짐 수정. 오프라인 렌더가 True-Peak 리미터를
+ *             OfflineAudioContext 의 AudioWorklet 에 의존하던 것을, 렌더 후 **결정적 JS 브릭월 리미터**
+ *             (export/limiter.ts, 워클릿과 동일 룩어헤드 알고리즘)로 교체. 워클릿 로드/동작 불확실로
+ *             리미터가 누락되면 Loudness make-up 게인+새츄레이터 출력(±headroom)이 WAV 에서 ±1 로
+ *             하드클립되던 문제 제거 → 항상 ceiling 이하 보장(Preview 와 동일 의도). 룩어헤드 지연은
+ *             리미터 내부에서 flush·정렬(별도 trim 불필요).
+ *  - v0.8.2 : (Patch, 버그 #3) IV Dynamics 사용 시 "지직" 왜곡 해소 — 발생원은 VI Loudness 새츄레이터.
+ *             기존 `drive=1+a*8` 매핑은 base"1" 탓에 기본 Saturate 5% 인데도 0dBFS 부근 피크에 ~9% THD 를
+ *             더하고 피크를 으깼다(Dynamics make-up·압축이 신호를 그 영역으로 밀어넣는 방아쇠). 진단:
+ *             컴프 무죄(make-up=1 고정 시 깨끗), 리미터 이후에도 잔존(=리미터 전 생성), Saturate=0 시 소멸.
+ *             수정: ① 새츄레이터를 선형↔tanh blend(=Saturate%)로 재설계 — 저%는 거의 선형(피크 통과,
+ *             천장은 리미터 담당)·고%만 하모닉 캐릭터(5% THD 8.9→1.8%, 0%=투명, 0dBFS unity).
+ *             ② 새츄레이터 헤드룸 ±8→±32(make-up 누적 하드클립 방지). ③ Dynamics 밴드 make-up 계수
+ *             0.3→0.12 완화(−18dB 밴드 +5.4→+2.2dB, 최종 음량은 VI 가 담당). (audio/masterChain.ts,
+ *             audio/dynamics.ts) 검증: lint·build 통과 + 사용자 청취 확인.
+ *  - v0.8.3 : (Patch) IV Dynamics — ① **Multiband on/off 스위치** 추가(섹션 전체 Bypass 와 별개로
+ *             3밴드 컴프만 우회). PARAMETERS 영역에 Multiband 스위치 → Ratio 순 배치. dry/wet
+ *             crossfade(mbDry/mbWet)로 재생 중 토글해도 source 재빌드 없음. OFF 시 익사이터는 원신호에
+ *             작동(컴프만 우회). **OFF 시 좌측 GR 막대/값을 회색으로** 표시(직관적 on/off, compute.ts).
+ *             ② **기본값 정리(깨끗한 디폴트)** — Multiband **OFF**, Low/Mid/High −4/−2/−3 → −2/−1/−1,
+ *             Transient 15→10%, Exciter 25→15%. (desk/data.ts, audio/masterChain.ts, desk/compute.ts)
+ *             검증: lint·build 통과.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

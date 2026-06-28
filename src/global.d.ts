@@ -24,6 +24,13 @@ declare global {
       // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
       loadUserPresets?: () => Promise<any>;
       saveUserPresets?: (presets: any) => Promise<boolean>;
+      // v0.8.0 (Phase 7): Export 파일 저장 IO
+      exportIO?: {
+        defaultDir: () => Promise<string>;
+        pickDir: () => Promise<string | null>;
+        saveFile: (dir: string, filename: string, bytes: Uint8Array, overwrite?: boolean) => Promise<{ ok: boolean; path?: string; error?: string }>;
+        reveal: (target: string) => Promise<boolean>;
+      };
     };
   }
 }

@@ -3,6 +3,7 @@
 // v0.2.0(Phase 1): 전역 드래그&드롭으로 오디오 파일을 큐에 로딩.
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useAppStore } from './store/appStore';
+(window as any).appStore = useAppStore;
 import { computeView } from './desk/compute';
 import { useKnobInteractions } from './desk/useKnob';
 import { audioFilesFromDataTransfer } from './audio/filePicker';

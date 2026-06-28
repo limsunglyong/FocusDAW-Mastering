@@ -42,4 +42,13 @@ contextBridge.exposeInMainWorld('focusdaw', {
   // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
   loadUserPresets: () => ipcRenderer.invoke('win:load-user-presets'),
   saveUserPresets: (presets) => ipcRenderer.invoke('win:save-user-presets', presets),
+
+  // v0.8.0 (Phase 7): Export 파일 저장 IO
+  exportIO: {
+    defaultDir: () => ipcRenderer.invoke('export:default-dir'),
+    pickDir: () => ipcRenderer.invoke('export:pick-dir'),
+    saveFile: (dir, filename, bytes, overwrite) =>
+      ipcRenderer.invoke('export:save-file', { dir, filename, bytes, overwrite: !!overwrite }),
+    reveal: (target) => ipcRenderer.invoke('export:reveal', target),
+  },
 });

@@ -1,5 +1,5 @@
 // FocusDAW Mastering Desk v0.1.1 (Phase 0 UI) - 상세 시트 col3 (PARAMETERS) (원본 dc.html 이식)
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { css } from '../../desk/css';
 import { useAppStore } from '../../store/appStore';
 import { DeskIcon } from '../Icons';
@@ -47,7 +47,7 @@ function ControlItem({ c, view }: { c: Control; view: DeskView }) {
         </span>
         <div onClick={() => setVal(c.fk, !c.on)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
           <div style={css(c.swTrack)}><div style={css(c.swKnob)} /></div>
-          <span style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 600, color: c.subColor }}>{c.subText}</span>
+          <span style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 600, color: c.subColor, width: 28, display: 'inline-block', flex: 'none' }}>{c.subText}</span>
         </div>
       </div>
       {c.hasBelow && (
@@ -66,6 +66,8 @@ function ControlItem({ c, view }: { c: Control; view: DeskView }) {
     </div>
   );
 }
+
+
 
 // v0.2.31: Pre(II) 전용 레이아웃 — Denoise 스위치(옆 설명) → Noise Depth → 그 아래 노브 3개(가로).
 function PreControls({ view }: { view: DeskView }) {
@@ -536,22 +538,93 @@ function SpectralControls({ view }: { view: DeskView }) {
 function ExportMeta({ view }: { view: DeskView }) {
   const pal = view.pal;
   const setVal = useAppStore((s) => s.setVal);
+  // v0.8.0 (Phase 7): Export 실행 상태/액션
+  const exporting = useAppStore((s) => s.exporting);
+  const exportTotal = useAppStore((s) => s.exportTotal);
+  const exportDone = useAppStore((s) => s.exportDone);
+  const exportCurrentName = useAppStore((s) => s.exportCurrentName);
+  const exportError = useAppStore((s) => s.exportError);
+  const exportLastPath = useAppStore((s) => s.exportLastPath);
+  const fileCount = useAppStore((s) => s.files.length);
+  const exportSelected = useAppStore((s) => s.exportSelected);
+  const exportBatch = useAppStore((s) => s.exportBatch);
+  const cancelExport = useAppStore((s) => s.cancelExport);
+  const revealLastExport = useAppStore((s) => s.revealLastExport);
+
+  const pct = exportTotal > 0 ? Math.min(100, Math.round((exportDone / exportTotal) * 100)) : 0;
+  const btn: CSSProperties = { fontFamily: 'Archivo', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', border: 'none', textAlign: 'center' };
+  const canExport = fileCount > 0 && !exporting;
+
   return (
-    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', alignContent: 'start', overflow: 'hidden' }}>
-      {view.metaFields.map((f: any) => (
-        <div key={f.key} style={css(f.wrap)}>
-          <div style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', marginBottom: 3 }}>{f.label}</div>
-          {f.isText ? (
-            <input className="dk-in" value={f.value} placeholder={f.ph} onChange={(e) => setVal(f.fk, e.target.value)} style={{ width: '100%', boxSizing: 'border-box', background: pal.paperInput, border: '1px solid #cdbfa4', borderRadius: 7, padding: '6px 10px', color: pal.pInk, fontSize: 12.5, outline: 'none' }} />
-          ) : (
-            <div style={{ display: 'flex', gap: 3, background: pal.paperCtl, borderRadius: 8, padding: 3 }}>
-              {f.opts.map((o: any) => (
-                <div key={o.value} onClick={() => setVal(f.fk, o.value)} style={css(o.style)}>{o.label}</div>
-              ))}
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 14px', alignContent: 'start' }}>
+        {view.metaFields.map((f: any) => (
+          <div key={f.key} style={css(f.wrap)}>
+            <div style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', marginBottom: 2 }}>{f.label}</div>
+            {f.isText ? (
+              <input className="dk-in" value={f.value} placeholder={f.ph} onChange={(e) => setVal(f.fk, e.target.value)} style={{ width: '100%', boxSizing: 'border-box', background: pal.paperInput, border: '1px solid #cdbfa4', borderRadius: 7, padding: '5px 10px', color: pal.pInk, fontSize: 12.5, outline: 'none' }} />
+            ) : (
+              <div style={{ display: 'flex', gap: 3, background: pal.paperCtl, borderRadius: 8, padding: 3 }}>
+                {f.opts.map((o: any) => (
+                  <div key={o.value} onClick={() => setVal(f.fk, o.value)} style={css(o.style)}>{o.label}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* v0.8.0 (Phase 7): Export 액션 바 — 단일/배치 + 진행률·취소·에러 */}
+      <div style={{ marginTop: 'auto', paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {exportError && (
+          <div style={{ fontFamily: 'Archivo', fontSize: 10, lineHeight: 1.45, color: '#e0344b', whiteSpace: 'pre-wrap', maxHeight: 54, overflow: 'auto' }}>{exportError}</div>
+        )}
+        {exporting ? (
+          <>
+            <div style={{ height: 8, borderRadius: 5, background: pal.paperCtl, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: view.accent, transition: 'width 0.2s' }} />
             </div>
-          )}
-        </div>
-      ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ flex: 1, minWidth: 0, fontFamily: 'Archivo', fontSize: 10, color: pal.pInk2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {exportDone}/{exportTotal} · {exportCurrentName || 'Rendering…'}
+              </span>
+              <button onClick={cancelExport} style={{ ...btn, padding: '7px 12px', color: pal.pInk, background: pal.paperCtl }}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => void exportSelected()} disabled={!canExport} style={{ ...btn, flex: 1, color: pal.aInk, background: view.accent, opacity: canExport ? 1 : 0.45, cursor: canExport ? 'pointer' : 'default' }}>EXPORT SELECTED</button>
+            <button onClick={() => void exportBatch()} disabled={!canExport} style={{ ...btn, flex: 1, color: pal.pInk, background: pal.paperCtl, opacity: canExport ? 1 : 0.45, cursor: canExport ? 'pointer' : 'default' }}>EXPORT ALL ({fileCount})</button>
+          </div>
+        )}
+        {!exporting && exportLastPath && (
+          <button onClick={revealLastExport} style={{ ...btn, padding: '6px 10px', fontWeight: 600, fontSize: 10, color: pal.pInk2, background: 'transparent', textAlign: 'left' }}>↳ Reveal last export</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LoudnessControls({ view }: { view: DeskView }) {
+  const ceiling = view.controls.find((c) => c.key === 'ceiling');
+  const target = view.controls.find((c) => c.key === 'target');
+  const sat = view.controls.find((c) => c.key === 'sat');
+  const limiter = view.controls.find((c) => c.key === 'limiter');
+  const tplimit = view.controls.find((c) => c.key === 'tplimit');
+
+  return (
+    <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Row 1: TP Limit, True Peak & LUFS */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
+        {tplimit && <ControlItem c={tplimit} view={view} />}
+        {ceiling && <ControlItem c={ceiling} view={view} />}
+        {target && <ControlItem c={target} view={view} />}
+      </div>
+      {/* Row 2: Saturate & Limiter */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
+        {sat && <ControlItem c={sat} view={view} />}
+        {limiter && <ControlItem c={limiter} view={view} />}
+      </div>
     </div>
   );
 }
@@ -563,6 +636,8 @@ export function Controls({ view }: { view: DeskView }) {
 
       {view.isPre ? (
         <PreControls view={view} />
+      ) : view.isLoudness ? (
+        <LoudnessControls view={view} />
       ) : view.genCtrl && (
         <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '16px 22px', alignContent: 'flex-start' }}>
           {view.controls.map((c) => <ControlItem key={c.key} c={c} view={view} />)}

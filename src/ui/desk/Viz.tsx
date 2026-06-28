@@ -456,17 +456,58 @@ function LoudnessViz({ view }: { view: DeskView }) {
 
 function ExportViz({ view }: { view: DeskView }) {
   const pal = view.pal;
+  // v0.8.0 (Phase 7): Artwork 드롭/선택 + Destination 폴더 선택
+  const artworkDataUrl = useAppStore((s) => s.artworkDataUrl);
+  const setArtwork = useAppStore((s) => s.setArtwork);
+  const exportDir = useAppStore((s) => s.exportDir);
+  const pickExportDir = useAppStore((s) => s.pickExportDir);
+  const resetExportDir = useAppStore((s) => s.resetExportDir);
+  const artInputRef = useRef<HTMLInputElement>(null);
+
+  const loadArt = (file?: File | null) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => setArtwork(typeof reader.result === 'string' ? reader.result : null);
+    reader.readAsDataURL(file);
+  };
+  const destLabel = exportDir || `~/Masters/${view.exportAlbum}`;
+
   return (
     <>
       <span style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>ALBUM ARTWORK</span>
       <div style={{ display: 'flex', gap: 13, marginTop: 12 }}>
-        <div style={{ width: 98, height: 98, flex: 'none', borderRadius: 9, border: '1.5px dashed rgba(255,240,210,0.22)', background: pal.panelDark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: '#8a8070' }}>
-          <DeskIcon icon="note" size={24} />
-          <span style={{ fontFamily: 'Archivo', fontSize: 8.5, letterSpacing: '0.04em' }}>Drop art</span>
+        <div
+          onClick={() => artInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); loadArt(e.dataTransfer.files?.[0]); }}
+          title={artworkDataUrl ? 'Click to replace · double-click area to clear' : 'Drop or click to add artwork'}
+          style={{ width: 98, height: 98, flex: 'none', borderRadius: 9, border: '1.5px dashed rgba(255,240,210,0.22)', background: pal.panelDark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, color: '#8a8070', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
+        >
+          {artworkDataUrl ? (
+            <>
+              <img src={artworkDataUrl} alt="artwork" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+              <button
+                onClick={(e) => { e.stopPropagation(); setArtwork(null); }}
+                style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: 5, border: 'none', cursor: 'pointer', background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11, lineHeight: '18px', padding: 0 }}
+              >×</button>
+            </>
+          ) : (
+            <>
+              <DeskIcon icon="note" size={24} />
+              <span style={{ fontFamily: 'Archivo', fontSize: 8.5, letterSpacing: '0.04em' }}>Drop art</span>
+            </>
+          )}
+          <input ref={artInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => loadArt(e.target.files?.[0])} />
         </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 9 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 9 }}>
           <div style={{ background: pal.panelDark, borderRadius: 8, padding: '9px 11px' }}><div style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070', letterSpacing: '0.04em' }}>OUTPUT FORMAT</div><div style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: 700, color: pal.nInk, marginTop: 2 }}>{view.exportFormat}</div></div>
-          <div style={{ background: pal.panelDark, borderRadius: 8, padding: '9px 11px' }}><div style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070', letterSpacing: '0.04em' }}>DESTINATION</div><div style={{ fontFamily: 'Archivo', fontSize: 11, color: pal.nInk2, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>~/Masters/{view.exportAlbum}</div></div>
+          <div onClick={() => void pickExportDir()} title="Click to choose a destination folder" style={{ background: pal.panelDark, borderRadius: 8, padding: '9px 11px', cursor: 'pointer' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#8a8070', letterSpacing: '0.04em' }}>DESTINATION</span>
+              {exportDir && <span onClick={(e) => { e.stopPropagation(); resetExportDir(); }} style={{ fontFamily: 'Archivo', fontSize: 8.5, color: pal.nInk2, textDecoration: 'underline' }}>default</span>}
+            </div>
+            <div style={{ fontFamily: 'Archivo', fontSize: 11, color: pal.nInk2, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{destLabel}</div>
+          </div>
         </div>
       </div>
     </>

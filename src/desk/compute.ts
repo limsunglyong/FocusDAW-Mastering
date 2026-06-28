@@ -201,7 +201,8 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
     return Math.max(0.03, Math.min(1, base));
   });
   const _thd = Math.sqrt((_hv[0] + _hv[2]) * (_hv[0] + _hv[2]) * 0.55 + (_hv[1] + _hv[3]) * (_hv[1] + _hv[3]) * 1.0) * 7.5 * (0.4 + _satV * 0.9);
-  const satCol = _thd >= 3 ? '#e6502e' : _thd >= 1 ? '#e6c23c' : accent;
+  const satVal = num(vals['loudness.sat']);
+  const satCol = (satVal >= 6 && satVal <= 20) ? '#9bd32d' : (_thd >= 3 ? '#e6502e' : _thd >= 1 ? '#e6c23c' : accent);
 
   const defs = id === 'spectral' ? eqDefs(vals) : CTRL[id] || [];
   // v0.2.10: 세그먼트 선택 버튼 Y높이 약 80% 축소(세로 패딩 6→4px). VII Export 의 Format
@@ -323,7 +324,10 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
       };
     });
   } else if (isDynamics) {
-    const mk = (k: string, label: string, c: string) => { const v = num(vals[k]); return { label, val: v.toFixed(1), color: c, fill: ((Math.abs(v) / 18) * 100).toFixed(0) + '%' }; };
+    // v0.8.3: Multiband OFF 면 좌측 GR 막대/값을 회색으로(컴프 우회 상태를 직관적으로 표시).
+    const mbOn = vals['dynamics.multiband'] !== false;
+    const GRAY = '#7a7060';
+    const mk = (k: string, label: string, c: string) => { const v = num(vals[k]); return { label, val: v.toFixed(1), color: mbOn ? c : GRAY, fill: ((Math.abs(v) / 18) * 100).toFixed(0) + '%' }; };
     dynBars = [{ ...mk('dynamics.low', 'LOW', '#7cc4ff'), knob: dynLow }, { ...mk('dynamics.mid', 'MID', pal.aBright), knob: dynMid }, { ...mk('dynamics.high', 'HIGH', '#e0a046'), knob: dynHigh }];
     const tn = num(vals['dynamics.transient']) / 50;
     const W = 212, mid = 27, half = 22, onsets = [0.07, 0.4, 0.72], N = 100;

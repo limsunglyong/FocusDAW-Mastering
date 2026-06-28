@@ -11,6 +11,8 @@ import { previewEngine, type PreviewParams } from '../audio/previewEngine';
 import { resampleAudioBuffer, sampleRateFromInputRate } from '../audio/resample';
 import { analyzePre, type PreAnalysis } from '../audio/preAnalysis';
 import { denoiseBuffer, denoiseKeyOf, getDenoiseRecommendation } from '../audio/denoise';
+import { encodeMaster, isSupportedFormat, ExportUnsupportedError } from '../export/exportRunner';
+import { baseName } from '../export/wav';
 
 type AppState = DeskState & {
   theme: ThemeName;
@@ -44,6 +46,19 @@ type AppState = DeskState & {
   processingCurrentName: string;
   processingDone: number;
   processingTotal: number;
+
+  // ── Export (v0.8.0 Phase 7) ──
+  exporting: boolean;
+  exportTotal: number;
+  exportDone: number;
+  exportCurrentName: string;
+  exportError: string | null;
+  /** 사용자가 고른 Destination 폴더(절대경로). null 이면 기본 <Music>/Masters/<Album>. */
+  exportDir: string | null;
+  /** 마지막으로 저장된 파일 경로(완료 후 Reveal 용). */
+  exportLastPath: string | null;
+  /** Album Artwork 미리보기 dataURL(현재 라운드는 표시 전용 — WAV 미임베드). */
+  artworkDataUrl: string | null;
 
   // v0.4.0: User EQ Presets State
   userPresets: { name: string; f: number[]; g: number[]; q: number[] }[];
@@ -97,6 +112,14 @@ type AppState = DeskState & {
   setLoopRange: (start: number, end: number) => void;
   toggleLoop: () => void;
   clearLoop: () => void;
+  // ── Export (v0.8.0 Phase 7) ──
+  setArtwork: (dataUrl: string | null) => void;
+  pickExportDir: () => Promise<void>;
+  resetExportDir: () => void;
+  exportSelected: () => Promise<void>;
+  exportBatch: () => Promise<void>;
+  cancelExport: () => void;
+  revealLastExport: () => void;
 };
 
 const clone = (s: DeskState): DeskState => ({
@@ -236,6 +259,81 @@ async function swapPlaybackToEffective() {
   );
 }
 
+// ── v0.8.0 (Phase 7): Export 오케스트레이션 ──────────────────────────────
+// per-file: effective 버퍼 확보(decode→resample→denoise lazy) → 오프라인 렌더 → 인코딩 → 저장.
+// 버퍼는 ensureSourceBuffer 의 LRU=1 정책으로 다음 파일 처리 시 자동 evict 되어 메모리 일정.
+let exportCancelled = false;
+
+function sanitizeFolder(name: string): string {
+  return (name || '').replace(/[\\/:*?"<>|]/g, '_').trim() || 'Untitled Master';
+}
+
+async function resolveExportDir(s: AppState): Promise<string> {
+  if (s.exportDir) return s.exportDir;
+  const album = sanitizeFolder(String(s.vals['export.album'] || 'Untitled Master'));
+  const base = (await window.focusdaw?.exportIO?.defaultDir?.()) || 'Masters';
+  return `${base}/${album}`;
+}
+
+async function runExport(ids: string[]) {
+  const io = window.focusdaw?.exportIO;
+  if (!io) {
+    useAppStore.setState({ exportError: 'Export is available in the desktop app only.' });
+    return;
+  }
+  const s0 = useAppStore.getState();
+  if (ids.length === 0) {
+    useAppStore.setState({ exportError: 'Load an audio file before exporting.' });
+    return;
+  }
+  const format = String(s0.vals['export.format']);
+  if (!isSupportedFormat(format)) {
+    useAppStore.setState({ exportError: `${format} export is not available yet (WAV only in this build).` });
+    return;
+  }
+  // 렌더는 오프라인 컨텍스트지만, 진행 중 버퍼 evict 가 재생을 끊을 수 있으므로 재생을 멈춘다.
+  s0.stopPreview();
+  s0.stopOriginalPlayback();
+  exportCancelled = false;
+
+  const dir = await resolveExportDir(s0);
+  const bit = s0.vals['input.bit'];
+  useAppStore.setState({ exporting: true, exportError: null, exportTotal: ids.length, exportDone: 0, exportCurrentName: '', exportLastPath: null });
+
+  let lastPath: string | null = null;
+  const errors: string[] = [];
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      if (exportCancelled) break;
+      const st = useAppStore.getState();
+      const file = st.files.find((f) => f.id === ids[i]);
+      if (!file) continue;
+      useAppStore.setState({ exportCurrentName: file.name, exportDone: i });
+      try {
+        const buffer = await st.effectivePlaybackBuffer(file.id);
+        const params = previewParamsFromState(useAppStore.getState(), file);
+        const { bytes, ext } = await encodeMaster(buffer, params, format, bit);
+        const filename = `${baseName(file.name)}.${ext}`;
+        const res = await io.saveFile(dir, filename, bytes, false);
+        if (res.ok && res.path) lastPath = res.path;
+        else errors.push(`${file.name}: ${res.error || 'Save failed'}`);
+      } catch (e) {
+        const msg = e instanceof ExportUnsupportedError ? e.message : e instanceof Error ? e.message : 'Render failed';
+        errors.push(`${file.name}: ${msg}`);
+      }
+    }
+    useAppStore.setState({ exportDone: ids.length });
+  } finally {
+    const cancelled = exportCancelled;
+    useAppStore.setState({
+      exporting: false,
+      exportCurrentName: '',
+      exportLastPath: lastPath,
+      exportError: errors.length ? errors.join('\n') : cancelled ? 'Export cancelled.' : null,
+    });
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   ...clone(DEFAULT_STATE),
   theme: DEFAULT_THEME,
@@ -261,6 +359,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   processingCurrentName: '',
   processingDone: 0,
   processingTotal: 0,
+  exporting: false,
+  exportTotal: 0,
+  exportDone: 0,
+  exportCurrentName: '',
+  exportError: null,
+  exportDir: null,
+  exportLastPath: null,
+  artworkDataUrl: null,
   userPresets: [
     { name: 'User 1', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
     { name: 'User 2', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
@@ -875,5 +981,41 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearLoop: () => {
     previewEngine.setLoop(false, 0, 0);
     set({ loopEnabled: false, loopStart: 0, loopEnd: 0 });
+  },
+
+  // ── Export (v0.8.0 Phase 7) ──
+  setArtwork: (dataUrl) => set({ artworkDataUrl: dataUrl }),
+
+  pickExportDir: async () => {
+    const picked = await window.focusdaw?.exportIO?.pickDir?.();
+    if (picked) set({ exportDir: picked });
+  },
+
+  resetExportDir: () => set({ exportDir: null }),
+
+  exportSelected: async () => {
+    const s = get();
+    if (s.exporting) return;
+    const file = s.files[s.curFile];
+    if (!file) {
+      set({ exportError: 'Load an audio file before exporting.' });
+      return;
+    }
+    await runExport([file.id]);
+  },
+
+  exportBatch: async () => {
+    const s = get();
+    if (s.exporting) return;
+    await runExport(s.files.map((f) => f.id));
+  },
+
+  cancelExport: () => {
+    exportCancelled = true;
+  },
+
+  revealLastExport: () => {
+    const p = get().exportLastPath;
+    if (p) void window.focusdaw?.exportIO?.reveal?.(p);
   },
 }));

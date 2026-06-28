@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -289,6 +289,57 @@ ipcMain.handle('win:save-user-presets', async (_event, presets) => {
     return true;
   } catch (err) {
     console.error('Failed to save user presets:', err);
+    return false;
+  }
+});
+
+// v0.8.0 (Phase 7): Export 파일 저장 IO (단계 7-D)
+// 기본 Destination = <Music>/Masters. 사용자 선택 폴더 다이얼로그 + 디렉터리 보장 + 파일 쓰기.
+ipcMain.handle('export:default-dir', async () => {
+  const base = app.getPath('music') || app.getPath('home');
+  return path.join(base, 'Masters');
+});
+
+ipcMain.handle('export:pick-dir', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Choose export destination',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (res.canceled || !res.filePaths.length) return null;
+  return res.filePaths[0];
+});
+
+// dir 안에 filename 으로 bytes 를 저장한다. overwrite=false 면 중복 시 " (n)" 접미사로 회피.
+ipcMain.handle('export:save-file', async (_event, payload) => {
+  const { dir, filename, bytes, overwrite } = payload || {};
+  try {
+    if (!dir || !filename) throw new Error('Missing destination.');
+    fs.mkdirSync(dir, { recursive: true });
+    let target = path.join(dir, filename);
+    if (!overwrite) {
+      const ext = path.extname(filename);
+      const stem = path.basename(filename, ext);
+      let n = 2;
+      while (fs.existsSync(target)) {
+        target = path.join(dir, `${stem} (${n})${ext}`);
+        n++;
+      }
+    }
+    fs.writeFileSync(target, Buffer.from(bytes));
+    return { ok: true, path: target };
+  } catch (err) {
+    console.error('Failed to save export file:', err);
+    return { ok: false, error: err && err.message ? err.message : 'Save failed' };
+  }
+});
+
+// 저장 폴더를 OS 파일탐색기로 연다(Export 완료 후 "Reveal").
+ipcMain.handle('export:reveal', async (_event, target) => {
+  try {
+    if (target) shell.showItemInFolder(target);
+    return true;
+  } catch {
     return false;
   }
 });

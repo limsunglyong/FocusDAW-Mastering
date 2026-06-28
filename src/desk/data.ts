@@ -52,6 +52,8 @@ export const CTRL: Record<ModId, CtrlDef[]> = {
   ],
   spectral: [],
   dynamics: [
+    // v0.8.3: Multiband 컴프만 on/off(섹션 전체 Bypass 와 별개). PARAMETERS 에서 Ratio 앞에 배치.
+    { key: 'multiband', type: 'sw', label: 'Multiband' },
     { key: 'low', type: 'rot', label: 'Low', min: -18, max: 0, step: 0.1, dec: 1 },
     { key: 'mid', type: 'rot', label: 'Mid', min: -18, max: 0, step: 0.1, dec: 1 },
     { key: 'high', type: 'rot', label: 'High', min: -18, max: 0, step: 0.1, dec: 1 },
@@ -93,9 +95,9 @@ export type EqPreset = { color: string; desc: string; f: number[]; g: number[]; 
 
 export const EQPRESETS: Record<string, EqPreset> = {
   Normal: { color: '#6f6657', desc: 'Flat reference', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
-  Pop: { color: '#e0568f', desc: 'Bright vocal lift', f: [57, 126, 300, 4400, 17100], g: [6.2, 7.4, 6.6, 5.0, 4.0], q: [0.7, 1.7, 1.3, 1.0, 0.7] },
-  Dance: { color: '#3fb6d6', desc: 'Big low & air', f: [66, 120, 300, 9000, 15700], g: [9.6, 12.0, 6.8, 1.6, 12.0], q: [0.7, 0.9, 1.3, 1.0, 0.7] },
-  Classic: { color: '#c79a3f', desc: 'Warm & smooth', f: [37, 134, 1900, 3800, 7300], g: [-1.2, 2.4, 3.1, 4.5, 1.1], q: [0.7, 0.9, 1.0, 1.0, 0.7] },
+  Pop: { color: '#e0568f', desc: 'Bright vocal lift', f: [60, 250, 1200, 4000, 12000], g: [-3, -2, 2, 3, 3], q: [0.7, 1.2, 1.5, 1.8, 0.7] },
+  Dance: { color: '#3fb6d6', desc: 'Big low & air', f: [35, 120, 400, 3000, 12000], g: [5, 3, -2, 3, 4], q: [0.7, 0.8, 1.5, 1.8, 0.7] },
+  Classic: { color: '#c79a3f', desc: 'Warm & smooth', f: [40, 200, 800, 3000, 10000], g: [-2, 1, -1, 1, 2], q: [0.7, 1.0, 1.5, 2.0, 0.7] },
   User: { color: '#9a6fd0', desc: 'Your settings', f: [60, 250, 1000, 4000, 12000], g: [0, -3, 0, 1, 4], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
 };
 
@@ -165,9 +167,9 @@ export const DEFAULT_STATE: DeskState = {
     'spectral.f2': 1000, 'spectral.g2': 0, 'spectral.q2': 1.0,
     'spectral.f3': 4000, 'spectral.g3': 0, 'spectral.q3': 1.2,
     'spectral.f4': 12000, 'spectral.g4': 0, 'spectral.q4': 0.71,
-    'dynamics.low': -4, 'dynamics.mid': -2, 'dynamics.high': -3, 'dynamics.ratio': '4:1', 'dynamics.transient': 15, 'dynamics.exciter': 25,
+    'dynamics.multiband': false, 'dynamics.low': -2, 'dynamics.mid': -1, 'dynamics.high': -1, 'dynamics.ratio': '4:1', 'dynamics.transient': 10, 'dynamics.exciter': 15,
     'stereo.width': 120, 'stereo.reverb': 8, 'stereo.delay': 5, 'stereo.crossover': 120, 'stereo.bassmono': true, 'stereo.mono': false,
-    'loudness.ceiling': -1, 'loudness.target': -14, 'loudness.sat': 20, 'loudness.limiter': 'Punchy', 'loudness.tplimit': true,
+    'loudness.ceiling': -1, 'loudness.target': -14, 'loudness.sat': 5, 'loudness.limiter': 'Punchy', 'loudness.tplimit': true,
     'export.album': '', 'export.artist': '', 'export.year': '', 'export.genre': '', 'export.format': 'WAV',
   },
 };

@@ -7,6 +7,7 @@ import { APP_VERSION_LABEL } from '../../version';
 
 export function Footer({ view }: { view: DeskView }) {
   const transportOpen = useAppStore((s) => s.transportOpen);
+  const toggleTransport = useAppStore((s) => s.toggleTransport);
   const duration = useAppStore((s) => s.files[s.curFile]?.meta.duration ?? 0);
   const progressRef = useRef<HTMLDivElement>(null);
   const progressTipRef = useRef<HTMLDivElement>(null);
@@ -54,6 +55,31 @@ export function Footer({ view }: { view: DeskView }) {
         </div>
       )}
       <span style={{ fontFamily: 'Archivo', fontSize: 10, color: '#5e6b73' }}>{view.batchCount} files queued · {view.batchSize}</span>
+      <button
+        type="button"
+        onClick={toggleTransport}
+        title={transportOpen ? 'Close Transport (F4)' : 'Open Transport (F4)'}
+        aria-label={transportOpen ? 'Close Transport' : 'Open Transport'}
+        style={{
+          position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+          width: 32, height: 20, padding: 0, display: 'grid', placeItems: 'center',
+          border: '1px solid #303841', borderRadius: 6,
+          background: transportOpen ? `${view.accent}24` : '#20262d',
+          color: transportOpen ? view.accent : '#7f8b93',
+          cursor: 'pointer', zIndex: 2,
+        }}
+      >
+        <svg width="12" height="7" viewBox="0 0 12 7" aria-hidden="true">
+          <path
+            d={transportOpen ? 'M1 6l5-5 5 5' : 'M1 1l5 5 5-5'}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
       <span style={{ fontFamily: 'Archivo', fontSize: 10, color: '#5e6b73' }}>{APP_VERSION_LABEL}</span>
     </div>
   );

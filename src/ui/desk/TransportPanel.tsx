@@ -44,6 +44,7 @@ export function TransportPanel({ view }: { view: DeskView }) {
   const file = useAppStore((s) => s.files[s.curFile]);
   const isPlaying = useAppStore((s) => s.isOriginalPlaying);
   const toggleOriginalPlayback = useAppStore((s) => s.toggleOriginalPlayback);
+  const stopOriginalPlayback = useAppStore((s) => s.stopOriginalPlayback);
   const seekPreview = useAppStore((s) => s.seekPreview);
   const skip = useAppStore((s) => s.skip);
   const volume = useAppStore((s) => s.volume);
@@ -350,6 +351,11 @@ export function TransportPanel({ view }: { view: DeskView }) {
           ),
           hasFile ? 'Play/Pause (Space)' : 'Load an audio file',
           true,
+        )}
+        {ctlBtn(
+          stopOriginalPlayback,
+          <div style={{ width: 10, height: 10, borderRadius: 1.5, background: hasFile ? accent : '#6f7d86', boxShadow: hasFile ? `0 0 6px ${pal.glow}` : 'none' }} />,
+          hasFile ? 'Stop and return to start' : 'Load an audio file',
         )}
         {holdBtn(() => skip(SKIP_SEC), () => seekPreview(Math.max(0, duration)), '»', `Forward ${SKIP_SEC}s · hold: to end`)}
 

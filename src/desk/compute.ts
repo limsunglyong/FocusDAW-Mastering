@@ -423,6 +423,7 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
     advBtnStyle: `font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.04em;padding:6px 13px;border-radius:7px;cursor:pointer;border:none;` + (state.eqAdvanced ? `color:${pal.aInk};background:${accent};` : `color:${pal.pInk};background:${pal.paperCtl};`),
     presetCards: eqPresetCards,
     waterfall, fftInfo, noiseInfo, eqLine, eqArea, eqDots, dynBars, transPath, transLabel, exciterBars, exLabel, dynTrans, dynExc,
+    dynMbOn: isDynamics ? vals['dynamics.multiband'] !== false : true, // v0.8.3: Multiband OFF 면 Transient 비활성 표시
     vizBg: isDynamics ? 'transparent' : pal.panel, vizShadow: isDynamics ? 'none' : 'inset 0 2px 8px rgba(0,0,0,0.4)', vizPad: isDynamics ? '14px 14px 0' : '14px',
     insetBg: `background:${pal.panel};box-shadow:inset 0 2px 7px rgba(0,0,0,0.45),inset 0 -1px 0 rgba(255,255,255,0.04);border:1px solid rgba(0,0,0,0.25)`,
     stereoRx: stereoRx.toFixed(1), stereoW, stReverb, stReverbLabel, stDelay, stDelayLabel, stMonoOn, stMonoRx, stMonoVal,

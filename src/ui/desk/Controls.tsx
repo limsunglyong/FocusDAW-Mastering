@@ -216,10 +216,17 @@ function DynamicsExtra({ view }: { view: DeskView }) {
   const pal = view.pal;
   return (
     <div style={{ marginTop: 12, flex: 1, borderRadius: 12, padding: '13px 15px', display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: 14, ...css(view.insetBg) }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      {/* v0.8.3: Transient 는 밴드 컴프 attack/release 변조라 Multiband OFF 면 무효 → 비활성(회색+입력 차단) 표시 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, opacity: view.dynMbOn ? 1 : 0.4, pointerEvents: view.dynMbOn ? 'auto' : 'none', filter: view.dynMbOn ? 'none' : 'grayscale(1)' }}>
         <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           {view.dynTrans?.knob && <Knob vm={view.dynTrans.knob} size={48} sw={3.6} trackSw={3.6} />}
-          <div style={{ fontFamily: 'Archivo', fontSize: 8.5, color: '#8a8070', marginTop: 3 }}>Transient</div>
+          {/* v0.8.3: '(Multiband off)' 는 absolute 로 Transient 아래 붙여 레이아웃(노브 세로·그래프 가로)을 흔들지 않게 한다. */}
+          <div style={{ position: 'relative', marginTop: 3 }}>
+            <div style={{ fontFamily: 'Archivo', fontSize: 8.5, color: '#8a8070', textAlign: 'center' }}>Transient</div>
+            {!view.dynMbOn && (
+              <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 1, fontFamily: 'Archivo', fontSize: 6.5, lineHeight: 1, color: '#8a8070', whiteSpace: 'nowrap' }}>(Multiband off)</div>
+            )}
+          </div>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}><span style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: '#8a8070' }}>TRANSIENT</span><span style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, color: pal.aBright }}>{view.transLabel}</span></div>

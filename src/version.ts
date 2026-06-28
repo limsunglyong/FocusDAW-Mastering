@@ -261,7 +261,8 @@
  *  - v0.8.3 : (Patch) IV Dynamics — ① **Multiband on/off 스위치** 추가(섹션 전체 Bypass 와 별개로
  *             3밴드 컴프만 우회). PARAMETERS 영역에 Multiband 스위치 → Ratio 순 배치. dry/wet
  *             crossfade(mbDry/mbWet)로 재생 중 토글해도 source 재빌드 없음. OFF 시 익사이터는 원신호에
- *             작동(컴프만 우회). **OFF 시 좌측 GR 막대/값을 회색으로** 표시(직관적 on/off, compute.ts).
+ *             작동(컴프만 우회). **OFF 시 좌측 GR 막대/값 + Transient 블록을 회색·비활성(입력 차단)**으로
+ *             표시 — Transient 는 밴드 컴프 attack/release 변조라 Multiband OFF 면 무효(compute.ts/Controls.tsx).
  *             ② **기본값 정리(깨끗한 디폴트)** — Multiband **OFF**, Low/Mid/High −4/−2/−3 → −2/−1/−1,
  *             Transient 15→10%, Exciter 25→15%. (desk/data.ts, audio/masterChain.ts, desk/compute.ts)
  *             검증: lint·build 통과.

@@ -50,6 +50,17 @@ contextBridge.exposeInMainWorld('focusdaw', {
       };
     },
   },
+  // v0.10.0 (Phase 9): 자동 업데이트 상태 수신 + 재시작/재확인.
+  updater: {
+    onStatus: (callback) => {
+      const listener = (_event, status) => callback(status);
+      ipcRenderer.on('updater:status', listener);
+      return () => ipcRenderer.removeListener('updater:status', listener);
+    },
+    restart: () => ipcRenderer.send('updater:restart'),
+    check: () => ipcRenderer.send('updater:check'),
+  },
+
   // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
   loadUserPresets: () => ipcRenderer.invoke('win:load-user-presets'),
   saveUserPresets: (presets) => ipcRenderer.invoke('win:save-user-presets', presets),

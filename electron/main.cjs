@@ -597,8 +597,59 @@ ipcMain.handle('export:open-folder', async (_event, target) => {
   }
 });
 
+// v0.10.0 (Phase 9): GitHub 자동 업데이트(electron-updater).
+// 기동 시 1회 확인 → 자동 다운로드 → 진행률/완료를 메인 창에 IPC 로 보고(인앱 배너).
+// 사용자가 "지금 재시작" 선택 시 quitAndInstall. 개발(미패키징) 모드에서는 건너뛴다.
+let updateStarted = false;
+function setupAutoUpdater() {
+  if (isDev || updateStarted) return;
+  updateStarted = true;
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch (err) {
+    console.error('electron-updater load failed:', err);
+    return;
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  const send = (status) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('updater:status', status);
+    }
+  };
+
+  autoUpdater.on('checking-for-update', () => send({ state: 'checking' }));
+  autoUpdater.on('update-available', (info) => send({ state: 'available', version: info && info.version }));
+  autoUpdater.on('update-not-available', () => send({ state: 'not-available' }));
+  autoUpdater.on('download-progress', (p) => send({ state: 'progress', percent: p && p.percent ? Math.round(p.percent) : 0 }));
+  autoUpdater.on('update-downloaded', (info) => send({ state: 'downloaded', version: info && info.version }));
+  autoUpdater.on('error', (err) => send({ state: 'error', message: err && err.message ? err.message : String(err) }));
+
+  // 사용자가 배너에서 "지금 재시작" 선택.
+  ipcMain.on('updater:restart', () => {
+    try {
+      autoUpdater.quitAndInstall();
+    } catch (err) {
+      console.error('quitAndInstall failed:', err);
+    }
+  });
+  // 수동 재확인(선택).
+  ipcMain.on('updater:check', () => {
+    autoUpdater.checkForUpdates().catch((err) => send({ state: 'error', message: err && err.message ? err.message : String(err) }));
+  });
+
+  // 기동 직후 1회 확인.
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.error('checkForUpdates failed:', err);
+    send({ state: 'error', message: err && err.message ? err.message : String(err) });
+  });
+}
+
 app.whenReady().then(() => {
   createWindow();
+  setupAutoUpdater();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

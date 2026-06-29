@@ -317,6 +317,12 @@
  *             원본 파일 highlight, START 버튼명 단순화·캡션 제거, 출력 파일명 (Mastered) 접두사, CONVERTED→
  *             MASTERED FILES, Clear Finished=완료 파일만 제거(작업 재개 가능). ⑦ Export 로딩 카드 원 안에
  *             처리 단계 표시(Decoding/Denoising/Rendering/Encoding/Saving) — 단일·배치 공통.
+ *  - v0.10.0: (Phase 9) GitHub 자동 업데이트(electron-updater) 연결. 기동 시 1회 checkForUpdates →
+ *             자동 다운로드 → 진행률/완료를 메인 창에 IPC(updater:status)로 보고하는 **인앱 배너**
+ *             (다운로드 % 진행바 + "Restart now"). update-downloaded 시 사용자가 재시작 선택 시
+ *             quitAndInstall. 개발(미패키징) 모드에서는 체크 skip. (electron/main.cjs setupAutoUpdater,
+ *             preload.cjs updater, src/global.d.ts, src/App.tsx UpdateBanner) 릴리스/발행(electron:publish,
+ *             GH_TOKEN)·M7 end-to-end 시험은 후속(Phase 10).
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

@@ -28,6 +28,19 @@ declare global {
         onDim?: (callback: (on: boolean) => void) => () => void;
         onThemeUpdated?: (callback: (theme: string) => void) => () => void;
       };
+      // v0.10.0 (Phase 9): 자동 업데이트 상태 수신 + 재시작/재확인.
+      updater?: {
+        onStatus: (
+          callback: (status: {
+            state: 'checking' | 'available' | 'not-available' | 'progress' | 'downloaded' | 'error';
+            version?: string;
+            percent?: number;
+            message?: string;
+          }) => void,
+        ) => () => void;
+        restart: () => void;
+        check: () => void;
+      };
       // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
       loadUserPresets?: () => Promise<any>;
       saveUserPresets?: (presets: any) => Promise<boolean>;

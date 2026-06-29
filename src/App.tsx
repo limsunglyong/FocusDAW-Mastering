@@ -20,6 +20,14 @@ import { SessionsWindow } from './ui/desk/SessionsWindow';
 import { RenderBatchWindow } from './ui/desk/RenderBatchWindow';
 import { Footer } from './ui/desk/Footer';
 
+// v0.10.0 (Phase 9): 자동 업데이트 배너 상태.
+type UpdateStatus = {
+  state: 'available' | 'progress' | 'downloaded' | 'error';
+  version?: string;
+  percent?: number;
+  message?: string;
+};
+
 export default function App() {
   const isPreferences = window.location.hash === '#preferences' || window.location.search.includes('window=preferences');
   const isAbout = window.location.hash === '#about' || window.location.search.includes('window=about');
@@ -108,6 +116,8 @@ function StudioDesk() {
 
   const [dragOver, setDragOver] = useState(false);
   const [dimmed, setDimmed] = useState(false);
+  // v0.10.0 (Phase 9): 자동 업데이트 상태(인앱 배너용).
+  const [update, setUpdate] = useState<UpdateStatus | null>(null);
 
   // v0.8.5: 어떤 드롭/드래그 종료에도 'Drop audio files' 오버레이를 확실히 해제(캡처 단계 → 자식의
   // stopPropagation 과 무관하게 실행). 아트워크(섹션 VII) 이미지 드롭 후 오버레이 고착 방지.
@@ -133,6 +143,18 @@ function StudioDesk() {
   // v0.9.1: Render Batch 등 모달 창 표시 중 메인 창 흐림(dim) 토글.
   useEffect(() => {
     const unsub = window.focusdaw?.win?.onDim?.((on) => setDimmed(on));
+    return () => { unsub?.(); };
+  }, []);
+
+  // v0.10.0 (Phase 9): 자동 업데이트 상태 수신. 'not-available' 는 배너를 띄우지 않는다.
+  useEffect(() => {
+    const unsub = window.focusdaw?.updater?.onStatus?.((s) => {
+      if (s.state === 'not-available' || s.state === 'checking') {
+        setUpdate(null);
+        return;
+      }
+      setUpdate({ state: s.state, version: s.version, percent: s.percent, message: s.message });
+    });
     return () => { unsub?.(); };
   }, []);
 
@@ -200,6 +222,19 @@ function StudioDesk() {
         {transportOpen && <TransportPanel view={view} />}
         <Footer view={view} />
       </div>
+
+      {/* v0.10.0 (Phase 9): 자동 업데이트 인앱 배너 */}
+      {update && (
+        <UpdateBanner
+          status={update}
+          accent={view.accent}
+          bright={view.pal.aBright}
+          glow={view.pal.glow}
+          track={view.pal.panelDark}
+          onRestart={() => window.focusdaw?.updater?.restart?.()}
+          onDismiss={() => setUpdate(null)}
+        />
+      )}
 
       {/* v0.9.1: Render Batch 모달 표시 중 메인 창 흐림 오버레이 */}
       {dimmed && (
@@ -286,6 +321,45 @@ function StudioDesk() {
 }
 
 // v0.8.5: Export 완료 알림 모달 — 저장 개수·위치 + Reveal/OK.
+// v0.10.0 (Phase 9): 자동 업데이트 인앱 배너(하단 우측). 진행 중엔 진행률, 완료 시 "지금 재시작".
+function UpdateBanner({ status, accent, bright, glow, track, onRestart, onDismiss }: {
+  status: UpdateStatus; accent: string; bright: string; glow: string; track: string;
+  onRestart: () => void; onDismiss: () => void;
+}) {
+  const { state, version, percent, message } = status;
+  const title =
+    state === 'downloaded' ? 'Update ready'
+    : state === 'progress' ? 'Downloading update…'
+    : state === 'available' ? 'Update available'
+    : 'Update check failed';
+  const sub =
+    state === 'downloaded' ? `Version ${version || ''} will install on restart.`
+    : state === 'progress' ? `${percent ?? 0}%`
+    : state === 'available' ? `Version ${version || ''} — downloading…`
+    : (message || 'Could not check for updates.');
+  const isErr = state === 'error';
+  return (
+    <div style={{ position: 'fixed', right: 18, bottom: 18, zIndex: 10002, width: 320, padding: '14px 16px 13px', borderRadius: 14, background: 'linear-gradient(160deg, rgba(40,48,56,0.82), rgba(18,23,28,0.9))', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(16px) saturate(1.3)', boxShadow: `0 22px 50px -16px rgba(0,0,0,0.85), 0 0 30px ${glow}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontFamily: 'Spectral, serif', fontSize: 15, fontWeight: 600, color: isErr ? '#f0a8a8' : '#efe7d6' }}>{title}</div>
+        <button onClick={onDismiss} aria-label="Dismiss" style={{ fontFamily: 'Archivo', fontSize: 14, lineHeight: 1, padding: '2px 6px', borderRadius: 6, border: 'none', cursor: 'pointer', color: '#9aa7af', background: 'transparent' }}>×</button>
+      </div>
+      <div style={{ marginTop: 4, fontFamily: 'Archivo', fontSize: 11.5, color: isErr ? '#e0a0a0' : '#cdd3da', lineHeight: 1.45, wordBreak: 'break-word' }}>{sub}</div>
+      {state === 'progress' && (
+        <div style={{ marginTop: 10, height: 6, borderRadius: 4, background: track, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${percent ?? 0}%`, background: `linear-gradient(90deg, ${accent}, ${bright})`, borderRadius: 4, transition: 'width 0.25s ease' }} />
+        </div>
+      )}
+      {state === 'downloaded' && (
+        <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onDismiss} style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, padding: '7px 13px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', color: '#dfe5ea', background: 'rgba(255,255,255,0.06)' }}>Later</button>
+          <button onClick={onRestart} style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, padding: '7px 13px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#10151a', background: accent }}>Restart now</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ExportNotice({ notice, accent, glow, onReveal, onClose }: {
   notice: { ok: boolean; saved: number; total: number; path: string | null; error: string | null };
   accent: string; glow: string; onReveal: () => void; onClose: () => void;

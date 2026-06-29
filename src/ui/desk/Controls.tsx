@@ -569,7 +569,14 @@ function ExportMeta({ view }: { view: DeskView }) {
           <div key={f.key} style={css(f.wrap)}>
             <div style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', marginBottom: 2 }}>{f.label}</div>
             {f.isText ? (
-              <input className="dk-in" value={f.value} placeholder={f.ph} onChange={(e) => setVal(f.fk, e.target.value)} style={{ width: '100%', boxSizing: 'border-box', background: pal.paperInput, border: '1px solid #cdbfa4', borderRadius: 7, padding: '5px 10px', color: pal.pInk, fontSize: 12.5, outline: 'none' }} />
+              <input
+                className="dk-in"
+                value={f.value}
+                placeholder={f.ph}
+                onFocus={() => useAppStore.getState().pushUndoSnap()}
+                onChange={(e) => setVal(f.fk, e.target.value, true)}
+                style={{ width: '100%', boxSizing: 'border-box', background: pal.paperInput, border: '1px solid #cdbfa4', borderRadius: 7, padding: '5px 10px', color: pal.pInk, fontSize: 12.5, outline: 'none' }}
+              />
             ) : (
               <div style={{ display: 'flex', gap: 3, background: pal.paperCtl, borderRadius: 8, padding: 3 }}>
                 {f.opts.map((o: any) => (
@@ -583,7 +590,7 @@ function ExportMeta({ view }: { view: DeskView }) {
 
       {/* v0.8.0 (Phase 7): Export 액션 바 — 단일/배치 + 진행률·취소·에러 */}
       <div style={{ marginTop: 'auto', paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {exportError && (
+        {exportError && exportError !== 'Export cancelled.' && (
           <div style={{ fontFamily: 'Archivo', fontSize: 10, lineHeight: 1.45, color: '#e0344b', whiteSpace: 'pre-wrap', maxHeight: 54, overflow: 'auto' }}>{exportError}</div>
         )}
         {exporting ? (

@@ -114,3 +114,9 @@ denoise.ts depthToOptions
 컨트롤	효과
 Noise Depth 1/2/3	게이팅 강도 프리셋. 3(Deep)일수록 threshold↑·amount↑·floor↓ → 더 강하게 제거
 Noise Reduction %	위 기본 amount에 곱해지는 미세 조정 (0%면 사실상 원음)
+
+
+
+
+Export에서
+- 중간에 cancel 하는 버튼 필요. (or 취소 예약 처리 될 수 있도록...)

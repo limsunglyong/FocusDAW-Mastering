@@ -42,11 +42,12 @@ export function useKnobInteractions() {
       const step = parseFloat(k.getAttribute('data-knob-step')!) || 0;
       const sy = e.clientY;
       const start = Number(store().vals[fk]);
+      store().pushUndoSnap(); // Drag start snapshot (v0.8.9)
       const mv = (ev: PointerEvent) => {
         let v = start + ((sy - ev.clientY) / 140) * (max - min);
         v = Math.max(min, Math.min(max, v));
         if (step) v = Math.round(v / step) * step;
-        store().setVal(fk, Number(v.toFixed(4)));
+        store().setVal(fk, Number(v.toFixed(4)), true); // skipUndo during drag
       };
       const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
       window.addEventListener('pointermove', mv);

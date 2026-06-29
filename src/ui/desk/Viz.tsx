@@ -220,6 +220,7 @@ function SpectralViz({ view }: { view: DeskView }) {
     e.stopPropagation();
     const svg = svgRef.current;
     if (!svg) return;
+    useAppStore.getState().pushUndoSnap(); // Drag start snapshot (v0.8.9)
     const apply = (cx: number, cy: number) => {
       const rect = svg.getBoundingClientRect();
       const x = Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
@@ -229,7 +230,7 @@ function SpectralViz({ view }: { view: DeskView }) {
       if (dot.fstep) f = Math.round(f / dot.fstep) * dot.fstep;
       let g = (82 - y) / 2.6;
       g = Math.max(-12, Math.min(12, Math.round(g * 10) / 10));
-      setEqNode(dot.band, Number(f.toFixed(0)), g);
+      setEqNode(dot.band, Number(f.toFixed(0)), g, true); // skipUndo during drag
     };
     apply(e.clientX, e.clientY);
     const mv = (ev: PointerEvent) => apply(ev.clientX, ev.clientY);
@@ -462,6 +463,7 @@ function ExportViz({ view }: { view: DeskView }) {
   const exportDir = useAppStore((s) => s.exportDir);
   const pickExportDir = useAppStore((s) => s.pickExportDir);
   const resetExportDir = useAppStore((s) => s.resetExportDir);
+  const exportError = useAppStore((s) => s.exportError);
   const artInputRef = useRef<HTMLInputElement>(null);
 
   const loadArt = (file?: File | null) => {
@@ -518,6 +520,11 @@ function ExportViz({ view }: { view: DeskView }) {
           </div>
         </div>
       </div>
+      {exportError === 'Export cancelled.' && (
+        <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, color: '#e0344b', marginTop: 12, letterSpacing: '0.04em' }}>
+          Export cancelled.
+        </div>
+      )}
     </>
   );
 }

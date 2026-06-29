@@ -14,8 +14,23 @@ import { denoiseBuffer, denoiseKeyOf, getDenoiseRecommendation } from '../audio/
 import { encodeMaster, isSupportedFormat, ExportUnsupportedError } from '../export/exportRunner';
 import { baseName } from '../export/wav';
 
+type UndoSnapshot = {
+  vals: Record<string, number | string | boolean>;
+  enabled: Record<ModId, boolean>;
+  artworkDataUrl: string | null;
+  activeUserPresetIdx: number;
+  lastActivePresetName: string;
+};
+
 type AppState = DeskState & {
   theme: ThemeName;
+  // ── Undo/Redo (v0.8.9) ──
+  undoStacks: Record<number, UndoSnapshot[]>;
+  redoStacks: Record<number, UndoSnapshot[]>;
+  pushUndoSnap: () => void;
+  undo: () => void;
+  redo: () => void;
+
   // ── 배치 큐 (실제 로딩 파일) ──
   files: QueueFile[];
   importing: boolean;
@@ -49,6 +64,7 @@ type AppState = DeskState & {
 
   // ── Export (v0.8.0 Phase 7) ──
   exporting: boolean;
+  exportCancelling: boolean;
   exportTotal: number;
   exportDone: number;
   exportCurrentName: string;
@@ -70,13 +86,13 @@ type AppState = DeskState & {
   setTheme: (t: ThemeName) => void;
   setOpen: (i: number) => void;
   toggleEnabled: (id: ModId) => void;
-  setVal: (fk: string, v: number | string | boolean) => void;
+  setVal: (fk: string, v: number | string | boolean, skipUndo?: boolean) => void;
   applyPreset: (name: string) => void;
   recallUserPreset: (idx: number) => void;
   saveUserPreset: (idx: number) => void;
   renameUserPreset: (idx: number, name: string) => void;
   initUserPresets: () => Promise<void>;
-  setEqNode: (n: number, f: number, g: number) => void;
+  setEqNode: (n: number, f: number, g: number, skipUndo?: boolean) => void;
   toggleAdv: () => void;
   toggleMenu: (name: string) => void;
   closeMenu: () => void;
@@ -301,7 +317,7 @@ async function runExport(ids: string[]) {
 
   const dir = await resolveExportDir(s0);
   const bit = s0.vals['input.bit'];
-  useAppStore.setState({ exporting: true, exportError: null, exportNotice: null, exportTotal: ids.length, exportDone: 0, exportCurrentName: '', exportLastPath: null });
+  useAppStore.setState({ exporting: true, exportCancelling: false, exportError: null, exportNotice: null, exportTotal: ids.length, exportDone: 0, exportCurrentName: '', exportLastPath: null });
   // v0.8.5: 무거운 렌더/인코딩 전에 한 프레임 양보 → 로딩 오버레이가 먼저 그려지게 한다.
   await new Promise((r) => setTimeout(r, 30));
 
@@ -348,6 +364,7 @@ async function runExport(ids: string[]) {
       : { ok: errors.length === 0, saved, total: ids.length, path: lastPath, error: errors.length ? errors.join('\n') : null };
     useAppStore.setState({
       exporting: false,
+      exportCancelling: false,
       exportCurrentName: '',
       exportLastPath: lastPath,
       exportError: errors.length ? errors.join('\n') : cancelled ? 'Export cancelled.' : null,
@@ -359,6 +376,164 @@ async function runExport(ids: string[]) {
 export const useAppStore = create<AppState>((set, get) => ({
   ...clone(DEFAULT_STATE),
   theme: DEFAULT_THEME,
+  undoStacks: {},
+  redoStacks: {},
+  pushUndoSnap: () => {
+    const s = get();
+    const section = s.open;
+    const snap: UndoSnapshot = {
+      vals: JSON.parse(JSON.stringify(s.vals)),
+      enabled: { ...s.enabled },
+      artworkDataUrl: s.artworkDataUrl,
+      activeUserPresetIdx: s.activeUserPresetIdx,
+      lastActivePresetName: s.lastActivePresetName,
+    };
+    set((state) => {
+      const currentStack = state.undoStacks[section] || [];
+      const nextStack = [...currentStack, snap];
+      if (nextStack.length > 100) nextStack.shift();
+      return {
+        undoStacks: {
+          ...state.undoStacks,
+          [section]: nextStack,
+        },
+        redoStacks: {
+          ...state.redoStacks,
+          [section]: [],
+        },
+      };
+    });
+  },
+  undo: () => {
+    const s = get();
+    const section = s.open;
+    const currentUndoStack = s.undoStacks[section] || [];
+    if (currentUndoStack.length === 0) return;
+
+    const nextUndoStack = [...currentUndoStack];
+    const snap = nextUndoStack.pop()!;
+    const currentSnap: UndoSnapshot = {
+      vals: JSON.parse(JSON.stringify(s.vals)),
+      enabled: { ...s.enabled },
+      artworkDataUrl: s.artworkDataUrl,
+      activeUserPresetIdx: s.activeUserPresetIdx,
+      lastActivePresetName: s.lastActivePresetName,
+    };
+
+    const modId = MODS[section]?.id;
+    const nextVals = { ...s.vals };
+    let nextEnabled = { ...s.enabled };
+    let nextArtworkDataUrl = s.artworkDataUrl;
+    let nextActiveUserPresetIdx = s.activeUserPresetIdx;
+    let nextLastActivePresetName = s.lastActivePresetName;
+
+    if (modId) {
+      const prefix = `${modId}.`;
+      for (const k of Object.keys(snap.vals)) {
+        if (k.startsWith(prefix)) {
+          nextVals[k] = snap.vals[k];
+        }
+      }
+      nextEnabled[modId] = snap.enabled[modId];
+      if (modId === 'spectral') {
+        nextActiveUserPresetIdx = snap.activeUserPresetIdx;
+        nextLastActivePresetName = snap.lastActivePresetName;
+      }
+      if (modId === 'export') {
+        nextArtworkDataUrl = snap.artworkDataUrl;
+      }
+    }
+
+    set((state) => {
+      const currentRedoStack = state.redoStacks[section] || [];
+      const nextRedoStack = [...currentRedoStack, currentSnap];
+      if (nextRedoStack.length > 100) nextRedoStack.shift();
+      return {
+        vals: nextVals,
+        enabled: nextEnabled,
+        artworkDataUrl: nextArtworkDataUrl,
+        activeUserPresetIdx: nextActiveUserPresetIdx,
+        lastActivePresetName: nextLastActivePresetName,
+        undoStacks: {
+          ...state.undoStacks,
+          [section]: nextUndoStack,
+        },
+        redoStacks: {
+          ...state.redoStacks,
+          [section]: nextRedoStack,
+        },
+      };
+    });
+
+    get().syncPreviewParams();
+    get().refreshDenoise();
+    void get().analyzePreSelected();
+  },
+  redo: () => {
+    const s = get();
+    const section = s.open;
+    const currentRedoStack = s.redoStacks[section] || [];
+    if (currentRedoStack.length === 0) return;
+
+    const nextRedoStack = [...currentRedoStack];
+    const snap = nextRedoStack.pop()!;
+    const currentSnap: UndoSnapshot = {
+      vals: JSON.parse(JSON.stringify(s.vals)),
+      enabled: { ...s.enabled },
+      artworkDataUrl: s.artworkDataUrl,
+      activeUserPresetIdx: s.activeUserPresetIdx,
+      lastActivePresetName: s.lastActivePresetName,
+    };
+
+    const modId = MODS[section]?.id;
+    const nextVals = { ...s.vals };
+    let nextEnabled = { ...s.enabled };
+    let nextArtworkDataUrl = s.artworkDataUrl;
+    let nextActiveUserPresetIdx = s.activeUserPresetIdx;
+    let nextLastActivePresetName = s.lastActivePresetName;
+
+    if (modId) {
+      const prefix = `${modId}.`;
+      for (const k of Object.keys(snap.vals)) {
+        if (k.startsWith(prefix)) {
+          nextVals[k] = snap.vals[k];
+        }
+      }
+      nextEnabled[modId] = snap.enabled[modId];
+      if (modId === 'spectral') {
+        nextActiveUserPresetIdx = snap.activeUserPresetIdx;
+        nextLastActivePresetName = snap.lastActivePresetName;
+      }
+      if (modId === 'export') {
+        nextArtworkDataUrl = snap.artworkDataUrl;
+      }
+    }
+
+    set((state) => {
+      const currentUndoStack = state.undoStacks[section] || [];
+      const nextUndoStack = [...currentUndoStack, currentSnap];
+      if (nextUndoStack.length > 100) nextUndoStack.shift();
+      return {
+        vals: nextVals,
+        enabled: nextEnabled,
+        artworkDataUrl: nextArtworkDataUrl,
+        activeUserPresetIdx: nextActiveUserPresetIdx,
+        lastActivePresetName: nextLastActivePresetName,
+        undoStacks: {
+          ...state.undoStacks,
+          [section]: nextUndoStack,
+        },
+        redoStacks: {
+          ...state.redoStacks,
+          [section]: nextRedoStack,
+        },
+      };
+    });
+
+    get().syncPreviewParams();
+    get().refreshDenoise();
+    void get().analyzePreSelected();
+  },
   files: [],
   importing: false,
   importError: null,
@@ -382,6 +557,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   processingDone: 0,
   processingTotal: 0,
   exporting: false,
+  exportCancelling: false,
   exportTotal: 0,
   exportDone: 0,
   exportCurrentName: '',
@@ -406,14 +582,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (MODS[i]?.id === 'pre') void get().analyzePreSelected(); // Pre 패널 열 때 워터폴 분석
   },
   toggleEnabled: (id) => {
+    get().pushUndoSnap();
     set((s) => ({ enabled: { ...s.enabled, [id]: !s.enabled[id] } }));
     get().syncPreviewParams();
     // v0.2.28: Pre 섹션 On/Bypass 는 denoise 적용 여부(유효 버퍼)를 바꾸므로 분석/재생 갱신.
     if (id === 'pre') get().refreshDenoise();
   },
 
-  setVal: (fk, v) =>
+  setVal: (fk, v, skipUndo) =>
     {
+      if (!skipUndo) {
+        get().pushUndoSnap();
+      }
       if (fk === 'input.rate') {
         void get().changeInputRate(String(v));
         return;
@@ -446,6 +626,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   applyPreset: (name) =>
     {
+      get().pushUndoSnap();
       set((s) => {
         if (name === 'User') {
           return { vals: { ...s.vals, 'spectral.preset': 'User' }, activeUserPresetIdx: -1 };
@@ -462,6 +643,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   recallUserPreset: (idx) => {
     const p = get().userPresets[idx];
     if (!p) return;
+    get().pushUndoSnap();
     set((state) => {
       const patch: Record<string, number | string> = { 'spectral.preset': 'User' };
       for (let n = 0; n < 5; n++) {
@@ -532,8 +714,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  setEqNode: (n, f, g) =>
+  setEqNode: (n, f, g, skipUndo) =>
     {
+      if (!skipUndo) {
+        get().pushUndoSnap();
+      }
       set((s) => {
         let activeUserPresetIdx = s.activeUserPresetIdx;
         if (s.vals['spectral.preset'] !== 'User') {
@@ -1007,7 +1192,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // ── Export (v0.8.0 Phase 7) ──
-  setArtwork: (dataUrl) => set({ artworkDataUrl: dataUrl }),
+  setArtwork: (dataUrl) => {
+    get().pushUndoSnap();
+    set({ artworkDataUrl: dataUrl });
+  },
 
   pickExportDir: async () => {
     const picked = await window.focusdaw?.exportIO?.pickDir?.();
@@ -1035,6 +1223,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   cancelExport: () => {
     exportCancelled = true;
+    set({ exportCancelling: true });
   },
 
   revealLastExport: () => {

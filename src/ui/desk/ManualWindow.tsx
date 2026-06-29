@@ -482,6 +482,37 @@ export function ManualWindow() {
                     </div>
                   </div>
                 )}
+                {section.id === 'tips' && (
+                  <div style={{ marginTop: 18, marginBottom: 10 }}>
+                    <div style={{ marginBottom: 8, fontSize: 12.5, fontWeight: 700, color: 'var(--t-pInk)' }}>
+                      {lang === 'ko' ? '■ 단축키 및 조작 목록' : '■ Shortcut & Control List'}
+                    </div>
+                    <div style={{ overflow: 'hidden', border: '1px solid var(--t-ell)', borderRadius: 8 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5, color: 'var(--t-pInk)', background: 'var(--t-cardA)' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--t-paperCtl)', borderBottom: '1px solid var(--t-ell)', textAlign: 'left', fontWeight: 700 }}>
+                            <th style={{ padding: '9px 12px', borderRight: '1px solid var(--t-ell)', width: '40%' }}>{lang === 'ko' ? '기능 / 조작' : 'Action / Control'}</th>
+                            <th style={{ padding: '9px 12px' }}>{lang === 'ko' ? '단축키 / 입력 방법' : 'Shortcut / Input'}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { action: '재생 / 일시정지', actionEn: 'Play / Pause', key: 'Space', keyEn: 'Space' },
+                            { action: 'Transport 패널 토글', actionEn: 'Toggle Transport Panel', key: 'F4', keyEn: 'F4' },
+                            { action: '실행 취소 (Undo)', actionEn: 'Undo', key: 'Ctrl + Z', keyEn: 'Ctrl + Z' },
+                            { action: '다시 실행 (Redo)', actionEn: 'Redo', key: 'Ctrl + Y  또는  Ctrl + Shift + Z', keyEn: 'Ctrl + Y  or  Ctrl + Shift + Z' },
+                            { action: '노브 기본값 복원', actionEn: 'Reset Knob to Default', key: '마우스 더블 클릭', keyEn: 'Double-Click' },
+                          ].map((row, idx) => (
+                            <tr key={idx} style={{ borderBottom: idx < 4 ? '1px solid var(--t-ell)' : 'none', background: idx % 2 ? 'var(--t-cardSelA)' : 'var(--t-cardA)' }}>
+                              <td style={{ padding: '8px 12px', borderRight: '1px solid var(--t-ell)', fontWeight: 600 }}>{lang === 'ko' ? row.action : row.actionEn}</td>
+                              <td style={{ padding: '8px 12px', fontFamily: 'var(--mono)', color: 'var(--t-aMain)', fontWeight: 700 }}>{lang === 'ko' ? row.key : row.keyEn}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 {section.effect && <div style={{ marginTop: 16, padding: '11px 14px', borderLeft: '3px solid var(--t-aMain)', borderRadius: '0 7px 7px 0', background: 'var(--t-cardA)', color: 'var(--t-pInk)', fontSize: 12.5, lineHeight: 1.65 }}><Marked text={section.effect[lang]} query={query} /></div>}
                 {!!SETTINGS[section.id]?.length && (
                   <div style={{ marginTop: 22 }}>

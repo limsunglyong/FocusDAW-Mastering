@@ -83,14 +83,15 @@ function StudioDesk() {
   const activeUserPresetIdx = useAppStore((s) => s.activeUserPresetIdx);
   const lastActivePresetName = useAppStore((s) => s.lastActivePresetName);
   const initUserPresets = useAppStore((s) => s.initUserPresets);
-  // v0.8.5: Export 진행 오버레이 + 완료 알림
   const exporting = useAppStore((s) => s.exporting);
+  const exportCancelling = useAppStore((s) => s.exportCancelling);
   const exportDone = useAppStore((s) => s.exportDone);
   const exportTotal = useAppStore((s) => s.exportTotal);
   const exportCurrentName = useAppStore((s) => s.exportCurrentName);
   const exportNotice = useAppStore((s) => s.exportNotice);
   const clearExportNotice = useAppStore((s) => s.clearExportNotice);
   const revealLastExport = useAppStore((s) => s.revealLastExport);
+  const cancelExport = useAppStore((s) => s.cancelExport);
 
   const [dragOver, setDragOver] = useState(false);
 
@@ -223,9 +224,11 @@ function StudioDesk() {
           done={exportDone}
           total={exportTotal}
           name={exportCurrentName || 'Rendering…'}
-          title="EXPORTING"
+          title={exportCancelling ? "CANCELLING..." : "EXPORTING"}
           unit="files"
           indeterminate={exportTotal <= 1}
+          onCancel={cancelExport}
+          blinkTitle={exportCancelling}
         />
       )}
 
@@ -275,8 +278,8 @@ function ExportNotice({ notice, accent, glow, onReveal, onClose }: {
 }
 
 // v0.1.5: Glass 로딩 카드 — 회전하는 원형 링(가운데 퍼센트) + 현재 파일/진행률
-function LoadingCard({ accent, bright, glow, track, done, total, name, title = 'DECODING AUDIO', unit = 'files', indeterminate = false }: {
-  accent: string; bright: string; glow: string; track: string; done: number; total: number; name: string; title?: string; unit?: string; indeterminate?: boolean;
+function LoadingCard({ accent, bright, glow, track, done, total, name, title = 'DECODING AUDIO', unit = 'files', indeterminate = false, onCancel, blinkTitle }: {
+  accent: string; bright: string; glow: string; track: string; done: number; total: number; name: string; title?: string; unit?: string; indeterminate?: boolean; onCancel?: () => void; blinkTitle?: boolean;
 }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   // 링 두께를 만드는 마스크: 바깥은 보이고 안쪽(반지름 - 2px)은 투명 → 글래스 배경이 비침 (v0.1.7: 두께 50%↓)
@@ -300,7 +303,20 @@ function LoadingCard({ accent, bright, glow, track, done, total, name, title = '
           <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontFamily: 'Spectral, serif', fontSize: indeterminate ? 13 : 17, fontWeight: 600, color: accent }}>{indeterminate ? '···' : <>{pct}<span style={{ fontSize: 10 }}>%</span></>}</div>
         </div>
 
-        <div style={{ marginTop: 16, fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', color: '#a99f8a', textAlign: 'center' }}>{title}</div>
+        <div
+          style={{
+            marginTop: 16,
+            fontFamily: 'Archivo',
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.18em',
+            color: '#a99f8a',
+            textAlign: 'center',
+            animation: blinkTitle ? 'dkblink 0.6s ease-in-out infinite alternate' : undefined,
+          }}
+        >
+          {title}
+        </div>
         <div style={{ marginTop: 6, fontFamily: 'Archivo', fontSize: 12.5, fontWeight: 600, color: '#efe7d6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>{name || '—'}</div>
 
         {indeterminate ? (
@@ -312,6 +328,37 @@ function LoadingCard({ accent, bright, glow, track, done, total, name, title = '
             </div>
             <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 10.5, color: '#8a9099', textAlign: 'right' }}>{done} / {total} {unit}</div>
           </>
+        )}
+
+        {onCancel && !blinkTitle && (
+          <div style={{ marginTop: 18, display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={onCancel}
+              style={{
+                fontFamily: 'Archivo',
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                padding: '8px 18px',
+                borderRadius: 8,
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                cursor: 'pointer',
+                color: '#efe7d6',
+                background: 'rgba(255, 255, 255, 0.08)',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.18)';
+                e.currentTarget.style.border = '1px solid rgba(255, 255, 255, 0.25)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+              }}
+            >
+              CANCEL EXPORT
+            </button>
+          </div>
         )}
       </div>
     </div>

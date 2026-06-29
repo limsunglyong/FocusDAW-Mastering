@@ -289,6 +289,9 @@
  *             매뉴얼 창이 메인 앱 창 조작을 블로킹하지 않도록 비모달/독립 창 형태로 전환하여 사용성 개선.
  *  - v0.8.8 : 매뉴얼 VI. Loudness 세부 내용 보강. Saturate의 장단점/조작 팁 기술 및 LUFS의 개념,
  *             방송과 음원의 차이, 유튜브·애플뮤직 등 주요 스트리밍 플랫폼 타겟 레벨 설명 가이드 추가.
+ *  - v0.8.9 : (Patch) Relocated Help menu to the right end of the title bar to avoid edge clipping.
+ *             Implemented global Undo/Redo history tracking (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z) for all mastering
+ *             parameters and module states, utilizing skipUndo on slider drags and text input typing.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

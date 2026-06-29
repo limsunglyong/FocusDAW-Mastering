@@ -381,6 +381,107 @@ export function ManualWindow() {
                 <ul style={{ margin: '14px 0 0', paddingLeft: 22, color: 'var(--t-pInk2)', fontSize: 12.5, lineHeight: 1.75 }}>
                   {section.steps[lang].map((step) => <li key={step} style={{ marginBottom: 4 }}><Marked text={step} query={query} /></li>)}
                 </ul>
+                {section.id === 'pre' && (
+                  <div style={{ marginTop: 18, marginBottom: 10 }}>
+                    <div style={{ marginBottom: 8, fontSize: 12.5, fontWeight: 700, color: 'var(--t-pInk)' }}>
+                      {lang === 'ko' ? '■ 지능형 Denoise 추천 기준표' : '■ Intelligent Denoise Recommendation Table'}
+                    </div>
+                    <div style={{ overflow: 'hidden', border: '1px solid var(--t-ell)', borderRadius: 8 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5, color: 'var(--t-pInk)', background: 'var(--t-cardA)' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--t-paperCtl)', borderBottom: '1px solid var(--t-ell)', textAlign: 'left', fontWeight: 700 }}>
+                            <th style={{ padding: '9px 12px', borderRight: '1px solid var(--t-ell)' }}>{lang === 'ko' ? 'SNR 범위' : 'SNR Range'}</th>
+                            <th style={{ padding: '9px 12px', borderRight: '1px solid var(--t-ell)' }}>{lang === 'ko' ? '판정 상태' : 'Status'}</th>
+                            <th style={{ padding: '9px 12px', borderRight: '1px solid var(--t-ell)' }}>{lang === 'ko' ? '추천 Depth' : 'Recommended Depth'}</th>
+                            <th style={{ padding: '9px 12px' }}>{lang === 'ko' ? '추천 노브량 (Amount)' : 'Recommended Amount'}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { snr: '100 dB 이상', snrEn: '100 dB or more', status: 'Very Clean', statusKo: 'Very Clean', depth: 'Original (1)', amount: '5%', color: '#4ea5ff' },
+                            { snr: '90 ~ 100 dB', snrEn: '90 to 100 dB', status: 'Clean', statusKo: 'Clean', depth: 'Original (1)', amount: '10%', color: '#4ea5ff' },
+                            { snr: '80 ~ 90 dB', snrEn: '80 to 90 dB', status: 'Light Clean', statusKo: 'Light Clean', depth: 'Original (1)', amount: '25%', color: '#46d36e' },
+                            { snr: '60 ~ 80 dB', snrEn: '60 to 80 dB', status: 'Moderate Noise', statusKo: 'Moderate Noise', depth: 'Normal (2)', amount: '10%', color: '#a2db34' },
+                            { snr: '40 ~ 60 dB', snrEn: '40 to 60 dB', status: 'Heavy Noise', statusKo: 'Heavy Noise', depth: 'Normal (2)', amount: '30%', color: '#ff983d' },
+                            { snr: '40 dB 미만', snrEn: 'Less than 40 dB', status: 'Extreme Noise', statusKo: 'Extreme Noise', depth: 'Deep (3)', amount: '50%', color: '#ff5a5a' },
+                          ].map((row, idx) => (
+                            <tr key={idx} style={{ borderBottom: idx < 5 ? '1px solid var(--t-ell)' : 'none', background: idx % 2 ? 'var(--t-cardSelA)' : 'var(--t-cardA)' }}>
+                              <td style={{ padding: '8px 12px', borderRight: '1px solid var(--t-ell)' }}>{lang === 'ko' ? row.snr : row.snrEn}</td>
+                              <td style={{ padding: '8px 12px', borderRight: '1px solid var(--t-ell)', color: row.color, fontWeight: 700 }}>{row.status}</td>
+                              <td style={{ padding: '8px 12px', borderRight: '1px solid var(--t-ell)' }}>{row.depth}</td>
+                              <td style={{ padding: '8px 12px' }}>{row.amount}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {section.id === 'loudness' && (
+                  <div style={{ marginTop: 18, marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {/* Saturate Card */}
+                    <div style={{ border: '1px solid var(--t-ell)', borderRadius: 8, padding: '14px 16px', background: 'var(--t-cardA)', color: 'var(--t-pInk)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--t-aMain)' }}>
+                        {lang === 'ko' ? '■ Saturate (포화/새츄레이션) 가이드' : '■ Saturate Guide'}
+                      </div>
+                      <div style={{ fontSize: 11.5, lineHeight: 1.65 }}>
+                        {lang === 'ko' ? (
+                          <>
+                            <div style={{ marginBottom: 6 }}><strong>개념:</strong> 리미터 도달 전에 진공관이나 테이프처럼 부드러운 배음(Harmonics) 왜곡을 더해 소리를 더 단단하고 따뜻하게 만들어 줍니다.</div>
+                            <div style={{ marginBottom: 6 }}><strong style={{ color: '#46d36e' }}>장점 (Pros):</strong> 피크 레벨을 물리적으로 손상시키지 않으면서 청감상 음량(perceived volume)을 효과적으로 키우고, 차가운 디지털 음원에 아날로그 특유의 따뜻한 질감과 음악적 색채를 부여합니다.</div>
+                            <div style={{ marginBottom: 6 }}><strong style={{ color: '#ff5a5a' }}>단점 (Cons):</strong> 과도하게 설정할 경우 고음역대가 답답해지거나 저음역대에서 찌그러짐(디지털 클릭/클립성 왜곡)이 들릴 수 있으며, 다이내믹 레인지 및 트랜지언트(타격감)가 일부 손실될 수 있습니다.</div>
+                            <div><strong>팁 (Tip):</strong> 레벨 메타 옆의 THD 판정이 HOT(붉은색)에 자주 머무른다면 노브 양을 낮추는 것이 바람직합니다.</div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ marginBottom: 6 }}><strong>Concept:</strong> Adds soft harmonic saturation (like tubes or tape) before the limiter, enhancing overall density and warmth.</div>
+                            <div style={{ marginBottom: 6 }}><strong style={{ color: '#46d36e' }}>Pros:</strong> Effectively increases perceived loudness without causing harsh digital clipping, and infuses clinical digital tracks with pleasant analog warmth and character.</div>
+                            <div style={{ marginBottom: 6 }}><strong style={{ color: '#ff5a5a' }}>Cons:</strong> Excessive amounts can degrade treble clarity, cause mud or crackling in the low end, and mask the original transient punch and depth.</div>
+                            <div><strong>Tip:</strong> If the THD status panel frequently lights up as HOT (red), it is safer to decrease the Saturate level.</div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* LUFS Card */}
+                    <div style={{ border: '1px solid var(--t-ell)', borderRadius: 8, padding: '14px 16px', background: 'var(--t-cardA)', color: 'var(--t-pInk)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--t-aMain)' }}>
+                        {lang === 'ko' ? '■ LUFS (체감 음량 표준) 가이드' : '■ LUFS (Loudness Units Full Scale) Guide'}
+                      </div>
+                      <div style={{ fontSize: 11.5, lineHeight: 1.65 }}>
+                        {lang === 'ko' ? (
+                          <>
+                            <div style={{ marginBottom: 6 }}><strong>개념:</strong> 인간이 실제로 느끼는 주파수대역별 감도(K-weighting)를 모사하여 측정하는 국제 표준(ITU-R BS.1770) Integrated Loudness 단위입니다.</div>
+                            <div style={{ marginBottom: 6 }}><strong>필요성:</strong> 과거 오직 피크 레벨만 깎아내며 전체 볼륨을 비정상적으로 키우던 음압 경쟁(Loudness War)을 지양하고, 다른 음원들과 일관된 볼륨 밸런스를 맞추기 위해 사용됩니다.</div>
+                            <div style={{ marginBottom: 6 }}><strong>방송과 음원의 차이:</strong> TV/라디오 등 방송 규격은 대개 매우 엄격한 <strong>-24 LUFS</strong> 기준을 강제 고수하는 반면, 일반 음악 스트리밍 및 상업 음원은 보통 <strong>-14 LUFS ~ -9 LUFS</strong> 범위로 더 높게 마스터링합니다.</div>
+                            <div>
+                              <strong>주요 플랫폼별 권장 타겟 레벨:</strong>
+                              <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                                <li><strong>YouTube / Spotify:</strong> 약 <strong>-14 LUFS</strong> (이 레벨보다 크게 만들 경우 플랫폼 내에서 강제로 볼륨을 낮춰 서비스합니다.)</li>
+                                <li><strong>Apple Music:</strong> 약 <strong>-16 LUFS</strong></li>
+                                <li><strong>상업 음반 (Pop/CD/Club):</strong> <strong>-9 LUFS ~ -8 LUFS</strong> 수준으로 강하게 마스터링하기도 하나, 스트리밍 시 노멀라이제이션으로 인해 볼륨이 크게 깎이고 다이내믹이 찌그러질 위험을 감안하여 목적에 맞는 타겟을 설정해야 합니다.</li>
+                              </ul>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ marginBottom: 6 }}><strong>Concept:</strong> An international standard unit (ITU-R BS.1770) for measuring integrated perceived loudness, incorporating frequency weighting (K-weighting) based on human hearing.</div>
+                            <div style={{ marginBottom: 6 }}><strong>Why it matters:</strong> Prevents the "Loudness War" where producers squashed all dynamics just to maximize peak levels, ensuring a more consistent listener experience across tracks.</div>
+                            <div style={{ marginBottom: 6 }}><strong>Broadcast vs. Music:</strong> TV and radio standards strictly enforce a quiet <strong>-24 LUFS</strong> limit, whereas modern commercial music is mastered much louder, typically ranging from <strong>-14 LUFS to -9 LUFS</strong>.</div>
+                            <div>
+                              <strong>Platform Normalization Targets:</strong>
+                              <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                                <li><strong>YouTube / Spotify:</strong> ~<strong>-14 LUFS</strong> (Tracks exceeding this level will have their volume automatically attenuated by the player.)</li>
+                                <li><strong>Apple Music:</strong> ~<strong>-16 LUFS</strong></li>
+                                <li><strong>Commercial Masters (Pop/Club):</strong> Often finalized at <strong>-9 LUFS to -8 LUFS</strong> for raw delivery. Note that platforms will turn these down, which may make them sound flatter than dynamic mixes.</li>
+                              </ul>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {section.effect && <div style={{ marginTop: 16, padding: '11px 14px', borderLeft: '3px solid var(--t-aMain)', borderRadius: '0 7px 7px 0', background: 'var(--t-cardA)', color: 'var(--t-pInk)', fontSize: 12.5, lineHeight: 1.65 }}><Marked text={section.effect[lang]} query={query} /></div>}
                 {!!SETTINGS[section.id]?.length && (
                   <div style={{ marginTop: 22 }}>

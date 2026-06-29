@@ -285,6 +285,10 @@
  *             **불확정(스피너)** 표시(오해되는 0% 제거). ④ **FLAC require 번들 오류 수정** — 고수준
  *             `libflacjs/lib/encoder`(UMD 내부 require) 대신 **자체완결 `dist/libflac.js` 저수준 API 직접
  *             호출**. ⑤ MP3 사용자 확인 완료(태그·아트워크 정상).
+ *  - v0.8.7 : 매뉴얼 노이즈 자동 추천 기준 보강(다국어 표 추가) 및 매뉴얼 창 독립화(parent: undefined).
+ *             매뉴얼 창이 메인 앱 창 조작을 블로킹하지 않도록 비모달/독립 창 형태로 전환하여 사용성 개선.
+ *  - v0.8.8 : 매뉴얼 VI. Loudness 세부 내용 보강. Saturate의 장단점/조작 팁 기술 및 LUFS의 개념,
+ *             방송과 음원의 차이, 유튜브·애플뮤직 등 주요 스트리밍 플랫폼 타겟 레벨 설명 가이드 추가.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

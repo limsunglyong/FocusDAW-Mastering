@@ -240,7 +240,7 @@ ipcMain.on('win:open-manual', (event) => {
     minHeight: 620,
     x,
     y,
-    parent: parentWindow || undefined,
+    parent: undefined,
     frame: false,
     resizable: true,
     maximizable: true,

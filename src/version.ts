@@ -292,6 +292,31 @@
  *  - v0.8.9 : (Patch) Relocated Help menu to the right end of the title bar to avoid edge clipping.
  *             Implemented global Undo/Redo history tracking (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z) for all mastering
  *             parameters and module states, utilizing skipUndo on slider drags and text input typing.
+ *  - v0.9.0 : 세션(프로젝트) 저장/불러오기 기능 착수(Minor). 마스터링 체인 설정(Preset형)을 세션으로
+ *             저장·복원 — 7섹션 vals(곡별 denoise depth/amount 제외) + enabled(Bypass) + EQ 활성 프리셋
+ *             상태 + Export 메타/아트워크/Destination. denoise 깊이/양은 곡별 자동 추천이 계속 담당하고
+ *             세션에는 Denoise On/Off 토글만 포함. 별도 borderless 자식 창(#sessions)에 적용 이펙트를
+ *             카드 형식으로 표시(저장/불러오기). userData/sessions/*.json 저장(user-presets 패턴).
+ *  - v0.9.1 : Render Batch — 세션(프로젝트) 설정으로 파일/폴더를 일괄 Export 하는 모달 창 추가.
+ *             별도 창(#renderbatch, parent+modal 로 메인 앱 차단). 상단 "Select Session Card" 로 저장된
+ *             세션을 카드로 불러오고, 출력 폴더(Export Destination)를 카드 옆에서 표시·변경. 좌측=소스 파일
+ *             목록(+Files/+Folder/드롭), 우측=출력 파일 목록(대기/처리중 스피너/완료 체크/오류), 가운데=세로
+ *             진행바(애니메이션). START 시 per-file 디코드→리샘플→denoise→오프라인 렌더→인코딩→저장
+ *             (export/batchRunner.ts, 기존 export 파이프라인 재사용). **Denoise 토글 ON 시 곡마다 STFT/SNR
+ *             분석(analyzePre)→추천 depth/amount(getDenoiseRecommendation) 적용 — 메인 앱과 동일(기본값
+ *             일괄 적용 아님).** CANCEL → 확인 모달 → "Cancelling…"
+ *             후 현재 파일 완료 시점에 중단(이미 저장된 파일 유지). Project ▸ Render Batch… 메뉴.
+ *             추가: 기존 Export 경로(여러 곡)도 동일하게 정합 — store `ensureDenoiseRecommendation` 신설,
+ *             Pre 패널에서 분석한 적 없는 곡은 export 직전 STFT/SNR 분석으로 per-file 추천 depth/amount 를
+ *             채운 뒤 denoise(이전엔 미열람 곡이 기본값 2/35% 로 나가던 불일치 해소).
+ *  - v0.9.2 : (Patch) Render Batch·Export 보완 묶음. ① Render Batch 우측 상단 버튼 연결(TransportBar) 및
+ *             Project ▸ Render Batch… 메뉴. ② Render Batch 표시 중 메인 창 흐림(win:dim → backdrop blur).
+ *             ③ 출력 폴더 라벨 hover 애니메이션 + 클릭 시 탐색기 열기(export:open-folder, 미존재 시 상위 폴더).
+ *             ④ 진행바 sheen 을 채워진 안쪽 bar 안에서만 흐르게(overflow hidden), 가로 ×4 확대·%/메시지 상단.
+ *             ⑤ 카드/폴더 정보창을 하단 파일 리스트 폭에 정렬. ⑥ ORIGINAL FILES 전체삭제[x]+확인 모달, 처리 중
+ *             원본 파일 highlight, START 버튼명 단순화·캡션 제거, 출력 파일명 (Mastered) 접두사, CONVERTED→
+ *             MASTERED FILES, Clear Finished=완료 파일만 제거(작업 재개 가능). ⑦ Export 로딩 카드 원 안에
+ *             처리 단계 표시(Decoding/Denoising/Rendering/Encoding/Saving) — 단일·배치 공통.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

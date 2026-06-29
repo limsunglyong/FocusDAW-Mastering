@@ -84,6 +84,11 @@ const PREFERENCES_W = 900;
 const PREFERENCES_H = 480;
 let aboutWindow = null;
 let manualWindow = null;
+// v0.9.0: 세션(프로젝트) 저장/불러오기 창 + 열림 컨텍스트(메인 창에서 전달한 mode/payload/theme).
+let sessionsWindow = null;
+let sessionContext = { mode: 'load', payload: null, theme: null };
+const SESSIONS_W = 920;
+const SESSIONS_H = 600;
 
 
 ipcMain.on('win:minimize', (event) => {
@@ -269,6 +274,123 @@ ipcMain.on('win:open-manual', (event) => {
   });
 });
 
+// v0.9.1: Render Batch 창 열기(모달 — 메인 앱 사용 차단). 세션 기반 일괄 Export.
+let renderBatchWindow = null;
+let renderBatchTheme = null;
+const RENDER_BATCH_W = 880;
+const RENDER_BATCH_H = 640;
+ipcMain.on('win:open-render-batch', (event, opts) => {
+  renderBatchTheme = (opts && opts.theme) || null;
+  if (renderBatchWindow) {
+    renderBatchWindow.focus();
+    return;
+  }
+  const parentWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  let x;
+  let y;
+  if (parentWindow) {
+    const b = parentWindow.getBounds();
+    x = Math.round(b.x + (b.width - RENDER_BATCH_W) / 2);
+    y = Math.round(b.y + (b.height - RENDER_BATCH_H) / 2);
+  }
+  const iconPath = path.join(__dirname, '..', 'assets', 'logo-main2.png');
+  renderBatchWindow = new BrowserWindow({
+    width: RENDER_BATCH_W,
+    height: RENDER_BATCH_H,
+    minWidth: 760,
+    minHeight: 560,
+    x,
+    y,
+    parent: parentWindow || undefined,
+    modal: true, // 요구사항 7: Render Batch 표시 중 메인 앱 사용 차단.
+    frame: false,
+    resizable: true,
+    maximizable: false,
+    fullscreenable: false,
+    backgroundColor: '#f3eede',
+    show: false,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  renderBatchWindow.once('ready-to-show', () => {
+    renderBatchWindow?.show();
+    // 메인 창을 흐리게(dim) — Render Batch 표시 중 시각적 비활성 처리.
+    mainWindow?.webContents.send('win:dim', true);
+  });
+  if (isDev) {
+    renderBatchWindow.loadURL(DEV_SERVER_URL + '#renderbatch');
+  } else {
+    renderBatchWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'renderbatch' });
+  }
+  renderBatchWindow.on('closed', () => {
+    renderBatchWindow = null;
+    mainWindow?.webContents.send('win:dim', false);
+  });
+});
+ipcMain.handle('render-batch:get-theme', async () => renderBatchTheme);
+
+// v0.9.0: 세션(프로젝트) 창 열기. mode='save'|'load', payload=현재 직렬화 세션(저장용), theme=현재 테마.
+ipcMain.on('win:open-sessions', (event, opts) => {
+  sessionContext = {
+    mode: (opts && opts.mode) === 'save' ? 'save' : 'load',
+    payload: (opts && opts.payload) || null,
+    theme: (opts && opts.theme) || null,
+  };
+  if (sessionsWindow) {
+    sessionsWindow.webContents.send('session:context-updated', sessionContext);
+    sessionsWindow.focus();
+    return;
+  }
+
+  const parentWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  let x;
+  let y;
+  if (parentWindow) {
+    const b = parentWindow.getBounds();
+    x = Math.round(b.x + (b.width - SESSIONS_W) / 2);
+    y = Math.round(b.y + (b.height - SESSIONS_H) / 2);
+  }
+
+  const iconPath = path.join(__dirname, '..', 'assets', 'logo-main2.png');
+  sessionsWindow = new BrowserWindow({
+    width: SESSIONS_W,
+    height: SESSIONS_H,
+    x,
+    y,
+    parent: undefined,
+    frame: false,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    backgroundColor: '#c9c3b8',
+    show: false,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  sessionsWindow.once('ready-to-show', () => sessionsWindow?.show());
+
+  if (isDev) {
+    sessionsWindow.loadURL(DEV_SERVER_URL + '#sessions');
+  } else {
+    sessionsWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'sessions' });
+  }
+
+  sessionsWindow.on('closed', () => {
+    sessionsWindow = null;
+  });
+});
+
 ipcMain.on('win:set-theme', (event, themeName) => {
   BrowserWindow.getAllWindows().forEach((win) => {
     win.webContents.send('win:theme-updated', themeName);
@@ -298,6 +420,109 @@ ipcMain.handle('win:save-user-presets', async (_event, presets) => {
     console.error('Failed to save user presets:', err);
     return false;
   }
+});
+
+// v0.9.0: 세션(프로젝트) 저장/불러오기 IO. userData/sessions/<id>.json 한 파일 = 세션 1건.
+function sessionsDir() {
+  const dir = path.join(app.getPath('userData'), 'sessions');
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    console.error('Failed to ensure sessions dir:', err);
+  }
+  return dir;
+}
+
+// 세션 창이 mount 시 호출 — 열림 모드/직렬화 payload/테마를 전달.
+ipcMain.handle('session:get-context', async () => sessionContext);
+
+// 목록(요약만) — 아트워크 base64 는 제외하고 hasArtwork 플래그만 반환(경량화).
+ipcMain.handle('session:list', async () => {
+  const dir = sessionsDir();
+  const out = [];
+  try {
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue;
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+        const p = (data && data.payload) || {};
+        const v = p.vals || {};
+        out.push({
+          id: data.id || f.replace(/\.json$/, ''),
+          name: data.name || '(untitled)',
+          description: data.description || '',
+          savedAt: data.savedAt || 0,
+          appVersion: data.appVersion || '',
+          enabled: p.enabled || {},
+          denoise: !!v['pre.denoise'] && (p.enabled ? p.enabled.pre !== false : true),
+          eqPreset: v['spectral.preset'] || '—',
+          lufs: typeof v['loudness.target'] === 'number' ? v['loudness.target'] : null,
+          format: v['export.format'] || '—',
+          rate: v['input.rate'] || '—',
+          bit: v['input.bit'] || '—',
+          hasArtwork: !!p.artworkDataUrl,
+          exportDir: p.exportDir || null,
+          album: v['export.album'] || '',
+        });
+      } catch (err) {
+        console.error('Failed to parse session file:', f, err);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to list sessions:', err);
+  }
+  out.sort((a, b) => b.savedAt - a.savedAt);
+  return out;
+});
+
+// 단일 세션 전체(payload 포함, 아트워크 포함) — 불러오기 적용용.
+ipcMain.handle('session:read', async (_event, id) => {
+  if (!id) return null;
+  const file = path.join(sessionsDir(), `${String(id).replace(/[^a-zA-Z0-9_-]/g, '')}.json`);
+  try {
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (err) {
+    console.error('Failed to read session:', err);
+  }
+  return null;
+});
+
+// 저장(신규/덮어쓰기). id 가 없으면 새로 생성. name 은 표시명.
+ipcMain.handle('session:save', async (_event, payloadArg) => {
+  const name = (payloadArg && payloadArg.name ? String(payloadArg.name) : '').trim() || 'Untitled Session';
+  const description = payloadArg && payloadArg.description ? String(payloadArg.description) : '';
+  const payload = (payloadArg && payloadArg.payload) || null;
+  if (!payload) return { ok: false, error: 'Empty session payload.' };
+  const id = (payloadArg && payloadArg.id ? String(payloadArg.id).replace(/[^a-zA-Z0-9_-]/g, '') : '')
+    || `sess-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+  const file = path.join(sessionsDir(), `${id}.json`);
+  const data = { id, name, description, savedAt: Date.now(), appVersion: (payloadArg && payloadArg.appVersion) || '', payload };
+  try {
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
+    return { ok: true, id };
+  } catch (err) {
+    console.error('Failed to save session:', err);
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+ipcMain.handle('session:delete', async (_event, id) => {
+  if (!id) return { ok: false };
+  const file = path.join(sessionsDir(), `${String(id).replace(/[^a-zA-Z0-9_-]/g, '')}.json`);
+  try {
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+    return { ok: true };
+  } catch (err) {
+    console.error('Failed to delete session:', err);
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+// 불러온 세션 payload 를 메인 창에 적용(렌더러 간 릴레이). 메인 창이 applySession 을 수행.
+ipcMain.handle('session:apply', async (_event, payload) => {
+  if (!mainWindow) return { ok: false, error: 'Main window is not available.' };
+  mainWindow.webContents.send('session:apply', payload);
+  return { ok: true };
 });
 
 // v0.8.0 (Phase 7): Export 파일 저장 IO (단계 7-D)
@@ -348,6 +573,27 @@ ipcMain.handle('export:reveal', async (_event, target) => {
     return true;
   } catch {
     return false;
+  }
+});
+
+// v0.9.1: 폴더를 탐색기로 연다. 폴더가 아직 없으면(기본 Masters/<Album> 미생성 등) 존재하는 상위 폴더를 연다.
+ipcMain.handle('export:open-folder', async (_event, target) => {
+  try {
+    let dir = target ? String(target) : '';
+    if (!dir) dir = path.join(app.getPath('music') || app.getPath('home'), 'Masters');
+    // 존재하는 가장 가까운 상위 폴더까지 거슬러 올라간다.
+    let cur = dir;
+    for (let i = 0; i < 8; i++) {
+      if (fs.existsSync(cur)) break;
+      const parent = path.dirname(cur);
+      if (!parent || parent === cur) break;
+      cur = parent;
+    }
+    if (!fs.existsSync(cur)) cur = app.getPath('music') || app.getPath('home');
+    const err = await shell.openPath(cur);
+    return { ok: !err, error: err || undefined };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message ? e.message : e) };
   }
 });
 

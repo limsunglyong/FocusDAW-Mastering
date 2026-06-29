@@ -257,3 +257,13 @@ body {
     opacity: 1;
   }
 }
+
+/* v0.9.1: Render Batch 세로 진행바 — 채워진 안쪽 bar 안에서만 위로 흐르는 sheen 밴드 */
+@keyframes dkbatchflow {
+  0% {
+    transform: translateY(120%);
+  }
+  100% {
+    transform: translateY(-120%);
+  }
+}

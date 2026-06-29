@@ -13,6 +13,7 @@ import { analyzePre, type PreAnalysis } from '../audio/preAnalysis';
 import { denoiseBuffer, denoiseKeyOf, getDenoiseRecommendation } from '../audio/denoise';
 import { encodeMaster, isSupportedFormat, ExportUnsupportedError } from '../export/exportRunner';
 import { baseName } from '../export/wav';
+import { sanitizeSessionVals, type SessionPayload } from '../session/session';
 
 type UndoSnapshot = {
   vals: Record<string, number | string | boolean>;
@@ -68,6 +69,8 @@ type AppState = DeskState & {
   exportTotal: number;
   exportDone: number;
   exportCurrentName: string;
+  /** v0.9.1: 현재 파일의 처리 단계(Decoding/Rendering/Encoding/Saving) — 로딩 카드 표시용. */
+  exportStage: string;
   exportError: string | null;
   /** 사용자가 고른 Destination 폴더(절대경로). null 이면 기본 <Music>/Masters/<Album>. */
   exportDir: string | null;
@@ -111,6 +114,8 @@ type AppState = DeskState & {
   ensureProcessingBuffer: (id: string) => Promise<AudioBuffer>;
   /** v0.2.28: Denoise 결과 버퍼 확보(lazy·캐시, 처리 오버레이 표시). */
   ensureDenoisedBuffer: (id: string) => Promise<AudioBuffer>;
+  /** v0.9.1: 곡별 denoise 추천값(noiseDepth/denoiseAmt)이 없으면 분석해 채운다(Pre 미열람 곡 export 일관성). */
+  ensureDenoiseRecommendation: (id: string) => Promise<void>;
   /** v0.2.28: 현재 Pre/Denoise 상태에 맞는 재생·분석용 유효 버퍼(denoise on→denoised, off→processing). */
   effectivePlaybackBuffer: (id: string) => Promise<AudioBuffer>;
   /** v0.2.28: Denoise 관련 파라미터 변경 시 분석/재생 버퍼를 디바운스 갱신. */
@@ -139,6 +144,10 @@ type AppState = DeskState & {
   cancelExport: () => void;
   revealLastExport: () => void;
   clearExportNotice: () => void;
+
+  // ── 세션(프로젝트) 적용 (v0.9.0) ──
+  /** 세션 payload(체인 설정)를 현재 상태에 적용한다. 곡별 denoise·파일 큐는 건드리지 않는다. */
+  applySession: (payload: SessionPayload) => void;
 };
 
 const clone = (s: DeskState): DeskState => ({
@@ -317,7 +326,7 @@ async function runExport(ids: string[]) {
 
   const dir = await resolveExportDir(s0);
   const bit = s0.vals['input.bit'];
-  useAppStore.setState({ exporting: true, exportCancelling: false, exportError: null, exportNotice: null, exportTotal: ids.length, exportDone: 0, exportCurrentName: '', exportLastPath: null });
+  useAppStore.setState({ exporting: true, exportCancelling: false, exportError: null, exportNotice: null, exportTotal: ids.length, exportDone: 0, exportCurrentName: '', exportStage: '', exportLastPath: null });
   // v0.8.5: 무거운 렌더/인코딩 전에 한 프레임 양보 → 로딩 오버레이가 먼저 그려지게 한다.
   await new Promise((r) => setTimeout(r, 30));
 
@@ -331,9 +340,14 @@ async function runExport(ids: string[]) {
       if (!file) continue;
       // v0.8.5: 로딩 표시는 소스명이 아니라 출력 파일명(현재 포맷 확장자)으로.
       const outExt = format === 'MP3' ? 'mp3' : format === 'FLAC' ? 'flac' : 'wav';
-      useAppStore.setState({ exportCurrentName: `${baseName(file.name)}.${outExt}`, exportDone: i });
+      useAppStore.setState({ exportCurrentName: `${baseName(file.name)}.${outExt}`, exportDone: i, exportStage: 'Decoding' });
       try {
-        const buffer = await st.effectivePlaybackBuffer(file.id);
+        // Decoding(디코드+리샘플) → Denoising(토글 ON 시) 단계를 분리 표시.
+        let buffer = await st.ensureProcessingBuffer(file.id);
+        if (denoiseActive(useAppStore.getState())) {
+          useAppStore.setState({ exportStage: 'Denoising' });
+          buffer = await st.ensureDenoisedBuffer(file.id);
+        }
         const params = previewParamsFromState(useAppStore.getState(), file);
         // v0.8.4 (7-E): MP3/FLAC 태그·아트워크. 트랙 제목은 파일명(별도 title 필드 없음), 나머지는 Export 메타.
         const meta = {
@@ -344,7 +358,10 @@ async function runExport(ids: string[]) {
           genre: String(st.vals['export.genre'] || ''),
           artworkDataUrl: st.artworkDataUrl,
         };
-        const { bytes, ext } = await encodeMaster(buffer, params, format, bit, meta);
+        const { bytes, ext } = await encodeMaster(buffer, params, format, bit, meta, (stage) => {
+          useAppStore.setState({ exportStage: stage === 'rendering' ? 'Rendering' : 'Encoding' });
+        });
+        useAppStore.setState({ exportStage: 'Saving' });
         const filename = `${baseName(file.name)}.${ext}`;
         const res = await io.saveFile(dir, filename, bytes, false);
         if (res.ok && res.path) lastPath = res.path;
@@ -366,6 +383,7 @@ async function runExport(ids: string[]) {
       exporting: false,
       exportCancelling: false,
       exportCurrentName: '',
+      exportStage: '',
       exportLastPath: lastPath,
       exportError: errors.length ? errors.join('\n') : cancelled ? 'Export cancelled.' : null,
       exportNotice: notice,
@@ -561,6 +579,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   exportTotal: 0,
   exportDone: 0,
   exportCurrentName: '',
+  exportStage: '',
   exportError: null,
   exportDir: null,
   exportLastPath: null,
@@ -969,9 +988,41 @@ export const useAppStore = create<AppState>((set, get) => ({
     return processingBuffer;
   },
 
+  // v0.9.1: 곡별 denoise 추천값이 없으면(=Pre 패널에서 분석한 적 없는 곡) export/재생 직전에 1회 분석한다.
+  // 메인 앱 analyzePreSelected 와 동일하게 dry(source) 신호 SNR → getDenoiseRecommendation 으로 per-file 값을 채움.
+  ensureDenoiseRecommendation: async (id) => {
+    const file0 = get().files.find((f) => f.id === id);
+    if (!file0 || file0.denoiseRecommended) return; // 이미 추천값 있음(또는 큐에서 제거됨)
+    let source: AudioBuffer;
+    try {
+      source = await get().ensureSourceBuffer(id);
+    } catch {
+      return; // 디코딩 실패 → 기존 per-file 값(기본값) 유지
+    }
+    const fname = get().files.find((f) => f.id === id)?.name ?? '';
+    set({ processingAudio: true, processingMessage: 'Analyzing noise', processingCurrentName: fname, processingDone: 0, processingTotal: 1 });
+    try {
+      const analysis = await analyzePre(`exp:${id}`, `exp:${id}`, source);
+      const rec = getDenoiseRecommendation(analysis.snrDb, analysis.floorDb);
+      set((s) => {
+        const files = s.files.map((f) => (f.id === id ? { ...f, denoiseRecommended: rec, noiseDepth: rec.depth, denoiseAmt: rec.amount } : f));
+        // 분석 대상이 현재 선택곡이면 UI 미러(vals)도 함께 갱신.
+        const cur = files[s.curFile];
+        const vals = cur && cur.id === id ? { ...s.vals, 'pre.noiseDepth': rec.depth, 'pre.denoiseAmt': rec.amount } : s.vals;
+        return { files, vals };
+      });
+    } catch {
+      // 분석 실패 시 기존 per-file 값(기본값) 유지
+    } finally {
+      set({ processingAudio: false, processingMessage: '', processingCurrentName: '', processingDone: 0, processingTotal: 0 });
+    }
+  },
+
   // v0.2.28: Denoise 결과 버퍼(lazy·캐시). 키(rate:depth:amt)가 같으면 재계산 생략.
   ensureDenoisedBuffer: async (id) => {
     const processing = await get().ensureProcessingBuffer(id);
+    // v0.9.1: 추천값 없는 곡은 여기서 분석해 채운 뒤 그 depth/amt 로 denoise(여러 곡 export 일관성).
+    await get().ensureDenoiseRecommendation(id);
     const st = get();
     const file = st.files.find((f) => f.id === id);
     if (!file) throw new Error('File is no longer in the queue.');
@@ -1232,4 +1283,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   clearExportNotice: () => set({ exportNotice: null }),
+
+  // ── 세션(프로젝트) 적용 (v0.9.0) ──
+  applySession: (payload) => {
+    const cur = get();
+    const incomingVals = sanitizeSessionVals(payload?.vals);
+    const rateChanged =
+      incomingVals['input.rate'] !== undefined && incomingVals['input.rate'] !== cur.vals['input.rate'];
+
+    // 적용 중 재생 끊김/엉뚱한 버퍼 방지 — 재생 정지.
+    previewEngine.stop();
+    set((s) => ({
+      // 곡별 denoise 미러(pre.noiseDepth/denoiseAmt)는 incomingVals 에 없으므로 그대로 유지된다.
+      vals: { ...s.vals, ...incomingVals },
+      enabled: payload?.enabled ? { ...s.enabled, ...payload.enabled } : s.enabled,
+      activeUserPresetIdx:
+        typeof payload?.activeUserPresetIdx === 'number' ? payload.activeUserPresetIdx : s.activeUserPresetIdx,
+      lastActivePresetName: payload?.lastActivePresetName || s.lastActivePresetName,
+      artworkDataUrl: payload?.artworkDataUrl ?? null,
+      exportDir: payload?.exportDir ?? null,
+      // Rate 가 바뀌면 처리/denoise 버퍼를 무효화(다음 Preview/Export 시 lazy 재생성).
+      files: rateChanged ? invalidateProcessingBuffers(s.files) : s.files,
+      isOriginalPlaying: false,
+      // 세션 적용은 새 기준점 → 섹션별 Undo/Redo 스택 초기화.
+      undoStacks: {},
+      redoStacks: {},
+    }));
+
+    get().syncPreviewParams();
+    get().refreshDenoise();
+    void get().analyzePreSelected();
+  },
 }));

@@ -16,12 +16,16 @@ import { TransportPanel } from './ui/desk/TransportPanel';
 import { PreferencesWindow } from './ui/desk/PreferencesWindow';
 import { AboutWindow } from './ui/desk/AboutWindow';
 import { ManualWindow } from './ui/desk/ManualWindow';
+import { SessionsWindow } from './ui/desk/SessionsWindow';
+import { RenderBatchWindow } from './ui/desk/RenderBatchWindow';
 import { Footer } from './ui/desk/Footer';
 
 export default function App() {
   const isPreferences = window.location.hash === '#preferences' || window.location.search.includes('window=preferences');
   const isAbout = window.location.hash === '#about' || window.location.search.includes('window=about');
   const isManual = window.location.hash === '#manual' || window.location.search.includes('window=manual');
+  const isSessions = window.location.hash === '#sessions' || window.location.search.includes('window=sessions');
+  const isRenderBatch = window.location.hash === '#renderbatch' || window.location.search.includes('window=renderbatch');
 
   const theme = useAppStore((s) => s.theme);
 
@@ -52,6 +56,14 @@ export default function App() {
 
   if (isManual) {
     return <ManualWindow />;
+  }
+
+  if (isSessions) {
+    return <SessionsWindow />;
+  }
+
+  if (isRenderBatch) {
+    return <RenderBatchWindow />;
   }
 
   return <StudioDesk />;
@@ -88,12 +100,14 @@ function StudioDesk() {
   const exportDone = useAppStore((s) => s.exportDone);
   const exportTotal = useAppStore((s) => s.exportTotal);
   const exportCurrentName = useAppStore((s) => s.exportCurrentName);
+  const exportStage = useAppStore((s) => s.exportStage);
   const exportNotice = useAppStore((s) => s.exportNotice);
   const clearExportNotice = useAppStore((s) => s.clearExportNotice);
   const revealLastExport = useAppStore((s) => s.revealLastExport);
   const cancelExport = useAppStore((s) => s.cancelExport);
 
   const [dragOver, setDragOver] = useState(false);
+  const [dimmed, setDimmed] = useState(false);
 
   // v0.8.5: 어떤 드롭/드래그 종료에도 'Drop audio files' 오버레이를 확실히 해제(캡처 단계 → 자식의
   // stopPropagation 과 무관하게 실행). 아트워크(섹션 VII) 이미지 드롭 후 오버레이 고착 방지.
@@ -107,6 +121,20 @@ function StudioDesk() {
   useEffect(() => {
     void initUserPresets();
   }, [initUserPresets]);
+
+  // v0.9.0: 세션 창에서 불러온 세션 payload 를 메인 창에 적용(IPC 릴레이 수신).
+  useEffect(() => {
+    const unsub = window.focusdaw?.sessionIO?.onApply?.((payload) => {
+      useAppStore.getState().applySession(payload);
+    });
+    return () => { unsub?.(); };
+  }, []);
+
+  // v0.9.1: Render Batch 등 모달 창 표시 중 메인 창 흐림(dim) 토글.
+  useEffect(() => {
+    const unsub = window.focusdaw?.win?.onDim?.((on) => setDimmed(on));
+    return () => { unsub?.(); };
+  }, []);
 
   const view = useMemo(
     () => computeView({ open, curFile, openMenu, eqAdvanced, enabled, vals, userPresets, activeUserPresetIdx, lastActivePresetName } as any, theme, files),
@@ -173,6 +201,17 @@ function StudioDesk() {
         <Footer view={view} />
       </div>
 
+      {/* v0.9.1: Render Batch 모달 표시 중 메인 창 흐림 오버레이 */}
+      {dimmed && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'none',
+            background: 'rgba(8,11,14,0.5)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+            transition: 'opacity 0.2s ease',
+          }}
+        />
+      )}
+
       {dragOver && (
         <div
           style={{
@@ -227,6 +266,7 @@ function StudioDesk() {
           title={exportCancelling ? "CANCELLING..." : "EXPORTING"}
           unit="files"
           indeterminate={exportTotal <= 1}
+          stage={exportCancelling ? '' : exportStage}
           onCancel={cancelExport}
           blinkTitle={exportCancelling}
         />
@@ -278,8 +318,8 @@ function ExportNotice({ notice, accent, glow, onReveal, onClose }: {
 }
 
 // v0.1.5: Glass 로딩 카드 — 회전하는 원형 링(가운데 퍼센트) + 현재 파일/진행률
-function LoadingCard({ accent, bright, glow, track, done, total, name, title = 'DECODING AUDIO', unit = 'files', indeterminate = false, onCancel, blinkTitle }: {
-  accent: string; bright: string; glow: string; track: string; done: number; total: number; name: string; title?: string; unit?: string; indeterminate?: boolean; onCancel?: () => void; blinkTitle?: boolean;
+function LoadingCard({ accent, bright, glow, track, done, total, name, title = 'DECODING AUDIO', unit = 'files', indeterminate = false, stage, onCancel, blinkTitle }: {
+  accent: string; bright: string; glow: string; track: string; done: number; total: number; name: string; title?: string; unit?: string; indeterminate?: boolean; stage?: string; onCancel?: () => void; blinkTitle?: boolean;
 }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   // 링 두께를 만드는 마스크: 바깥은 보이고 안쪽(반지름 - 2px)은 투명 → 글래스 배경이 비침 (v0.1.7: 두께 50%↓)
@@ -300,7 +340,7 @@ function LoadingCard({ accent, bright, glow, track, done, total, name, title = '
               animation: 'dkspin 0.85s linear infinite',
             }}
           />
-          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontFamily: 'Spectral, serif', fontSize: indeterminate ? 13 : 17, fontWeight: 600, color: accent }}>{indeterminate ? '···' : <>{pct}<span style={{ fontSize: 10 }}>%</span></>}</div>
+          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center', padding: '0 6px', fontFamily: stage ? 'Archivo' : 'Spectral, serif', fontSize: stage ? 10 : indeterminate ? 13 : 17, fontWeight: stage ? 700 : 600, letterSpacing: stage ? '0.01em' : undefined, color: accent }}>{stage ? stage : indeterminate ? '···' : <>{pct}<span style={{ fontSize: 10 }}>%</span></>}</div>
         </div>
 
         <div
@@ -320,7 +360,7 @@ function LoadingCard({ accent, bright, glow, track, done, total, name, title = '
         <div style={{ marginTop: 6, fontFamily: 'Archivo', fontSize: 12.5, fontWeight: 600, color: '#efe7d6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>{name || '—'}</div>
 
         {indeterminate ? (
-          <div style={{ marginTop: 14, fontFamily: 'Archivo', fontSize: 10.5, color: '#8a9099', textAlign: 'center' }}>Rendering &amp; encoding… please wait</div>
+          !stage && <div style={{ marginTop: 14, fontFamily: 'Archivo', fontSize: 10.5, color: '#8a9099', textAlign: 'center' }}>Rendering &amp; encoding… please wait</div>
         ) : (
           <>
             <div style={{ width: '100%', height: 5, marginTop: 13, borderRadius: 4, background: track, overflow: 'hidden' }}>

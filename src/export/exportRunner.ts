@@ -56,8 +56,10 @@ function id3TagsFromMeta(meta?: ExportMeta): Id3Tags {
  * @param inputPcm Input PCM 세그먼트 값('16'|'24'|'32f') — WAV/FLAC 비트뎁스에 사용
  * @param meta 태그/아트워크(MP3·FLAC 에만 적용)
  */
-export async function encodeMaster(buffer: AudioBuffer, params: PreviewParams, format: string, inputPcm: unknown, meta?: ExportMeta): Promise<EncodedFile> {
+export async function encodeMaster(buffer: AudioBuffer, params: PreviewParams, format: string, inputPcm: unknown, meta?: ExportMeta, onStage?: (stage: 'rendering' | 'encoding') => void): Promise<EncodedFile> {
+  onStage?.('rendering');
   const rendered = await renderMaster(buffer, params);
+  onStage?.('encoding');
   if (format === 'WAV') {
     return { bytes: encodeWav(rendered, wavBitDepthFromInput(inputPcm)), ext: 'wav' };
   }

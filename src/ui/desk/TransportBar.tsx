@@ -84,7 +84,10 @@ export function TransportBar({ view }: { view: DeskView }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 13, justifyContent: 'flex-end', minWidth: 0 }}>
         <span style={{ fontFamily: 'Archivo', fontSize: 11, color: '#6f7d86', whiteSpace: 'nowrap' }}>Integrated <span style={{ color: view.accent, fontWeight: 600 }}>{view.lufsVal} LUFS</span></span>
         <span style={{ fontFamily: 'Archivo', fontSize: 11, color: '#6f7d86', whiteSpace: 'nowrap' }}>Peak <span style={{ color: '#e3dccc', fontWeight: 600 }}>{view.tpVal} dBTP</span></span>
-        <button style={{ fontFamily: 'Archivo', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', color: view.pal.aInk, background: view.accent, border: 'none', borderRadius: 6, padding: '7px 15px', cursor: 'pointer', flex: 'none' }}>Render Batch</button>
+        <button
+          onClick={() => window.focusdaw?.win?.openRenderBatch?.({ theme: useAppStore.getState().theme })}
+          style={{ fontFamily: 'Archivo', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', color: view.pal.aInk, background: view.accent, border: 'none', borderRadius: 6, padding: '7px 15px', cursor: 'pointer', flex: 'none' }}
+        >Render Batch</button>
       </div>
     </div>
   );

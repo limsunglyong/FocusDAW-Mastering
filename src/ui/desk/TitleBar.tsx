@@ -5,6 +5,7 @@ import logoUrl from '../../../assets/logo.png';
 import { css } from '../../desk/css';
 import { useAppStore } from '../../store/appStore';
 import { openAudioFilePicker } from '../../audio/filePicker';
+import { serializeSession } from '../../session/session';
 import type { DeskView } from '../../desk/compute';
 
 export function TitleBar({ view }: { view: DeskView }) {
@@ -63,11 +64,15 @@ export function TitleBar({ view }: { view: DeskView }) {
     } else if (label === 'New Session') {
       useAppStore.getState().clearFiles();
     } else if (label === 'Open') {
-      const picked = await openAudioFilePicker({ directory: false });
-      if (picked.length) {
-        useAppStore.getState().clearFiles();
-        await useAppStore.getState().loadFiles(picked);
-      }
+      // v0.9.0: 세션(프로젝트) 불러오기 창 — 저장된 마스터링 체인 설정을 카드로 선택해 적용.
+      window.focusdaw?.win?.openSessions?.({ mode: 'load', theme: useAppStore.getState().theme });
+    } else if (label === 'Save Session') {
+      // v0.9.0: 현재 체인 설정을 직렬화해 세션 저장 창으로 전달(Preset형).
+      const s = useAppStore.getState();
+      window.focusdaw?.win?.openSessions?.({ mode: 'save', payload: serializeSession(s), theme: s.theme });
+    } else if (label === 'Render Batch...' || label === 'Render Batch…') {
+      // v0.9.1: 세션 기반 일괄 Export 창(모달).
+      window.focusdaw?.win?.openRenderBatch?.({ theme: useAppStore.getState().theme });
     } else if (label === 'Import Files...' || label === 'Import Files…') {
       const picked = await openAudioFilePicker({ directory: false });
       if (picked.length) await useAppStore.getState().loadFiles(picked);

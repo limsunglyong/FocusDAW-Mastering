@@ -164,8 +164,22 @@ export function AboutWindow() {
           }}
         >
           A professional, high-fidelity mastering environment.
-          Engineered with precision gain controls, loudness normalization, 
+          Engineered with precision gain controls, loudness normalization,
           and a real-time true-peak limiter.
+        </p>
+
+        {/* v0.10.3 (A4 ④): Contact email — OK 버튼 위, 윗줄·아랫줄 한 칸씩 띄움 */}
+        <p
+          style={{
+            marginTop: 4,
+            marginBottom: 18,
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: darkColor,
+            letterSpacing: '0.01em',
+          }}
+        >
+          focustone.el@gmail.com
         </p>
 
         {/* Confirm Button */}

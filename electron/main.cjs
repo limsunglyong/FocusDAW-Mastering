@@ -83,6 +83,7 @@ let preferencesWindow = null;
 const PREFERENCES_W = 900;
 const PREFERENCES_H = 480;
 let aboutWindow = null;
+let releaseNotesWindow = null;
 let manualWindow = null;
 // v0.9.0: 세션(프로젝트) 저장/불러오기 창 + 열림 컨텍스트(메인 창에서 전달한 mode/payload/theme).
 let sessionsWindow = null;
@@ -181,12 +182,12 @@ ipcMain.on('win:open-about', () => {
   if (mainWindow) {
     const parentBounds = mainWindow.getBounds();
     x = Math.round(parentBounds.x + (parentBounds.width - 420) / 2);
-    y = Math.round(parentBounds.y + (parentBounds.height - 370) / 2);
+    y = Math.round(parentBounds.y + (parentBounds.height - 400) / 2);
   }
 
   aboutWindow = new BrowserWindow({
     width: 420,
-    height: 370,
+    height: 400, // v0.10.3: 연락 이메일 한 줄 추가로 높이 소폭 증가(370→400).
     x: x,
     y: y,
     parent: mainWindow || undefined,
@@ -217,6 +218,59 @@ ipcMain.on('win:open-about', () => {
 
   aboutWindow.on('closed', () => {
     aboutWindow = null;
+  });
+});
+
+// v0.10.1: Release Notes 창(현재 버전 변경 내용). About 패턴과 동일한 모달 borderless 창.
+ipcMain.on('win:open-release-notes', () => {
+  if (releaseNotesWindow) {
+    releaseNotesWindow.focus();
+    return;
+  }
+
+  const RN_W = 460;
+  const RN_H = 520;
+  let x = undefined;
+  let y = undefined;
+  if (mainWindow) {
+    const parentBounds = mainWindow.getBounds();
+    x = Math.round(parentBounds.x + (parentBounds.width - RN_W) / 2);
+    y = Math.round(parentBounds.y + (parentBounds.height - RN_H) / 2);
+  }
+
+  releaseNotesWindow = new BrowserWindow({
+    width: RN_W,
+    height: RN_H,
+    x: x,
+    y: y,
+    parent: mainWindow || undefined,
+    modal: true,
+    frame: false,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    backgroundColor: '#c9c3b8',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  releaseNotesWindow.once('ready-to-show', () => {
+    releaseNotesWindow?.show();
+  });
+
+  if (isDev) {
+    releaseNotesWindow.loadURL(DEV_SERVER_URL + '#releasenotes');
+  } else {
+    releaseNotesWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'releasenotes' });
+  }
+
+  releaseNotesWindow.on('closed', () => {
+    releaseNotesWindow = null;
   });
 });
 
@@ -599,51 +653,80 @@ ipcMain.handle('export:open-folder', async (_event, target) => {
 
 // v0.10.0 (Phase 9): GitHub 자동 업데이트(electron-updater).
 // 기동 시 1회 확인 → 자동 다운로드 → 진행률/완료를 메인 창에 IPC 로 보고(인앱 배너).
-// 사용자가 "지금 재시작" 선택 시 quitAndInstall. 개발(미패키징) 모드에서는 건너뛴다.
+// 사용자가 "지금 재시작" 선택 시 quitAndInstall.
+// v0.10.2: Help ▸ Check for Updates 수동 확인 — restart/check IPC 핸들러를 setup 밖에서
+//   항상 등록(개발/미패키징 포함). dev 에서는 'dev' 상태를 돌려 "설치본에서만 가능"을 안내한다.
+let autoUpdaterInstance = null;
+let updaterWired = false;
+
+function getAutoUpdater() {
+  if (autoUpdaterInstance) return autoUpdaterInstance;
+  try {
+    ({ autoUpdater: autoUpdaterInstance } = require('electron-updater'));
+  } catch (err) {
+    console.error('electron-updater load failed:', err);
+    return null;
+  }
+  return autoUpdaterInstance;
+}
+
+function sendUpdaterStatus(status) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('updater:status', status);
+  }
+}
+
+function wireUpdaterEvents(autoUpdater) {
+  if (updaterWired) return;
+  updaterWired = true;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => sendUpdaterStatus({ state: 'checking' }));
+  autoUpdater.on('update-available', (info) => sendUpdaterStatus({ state: 'available', version: info && info.version }));
+  autoUpdater.on('update-not-available', () => sendUpdaterStatus({ state: 'not-available' }));
+  autoUpdater.on('download-progress', (p) => sendUpdaterStatus({ state: 'progress', percent: p && p.percent ? Math.round(p.percent) : 0 }));
+  autoUpdater.on('update-downloaded', (info) => sendUpdaterStatus({ state: 'downloaded', version: info && info.version }));
+  autoUpdater.on('error', (err) => sendUpdaterStatus({ state: 'error', message: err && err.message ? err.message : String(err) }));
+}
+
+// 배너 "지금 재시작".
+ipcMain.on('updater:restart', () => {
+  const autoUpdater = getAutoUpdater();
+  try {
+    autoUpdater?.quitAndInstall();
+  } catch (err) {
+    console.error('quitAndInstall failed:', err);
+  }
+});
+
+// 수동 업데이트 확인(Help ▸ Check for Updates / 배너 재확인).
+ipcMain.on('updater:check', () => {
+  if (isDev) {
+    sendUpdaterStatus({ state: 'dev' });
+    return;
+  }
+  const autoUpdater = getAutoUpdater();
+  if (!autoUpdater) {
+    sendUpdaterStatus({ state: 'error', message: 'Updater unavailable.' });
+    return;
+  }
+  wireUpdaterEvents(autoUpdater);
+  autoUpdater.checkForUpdates().catch((err) =>
+    sendUpdaterStatus({ state: 'error', message: err && err.message ? err.message : String(err) }),
+  );
+});
+
 let updateStarted = false;
 function setupAutoUpdater() {
   if (isDev || updateStarted) return;
   updateStarted = true;
-  let autoUpdater;
-  try {
-    ({ autoUpdater } = require('electron-updater'));
-  } catch (err) {
-    console.error('electron-updater load failed:', err);
-    return;
-  }
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-
-  const send = (status) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('updater:status', status);
-    }
-  };
-
-  autoUpdater.on('checking-for-update', () => send({ state: 'checking' }));
-  autoUpdater.on('update-available', (info) => send({ state: 'available', version: info && info.version }));
-  autoUpdater.on('update-not-available', () => send({ state: 'not-available' }));
-  autoUpdater.on('download-progress', (p) => send({ state: 'progress', percent: p && p.percent ? Math.round(p.percent) : 0 }));
-  autoUpdater.on('update-downloaded', (info) => send({ state: 'downloaded', version: info && info.version }));
-  autoUpdater.on('error', (err) => send({ state: 'error', message: err && err.message ? err.message : String(err) }));
-
-  // 사용자가 배너에서 "지금 재시작" 선택.
-  ipcMain.on('updater:restart', () => {
-    try {
-      autoUpdater.quitAndInstall();
-    } catch (err) {
-      console.error('quitAndInstall failed:', err);
-    }
-  });
-  // 수동 재확인(선택).
-  ipcMain.on('updater:check', () => {
-    autoUpdater.checkForUpdates().catch((err) => send({ state: 'error', message: err && err.message ? err.message : String(err) }));
-  });
-
+  const autoUpdater = getAutoUpdater();
+  if (!autoUpdater) return;
+  wireUpdaterEvents(autoUpdater);
   // 기동 직후 1회 확인.
   autoUpdater.checkForUpdates().catch((err) => {
     console.error('checkForUpdates failed:', err);
-    send({ state: 'error', message: err && err.message ? err.message : String(err) });
+    sendUpdaterStatus({ state: 'error', message: err && err.message ? err.message : String(err) });
   });
 }
 

@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('focusdaw', {
     setTransport: (open) => ipcRenderer.send('win:transport', { open }),
     openPreferences: () => ipcRenderer.send('win:open-preferences'),
     openAbout: () => ipcRenderer.send('win:open-about'),
+    // v0.10.1: Release Notes 창 열기(현재 버전 변경 내용).
+    openReleaseNotes: () => ipcRenderer.send('win:open-release-notes'),
     openManual: () => ipcRenderer.send('win:open-manual'),
     // v0.9.0: 세션(프로젝트) 창 열기 — mode='save'|'load', payload=현재 직렬화 세션, theme=현재 테마.
     openSessions: (opts) => ipcRenderer.send('win:open-sessions', opts),

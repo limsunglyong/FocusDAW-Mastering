@@ -15,10 +15,12 @@ import { DetailSheet } from './ui/desk/DetailSheet';
 import { TransportPanel } from './ui/desk/TransportPanel';
 import { PreferencesWindow } from './ui/desk/PreferencesWindow';
 import { AboutWindow } from './ui/desk/AboutWindow';
+import { ReleaseNotesWindow } from './ui/desk/ReleaseNotesWindow';
 import { ManualWindow } from './ui/desk/ManualWindow';
 import { SessionsWindow } from './ui/desk/SessionsWindow';
 import { RenderBatchWindow } from './ui/desk/RenderBatchWindow';
 import { Footer } from './ui/desk/Footer';
+import { APP_VERSION_LABEL } from './version';
 
 // v0.10.0 (Phase 9): 자동 업데이트 배너 상태.
 type UpdateStatus = {
@@ -31,6 +33,7 @@ type UpdateStatus = {
 export default function App() {
   const isPreferences = window.location.hash === '#preferences' || window.location.search.includes('window=preferences');
   const isAbout = window.location.hash === '#about' || window.location.search.includes('window=about');
+  const isReleaseNotes = window.location.hash === '#releasenotes' || window.location.search.includes('window=releasenotes');
   const isManual = window.location.hash === '#manual' || window.location.search.includes('window=manual');
   const isSessions = window.location.hash === '#sessions' || window.location.search.includes('window=sessions');
   const isRenderBatch = window.location.hash === '#renderbatch' || window.location.search.includes('window=renderbatch');
@@ -60,6 +63,10 @@ export default function App() {
 
   if (isAbout) {
     return <AboutWindow />;
+  }
+
+  if (isReleaseNotes) {
+    return <ReleaseNotesWindow />;
   }
 
   if (isManual) {
@@ -113,6 +120,9 @@ function StudioDesk() {
   const clearExportNotice = useAppStore((s) => s.clearExportNotice);
   const revealLastExport = useAppStore((s) => s.revealLastExport);
   const cancelExport = useAppStore((s) => s.cancelExport);
+  // v0.10.2: Help ▸ Check for Updates 결과 모달.
+  const updateCheck = useAppStore((s) => s.updateCheck);
+  const closeUpdateCheck = useAppStore((s) => s.closeUpdateCheck);
 
   const [dragOver, setDragOver] = useState(false);
   const [dimmed, setDimmed] = useState(false);
@@ -146,14 +156,22 @@ function StudioDesk() {
     return () => { unsub?.(); };
   }, []);
 
-  // v0.10.0 (Phase 9): 자동 업데이트 상태 수신. 'not-available' 는 배너를 띄우지 않는다.
+  // v0.10.0 (Phase 9): 자동 업데이트 상태 수신. 'not-available'/'checking'/'dev' 는 배너를 띄우지 않는다.
+  // v0.10.2: 수동 확인 모달(Help ▸ Check for Updates)이 열려 있으면 결과를 모달에도 반영한다.
   useEffect(() => {
     const unsub = window.focusdaw?.updater?.onStatus?.((s) => {
-      if (s.state === 'not-available' || s.state === 'checking') {
+      // 모달용: 'progress'(다운로드 중)는 모달에선 'available' 로 간주.
+      useAppStore.getState().setUpdateCheckResult(
+        s.state === 'progress'
+          ? { state: 'available', version: s.version }
+          : { state: s.state, version: s.version, message: s.message },
+      );
+      // 자동 인앱 배너: 가능/진행/완료/오류만 표시.
+      if (s.state === 'available' || s.state === 'progress' || s.state === 'downloaded' || s.state === 'error') {
+        setUpdate({ state: s.state, version: s.version, percent: s.percent, message: s.message });
+      } else {
         setUpdate(null);
-        return;
       }
-      setUpdate({ state: s.state, version: s.version, percent: s.percent, message: s.message });
     });
     return () => { unsub?.(); };
   }, []);
@@ -316,6 +334,17 @@ function StudioDesk() {
           onClose={clearExportNotice}
         />
       )}
+
+      {/* v0.10.2: Help ▸ Check for Updates 결과 모달 */}
+      {updateCheck && (
+        <CheckUpdateModal
+          status={updateCheck}
+          accent={view.accent}
+          glow={view.pal.glow}
+          onRestart={() => window.focusdaw?.updater?.restart?.()}
+          onClose={closeUpdateCheck}
+        />
+      )}
     </div>
   );
 }
@@ -385,6 +414,47 @@ function ExportNotice({ notice, accent, glow, onReveal, onClose }: {
             <button onClick={() => { onReveal(); onClose(); }} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#10151a', background: accent }}>Reveal</button>
           )}
           <button onClick={onClose} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', color: '#dfe5ea', background: 'rgba(255,255,255,0.06)' }}>OK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// v0.10.2: Help ▸ Check for Updates 결과 모달 — 최신/업데이트 필요 여부 안내.
+function CheckUpdateModal({ status, accent, glow, onRestart, onClose }: {
+  status: { state: 'checking' | 'not-available' | 'available' | 'downloaded' | 'error' | 'dev'; version?: string; message?: string };
+  accent: string; glow: string; onRestart: () => void; onClose: () => void;
+}) {
+  const { state, version, message } = status;
+  const isErr = state === 'error';
+  const title =
+    state === 'checking' ? 'Checking for updates…'
+    : state === 'not-available' ? 'You’re up to date'
+    : state === 'available' ? 'Update available'
+    : state === 'downloaded' ? 'Update ready'
+    : state === 'dev' ? 'Update check unavailable'
+    : 'Update check failed';
+  const body =
+    state === 'checking' ? 'Contacting the update server…'
+    : state === 'not-available' ? `You are running the latest version (${APP_VERSION_LABEL}).`
+    : state === 'available' ? `A new version (${version || ''}) is available and is downloading in the background. You’ll be notified when it’s ready to install.`
+    : state === 'downloaded' ? `Version ${version || ''} has been downloaded. Restart to apply the update.`
+    : state === 'dev' ? 'Update checking is only available in the installed app.'
+    : (message || 'Could not check for updates. Please try again later.');
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,11,14,0.66)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 380, padding: '26px 28px 22px', borderRadius: 18, background: 'linear-gradient(160deg, rgba(40,48,56,0.74), rgba(18,23,28,0.84))', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(18px) saturate(1.3)', boxShadow: `0 30px 70px -18px rgba(0,0,0,0.85), 0 0 44px ${glow}` }}>
+        <div style={{ fontFamily: 'Spectral, serif', fontSize: 20, fontWeight: 600, color: isErr ? '#f0a8a8' : '#efe7d6', textAlign: 'center' }}>
+          {title}
+        </div>
+        <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 12.5, color: isErr ? '#e0a0a0' : '#cdd3da', textAlign: 'center', lineHeight: 1.5, wordBreak: 'break-word' }}>
+          {body}
+        </div>
+        <div style={{ marginTop: 18, display: 'flex', gap: 9, justifyContent: 'center' }}>
+          {state === 'downloaded' && (
+            <button onClick={() => { onRestart(); onClose(); }} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#10151a', background: accent }}>Restart now</button>
+          )}
+          <button onClick={onClose} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', color: '#dfe5ea', background: 'rgba(255,255,255,0.06)' }}>{state === 'downloaded' ? 'Later' : 'OK'}</button>
         </div>
       </div>
     </div>

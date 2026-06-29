@@ -17,6 +17,8 @@ declare global {
         setTransport: (open: boolean) => void;
         openPreferences?: () => void;
         openAbout?: () => void;
+        /** v0.10.1: Release Notes 창 열기(현재 버전 변경 내용). */
+        openReleaseNotes?: () => void;
         openManual?: () => void;
         /** v0.9.0: 세션(프로젝트) 창 열기. */
         openSessions?: (opts: { mode: 'save' | 'load'; payload?: unknown; theme?: string }) => void;
@@ -32,7 +34,7 @@ declare global {
       updater?: {
         onStatus: (
           callback: (status: {
-            state: 'checking' | 'available' | 'not-available' | 'progress' | 'downloaded' | 'error';
+            state: 'checking' | 'available' | 'not-available' | 'progress' | 'downloaded' | 'error' | 'dev';
             version?: string;
             percent?: number;
             message?: string;

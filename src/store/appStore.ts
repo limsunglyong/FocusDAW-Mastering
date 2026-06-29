@@ -15,6 +15,13 @@ import { encodeMaster, isSupportedFormat, ExportUnsupportedError } from '../expo
 import { baseName } from '../export/wav';
 import { sanitizeSessionVals, type SessionPayload } from '../session/session';
 
+// v0.10.2: Help ▸ Check for Updates 결과 모달 상태.
+export type UpdateCheckStatus = {
+  state: 'checking' | 'not-available' | 'available' | 'downloaded' | 'error' | 'dev';
+  version?: string;
+  message?: string;
+};
+
 type UndoSnapshot = {
   vals: Record<string, number | string | boolean>;
   enabled: Record<ModId, boolean>;
@@ -80,6 +87,8 @@ type AppState = DeskState & {
   exportNotice: { ok: boolean; saved: number; total: number; path: string | null; error: string | null } | null;
   /** Album Artwork 미리보기 dataURL(현재 라운드는 표시 전용 — WAV 미임베드). */
   artworkDataUrl: string | null;
+  /** v0.10.2: Help ▸ Check for Updates 결과 모달. null=닫힘. */
+  updateCheck: UpdateCheckStatus | null;
 
   // v0.4.0: User EQ Presets State
   userPresets: { name: string; f: number[]; g: number[]; q: number[] }[];
@@ -144,6 +153,14 @@ type AppState = DeskState & {
   cancelExport: () => void;
   revealLastExport: () => void;
   clearExportNotice: () => void;
+
+  // ── 업데이트 확인 (v0.10.2) ──
+  /** Help ▸ Check for Updates 클릭 — 수동 업데이트 확인 시작(모달 'checking' 표시 + updater.check). */
+  checkForUpdates: () => void;
+  /** updater:status 수신 시 진행 중인 수동 확인 모달에 결과 반영. */
+  setUpdateCheckResult: (status: UpdateCheckStatus) => void;
+  /** 업데이트 확인 모달 닫기. */
+  closeUpdateCheck: () => void;
 
   // ── 세션(프로젝트) 적용 (v0.9.0) ──
   /** 세션 payload(체인 설정)를 현재 상태에 적용한다. 곡별 denoise·파일 큐는 건드리지 않는다. */
@@ -585,6 +602,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   exportLastPath: null,
   exportNotice: null,
   artworkDataUrl: null,
+  updateCheck: null,
   userPresets: [
     { name: 'User 1', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
     { name: 'User 2', f: [60, 250, 1000, 4000, 12000], g: [0, 0, 0, 0, 0], q: [0.71, 1.0, 1.0, 1.2, 0.71] },
@@ -1283,6 +1301,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   clearExportNotice: () => set({ exportNotice: null }),
+
+  // ── 업데이트 확인 (v0.10.2) ──
+  checkForUpdates: () => {
+    const api = window.focusdaw?.updater;
+    if (!api?.check) {
+      // 브라우저(비-Electron) 등 업데이터 미가용 환경.
+      set({ updateCheck: { state: 'dev' } });
+      return;
+    }
+    set({ updateCheck: { state: 'checking' } });
+    api.check();
+  },
+  setUpdateCheckResult: (status) => {
+    // 모달이 열려 있을 때(수동 확인 진행 중)만 결과를 반영한다.
+    if (!get().updateCheck) return;
+    set({ updateCheck: status });
+  },
+  closeUpdateCheck: () => set({ updateCheck: null }),
 
   // ── 세션(프로젝트) 적용 (v0.9.0) ──
   applySession: (payload) => {

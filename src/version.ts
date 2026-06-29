@@ -323,6 +323,24 @@
  *             quitAndInstall. 개발(미패키징) 모드에서는 체크 skip. (electron/main.cjs setupAutoUpdater,
  *             preload.cjs updater, src/global.d.ts, src/App.tsx UpdateBanner) 릴리스/발행(electron:publish,
  *             GH_TOKEN)·M7 end-to-end 시험은 후속(Phase 10).
+ *  - v0.10.1: (Patch, A4 수정요청 ②) Help ▸ Release Notes 메뉴/창 추가. v0.10.0 릴리스 이후 업데이트
+ *             내용 고지용. Help 메뉴 'Check for Updates...' 아래 'Release Notes' 항목 → 새 borderless
+ *             모달 창(#releasenotes, About 패턴)에 **현재 버전** 변경 내용 표시(버그=상세/기능·개선=간략).
+ *             내용은 단일 소스 src/releaseNotes.ts(RELEASE_NOTES) — 버전 올릴 때마다 현재 버전 내용으로
+ *             교체(이전 버전 노트 미보존). (releaseNotes.ts, ReleaseNotesWindow.tsx, App.tsx 라우팅,
+ *             main.cjs win:open-release-notes, preload.cjs openReleaseNotes, global.d.ts, data.ts, TitleBar.tsx)
+ *  - v0.10.2: (Patch, A4 수정요청 ③) Help ▸ Check for Updates 결과 창. 클릭 시 수동 업데이트 확인 →
+ *             결과를 모달로 안내(최신=up to date / 업데이트 가능 / 다운로드 완료=Restart / 오류 / dev).
+ *             ① updater IPC 구조 리팩터([main.cjs](electron/main.cjs)) — autoUpdater 인스턴스/이벤트 배선을
+ *             setup 밖으로 hoist(getAutoUpdater/wireUpdaterEvents), `updater:check`·`updater:restart` 핸들러를
+ *             항상 등록(개발 모드는 'dev' 상태 반환 = "설치본에서만 가능"). ② store([appStore.ts](src/store/appStore.ts))
+ *             `updateCheck` 상태 + checkForUpdates/setUpdateCheckResult/closeUpdateCheck. onStatus 수신 시
+ *             모달이 열려 있으면 결과 반영('progress'→'available' 매핑), 자동 배너는 가능/진행/완료/오류만.
+ *             ③ [App.tsx](src/App.tsx) CheckUpdateModal + [TitleBar.tsx](src/ui/desk/TitleBar.tsx) 메뉴 연결,
+ *             [global.d.ts](src/global.d.ts) 'dev' 상태 추가. **검증:** lint·build·verify(90/90). *(A3 §5 MT-10.2.)*
+ *  - v0.10.3: (Patch, A4 수정요청 ④) About 창에 연락 이메일(focustone.el@gmail.com) 추가 — OK 버튼 위,
+ *             윗줄·아랫줄 한 칸씩 간격([AboutWindow.tsx](src/ui/desk/AboutWindow.tsx)). 한 줄 추가로 About
+ *             창 높이 370→400([main.cjs](electron/main.cjs)). **검증:** lint·build·verify(90/90). *(A3 §5 MT-10.3.)*
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

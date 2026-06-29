@@ -126,7 +126,7 @@ export type FileItem = { name: string; size: string; fmt: string; dur: string; s
 export const MENUS: Record<string, [string, string][]> = {
   Project: [['New Session', '⌘N'], ['Open', '⌘O'], ['Save Session', '⌘S'], ['__div', ''], ['Render Batch...', ''], ['__div', ''], ['Import Files...', '⌘I'], ['Import Folder', ''], ['Quit', '⌘Q']],
   Edit: [['Undo', '⌘Z'], ['Redo', '⇧⌘Z'], ['__div', ''], ['Preference (Setup)', '⌘,']],
-  Help: [['Manual', ''], ['__div', ''], ['Check for Updates...', ''], ['About', '']],
+  Help: [['Manual', ''], ['__div', ''], ['Check for Updates...', ''], ['Release Notes', ''], ['About', '']],
 };
 
 // 신호 흐름 리본 (좌→우 물결)

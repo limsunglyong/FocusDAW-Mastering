@@ -82,8 +82,12 @@ export function TitleBar({ view }: { view: DeskView }) {
       if (picked.length) await useAppStore.getState().loadFiles(picked);
     } else if (label === 'Preference (Setup)') {
       window.focusdaw?.win?.openPreferences?.();
+    } else if (label === 'Check for Updates...' || label === 'Check for Updates…') {
+      useAppStore.getState().checkForUpdates();
     } else if (label === 'About') {
       window.focusdaw?.win?.openAbout?.();
+    } else if (label === 'Release Notes') {
+      window.focusdaw?.win?.openReleaseNotes?.();
     } else if (label === 'Manual') {
       window.focusdaw?.win?.openManual?.();
     } else if (label === 'Quit') {

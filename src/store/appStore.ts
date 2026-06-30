@@ -4,7 +4,7 @@
 //   loadFiles/removeFile/clearFiles 액션 추가. curFile 은 큐 인덱스를 가리킨다.
 import { create } from 'zustand';
 import { DEFAULT_THEME, applyTheme, type ThemeName } from '../theme/themes';
-import { DEFAULT_STATE, EQPRESETS, MODS, type DeskState, type ModId } from '../desk/data';
+import { DEFAULT_STATE, EQPRESETS, GRAPHIC_EQ_PRESETS, MODS, type DeskState, type ModId } from '../desk/data';
 import { decodeAudioFile, readHeaderMeta, AudioDecodeError, type DecodedAudio } from '../audio/decoder';
 import { buildQueueFileFromHeader, applyDecodedMeta, markLufsFailed, type QueueFile } from '../audio/queueFile';
 import { previewEngine, type PreviewParams } from '../audio/previewEngine';
@@ -28,6 +28,7 @@ type UndoSnapshot = {
   artworkDataUrl: string | null;
   activeUserPresetIdx: number;
   lastActivePresetName: string;
+  activeGraphicUserPresetIdx: number;
 };
 
 type AppState = DeskState & {
@@ -94,12 +95,18 @@ type AppState = DeskState & {
   userPresets: { name: string; f: number[]; g: number[]; q: number[] }[];
   activeUserPresetIdx: number;
   lastActivePresetName: string;
+  graphicUserPresets: { name: string; g: number[] }[];
+  activeGraphicUserPresetIdx: number;
 
   setTheme: (t: ThemeName) => void;
   setOpen: (i: number) => void;
   toggleEnabled: (id: ModId) => void;
   setVal: (fk: string, v: number | string | boolean, skipUndo?: boolean) => void;
   applyPreset: (name: string) => void;
+  applyGraphicPreset: (name: string) => void;
+  recallGraphicUserPreset: (idx: number) => void;
+  saveGraphicUserPreset: (idx: number) => void;
+  renameGraphicUserPreset: (idx: number, name: string) => void;
   recallUserPreset: (idx: number) => void;
   saveUserPreset: (idx: number) => void;
   renameUserPreset: (idx: number, name: string) => void;
@@ -431,6 +438,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       artworkDataUrl: s.artworkDataUrl,
       activeUserPresetIdx: s.activeUserPresetIdx,
       lastActivePresetName: s.lastActivePresetName,
+      activeGraphicUserPresetIdx: s.activeGraphicUserPresetIdx,
     };
     set((state) => {
       const currentStack = state.undoStacks[section] || [];
@@ -462,6 +470,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       artworkDataUrl: s.artworkDataUrl,
       activeUserPresetIdx: s.activeUserPresetIdx,
       lastActivePresetName: s.lastActivePresetName,
+      activeGraphicUserPresetIdx: s.activeGraphicUserPresetIdx,
     };
 
     const modId = MODS[section]?.id;
@@ -470,6 +479,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     let nextArtworkDataUrl = s.artworkDataUrl;
     let nextActiveUserPresetIdx = s.activeUserPresetIdx;
     let nextLastActivePresetName = s.lastActivePresetName;
+    let nextActiveGraphicUserPresetIdx = s.activeGraphicUserPresetIdx;
 
     if (modId) {
       const prefix = `${modId}.`;
@@ -482,6 +492,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (modId === 'spectral') {
         nextActiveUserPresetIdx = snap.activeUserPresetIdx;
         nextLastActivePresetName = snap.lastActivePresetName;
+        nextActiveGraphicUserPresetIdx = snap.activeGraphicUserPresetIdx;
       }
       if (modId === 'export') {
         nextArtworkDataUrl = snap.artworkDataUrl;
@@ -498,6 +509,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         artworkDataUrl: nextArtworkDataUrl,
         activeUserPresetIdx: nextActiveUserPresetIdx,
         lastActivePresetName: nextLastActivePresetName,
+        activeGraphicUserPresetIdx: nextActiveGraphicUserPresetIdx,
         undoStacks: {
           ...state.undoStacks,
           [section]: nextUndoStack,
@@ -527,6 +539,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       artworkDataUrl: s.artworkDataUrl,
       activeUserPresetIdx: s.activeUserPresetIdx,
       lastActivePresetName: s.lastActivePresetName,
+      activeGraphicUserPresetIdx: s.activeGraphicUserPresetIdx,
     };
 
     const modId = MODS[section]?.id;
@@ -535,6 +548,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     let nextArtworkDataUrl = s.artworkDataUrl;
     let nextActiveUserPresetIdx = s.activeUserPresetIdx;
     let nextLastActivePresetName = s.lastActivePresetName;
+    let nextActiveGraphicUserPresetIdx = s.activeGraphicUserPresetIdx;
 
     if (modId) {
       const prefix = `${modId}.`;
@@ -547,6 +561,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (modId === 'spectral') {
         nextActiveUserPresetIdx = snap.activeUserPresetIdx;
         nextLastActivePresetName = snap.lastActivePresetName;
+        nextActiveGraphicUserPresetIdx = snap.activeGraphicUserPresetIdx;
       }
       if (modId === 'export') {
         nextArtworkDataUrl = snap.artworkDataUrl;
@@ -563,6 +578,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         artworkDataUrl: nextArtworkDataUrl,
         activeUserPresetIdx: nextActiveUserPresetIdx,
         lastActivePresetName: nextLastActivePresetName,
+        activeGraphicUserPresetIdx: nextActiveGraphicUserPresetIdx,
         undoStacks: {
           ...state.undoStacks,
           [section]: nextUndoStack,
@@ -621,6 +637,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   ],
   activeUserPresetIdx: -1,
   lastActivePresetName: 'Normal',
+  graphicUserPresets: Array.from({ length: 5 }, (_, i) => ({ name: `User ${i + 1}`, g: Array(9).fill(0) })),
+  activeGraphicUserPresetIdx: -1,
 
   setTheme: (t) => { applyTheme(t); set({ theme: t }); },
   setOpen: (i) => {
@@ -645,7 +663,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         return;
       }
       set((s) => {
-        const extra = /^spectral\.[fgq]\d/.test(fk) ? { 'spectral.preset': 'User' } : null;
+        const extra = /^spectral\.[fgq]\d/.test(fk)
+          ? { 'spectral.preset': 'User' }
+          : /^spectral\.graphic\.g\d/.test(fk)
+            ? { 'spectral.graphic.preset': 'User' }
+            : null;
         let activeUserPresetIdx = s.activeUserPresetIdx;
         if (extra && s.vals['spectral.preset'] !== 'User') {
           activeUserPresetIdx = -1;
@@ -702,6 +724,62 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       get().syncPreviewParams();
     },
+
+  applyGraphicPreset: (name) => {
+    if (name === 'User') {
+      set((s) => ({ vals: { ...s.vals, 'spectral.graphic.preset': 'User' }, activeGraphicUserPresetIdx: -1 }));
+      return;
+    }
+    const preset = GRAPHIC_EQ_PRESETS[name];
+    if (!preset) return;
+    get().pushUndoSnap();
+    set((s) => {
+      const patch: Record<string, number | string> = {
+        'spectral.graphic.preset': name,
+        'spectral.graphic.lastPreset': name,
+      };
+      for (let n = 0; n < preset.g.length; n++) patch[`spectral.graphic.g${n}`] = preset.g[n];
+      return { vals: { ...s.vals, ...patch }, activeGraphicUserPresetIdx: -1 };
+    });
+    get().syncPreviewParams();
+  },
+
+  recallGraphicUserPreset: (idx) => {
+    const preset = get().graphicUserPresets[idx];
+    if (!preset) return;
+    get().pushUndoSnap();
+    set((s) => {
+      const patch: Record<string, number | string> = { 'spectral.graphic.preset': 'User' };
+      preset.g.forEach((gain, n) => { patch[`spectral.graphic.g${n}`] = gain; });
+      return { vals: { ...s.vals, ...patch }, activeGraphicUserPresetIdx: idx };
+    });
+    get().syncPreviewParams();
+  },
+
+  saveGraphicUserPreset: (idx) => {
+    set((s) => {
+      const current = s.graphicUserPresets[idx];
+      if (!current) return {};
+      const g = Array.from({ length: 9 }, (_, n) => Number(s.vals[`spectral.graphic.g${n}`]));
+      const updated = s.graphicUserPresets.map((p, i) => i === idx ? { ...p, g } : p);
+      void window.focusdaw?.saveGraphicUserPresets?.(updated);
+      localStorage.setItem('graphic_user_presets', JSON.stringify(updated));
+      return {
+        graphicUserPresets: updated,
+        activeGraphicUserPresetIdx: idx,
+        vals: { ...s.vals, 'spectral.graphic.preset': 'User' },
+      };
+    });
+  },
+
+  renameGraphicUserPreset: (idx, name) => {
+    set((s) => {
+      const updated = s.graphicUserPresets.map((p, i) => i === idx ? { ...p, name } : p);
+      void window.focusdaw?.saveGraphicUserPresets?.(updated);
+      localStorage.setItem('graphic_user_presets', JSON.stringify(updated));
+      return { graphicUserPresets: updated };
+    });
+  },
 
   recallUserPreset: (idx) => {
     const p = get().userPresets[idx];
@@ -771,6 +849,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       if (presets && Array.isArray(presets) && presets.length === 5) {
         set({ userPresets: presets });
+      }
+      let graphicPresets = await window.focusdaw?.loadGraphicUserPresets?.();
+      if (!graphicPresets) {
+        const localGraphic = localStorage.getItem('graphic_user_presets');
+        if (localGraphic) graphicPresets = JSON.parse(localGraphic);
+      }
+      if (graphicPresets && Array.isArray(graphicPresets) && graphicPresets.length === 5) {
+        set({ graphicUserPresets: graphicPresets });
       }
     } catch (err) {
       console.error('Error initializing user presets:', err);
@@ -967,6 +1053,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       loopEnd: 0,
       preAnalysis: null,
       artworkDataUrl: null,
+      activeUserPresetIdx: -1,
+      lastActivePresetName: 'Normal',
+      activeGraphicUserPresetIdx: -1,
     });
     get().syncPreviewParams();
   },
@@ -1427,6 +1516,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   applySession: (payload) => {
     const cur = get();
     const incomingVals = sanitizeSessionVals(payload?.vals);
+    // 9-Band 도입 전 세션에는 mode가 없으므로 기존 Min-φ Parametric으로 복원한다.
+    if (payload?.vals && payload.vals['spectral.mode'] === undefined) {
+      incomingVals['spectral.mode'] = 'Parametric';
+    }
     const rateChanged =
       incomingVals['input.rate'] !== undefined && incomingVals['input.rate'] !== cur.vals['input.rate'];
 
@@ -1439,6 +1532,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeUserPresetIdx:
         typeof payload?.activeUserPresetIdx === 'number' ? payload.activeUserPresetIdx : s.activeUserPresetIdx,
       lastActivePresetName: payload?.lastActivePresetName || s.lastActivePresetName,
+      activeGraphicUserPresetIdx:
+        typeof payload?.activeGraphicUserPresetIdx === 'number' ? payload.activeGraphicUserPresetIdx : -1,
       artworkDataUrl: payload?.artworkDataUrl ?? null,
       exportDir: payload?.exportDir ?? null,
       // Rate 가 바뀌면 처리/denoise 버퍼를 무효화(다음 Preview/Export 시 lazy 재생성).

@@ -66,6 +66,8 @@ contextBridge.exposeInMainWorld('focusdaw', {
   // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
   loadUserPresets: () => ipcRenderer.invoke('win:load-user-presets'),
   saveUserPresets: (presets) => ipcRenderer.invoke('win:save-user-presets', presets),
+  loadGraphicUserPresets: () => ipcRenderer.invoke('win:load-graphic-user-presets'),
+  saveGraphicUserPresets: (presets) => ipcRenderer.invoke('win:save-graphic-user-presets', presets),
 
   // v0.9.0: 세션(프로젝트) 저장/불러오기 IO + 적용 릴레이
   sessionIO: {

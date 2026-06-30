@@ -2,7 +2,7 @@
 // 출처: Mastering Desk Studio.standalone.html (DCLogic.renderVals). 계산식·색·문자열을 원본 그대로 유지.
 import { THEMES, type ThemeName } from '../theme/themes';
 import {
-  ROMAN, MODS, CTRL, EQBANDS, EQPRESETS, EQPRESET_ORDER, UNITS, META, MENUS, RIBBON,
+  ROMAN, MODS, CTRL, EQBANDS, EQPRESETS, EQPRESET_ORDER, GRAPHIC_EQ_FREQS, GRAPHIC_EQ_PRESETS, GRAPHIC_EQ_PRESET_ORDER, UNITS, META, MENUS, RIBBON,
   type DeskState, type ModId, type CtrlDef, type FileItem,
 } from './data';
 import type { QueueFile } from '../audio/queueFile';
@@ -89,6 +89,28 @@ function eqDefs(vals: Record<string, any>): CtrlDef[] {
 }
 function eqResp(vals: Record<string, any>, f: number): number {
   let tot = 0;
+  if (vals['spectral.mode'] === '9-Band') {
+    // Graphic EQ UI는 각 밴드 Gain을 제어점으로 표시한다. 로그 주파수축에서
+    // Catmull-Rom 보간해 곡선이 모든 9개 포인트를 정확히 지나도록 한다.
+    const xs = GRAPHIC_EQ_FREQS.map((freq) => Math.log(freq));
+    const gains = GRAPHIC_EQ_FREQS.map((_, n) => num(vals[`spectral.graphic.g${n}`]));
+    const x = Math.log(f);
+    if (x <= xs[0]) return gains[0];
+    if (x >= xs[xs.length - 1]) return gains[gains.length - 1];
+    let i = 0;
+    while (i < xs.length - 2 && x > xs[i + 1]) i++;
+    const t = (x - xs[i]) / (xs[i + 1] - xs[i]);
+    const p0 = gains[Math.max(0, i - 1)];
+    const p1 = gains[i];
+    const p2 = gains[i + 1];
+    const p3 = gains[Math.min(gains.length - 1, i + 2)];
+    return 0.5 * (
+      2 * p1 +
+      (-p0 + p2) * t +
+      (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t
+    );
+  }
   for (let n = 0; n < 5; n++) {
     const g = vals['spectral.g' + n], f0 = vals['spectral.f' + n], q = vals['spectral.q' + n], t = EQBANDS[n].type;
     if (t === 'L-Shelf') tot += g / (1 + Math.pow(f / f0, 2.2));
@@ -143,7 +165,12 @@ function checkEqEdited(
   return false;
 }
 
-export function computeView(state: DeskState & { userPresets?: any[]; activeUserPresetIdx?: number }, themeName: ThemeName, files: QueueFile[] = []) {
+export function computeView(state: DeskState & {
+  userPresets?: any[];
+  activeUserPresetIdx?: number;
+  graphicUserPresets?: { name: string; g: number[] }[];
+  activeGraphicUserPresetIdx?: number;
+}, themeName: ThemeName, files: QueueFile[] = []) {
   const pal: any = THEMES[themeName] || THEMES.Teal;
   const accent = pal.aMain;
   const { open, vals, enabled } = state;
@@ -160,7 +187,7 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
   const statMap: Record<ModId, string> = {
     input: vals['input.bit'] + '-bit ' + vals['input.rate'],
     pre: vals['pre.lufs'] + ' LUFS',
-    spectral: '5-band',
+    spectral: vals['spectral.mode'] === '9-Band' ? '9-band' : '5-band',
     dynamics: String(vals['dynamics.ratio']),
     stereo: vals['stereo.width'] + '% W',
     loudness: vals['loudness.target'] + ' LUFS',
@@ -265,17 +292,31 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
   // ===== viz =====
   const isInput = id === 'input', isPre = id === 'pre', isSpectral = id === 'spectral', isDynamics = id === 'dynamics', isStereo = id === 'stereo', isLoudness = id === 'loudness', isExport = id === 'export';
 
-  let eqColumns: any[] = [], eqPresetCards: any[] = [];
+  const eqMode = vals['spectral.mode'] === '9-Band' ? '9-Band' : 'Parametric';
+  let eqColumns: any[] = [], eqPresetCards: any[] = [], graphicPresetCards: any[] = [], graphicBands: any[] = [];
   const eqPresetName = String(vals['spectral.preset'] || 'Normal');
   const effPresetName = (eqPresetName === 'User' && (state.activeUserPresetIdx === undefined || state.activeUserPresetIdx < 0))
     ? (state.lastActivePresetName || 'Normal')
     : eqPresetName;
   const eqPresetColor = (EQPRESETS[effPresetName] || EQPRESETS.User).color;
-  const isEqEdited = checkEqEdited(vals, effPresetName, state.activeUserPresetIdx, state.userPresets);
+  const parametricEdited = checkEqEdited(vals, effPresetName, state.activeUserPresetIdx, state.userPresets);
   let eqPresetNameDisplay = effPresetName;
   if (eqPresetName === 'User' && state.activeUserPresetIdx !== undefined && state.activeUserPresetIdx >= 0 && state.userPresets && state.userPresets[state.activeUserPresetIdx]) {
     eqPresetNameDisplay = state.userPresets[state.activeUserPresetIdx].name;
   }
+  const graphicPresetName = String(vals['spectral.graphic.preset'] || 'Normal');
+  const graphicLastPresetName = String(vals['spectral.graphic.lastPreset'] || 'Normal');
+  const graphicUser = graphicPresetName === 'User' && state.activeGraphicUserPresetIdx !== undefined && state.activeGraphicUserPresetIdx >= 0
+    ? state.graphicUserPresets?.[state.activeGraphicUserPresetIdx]
+    : undefined;
+  const effectiveGraphicPresetName = graphicPresetName === 'User' && !graphicUser ? graphicLastPresetName : graphicPresetName;
+  const graphicPreset = GRAPHIC_EQ_PRESETS[effectiveGraphicPresetName];
+  const graphicReference = graphicUser?.g || graphicPreset?.g;
+  const graphicEdited = !graphicReference || graphicReference.some((gain, n) => Math.abs(num(vals[`spectral.graphic.g${n}`]) - gain) > 0.001);
+  const graphicDisplayName = graphicUser?.name || effectiveGraphicPresetName;
+  const displayPresetName = eqMode === '9-Band' ? (graphicEdited ? 'Edited' : graphicDisplayName) : eqPresetNameDisplay;
+  const displayPresetColor = eqMode === '9-Band' ? (graphicPreset?.color || '#9a6fd0') : eqPresetColor;
+  const displayEqEdited = eqMode === '9-Band' ? graphicEdited : parametricEdited;
 
   let waterfall: any[] = [], fftInfo: any[] = [], noiseInfo: any[] = [];
   let eqLine = '', eqArea = '', eqDots: any[] = [], eqAxis: any[] = [];
@@ -294,6 +335,7 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
     const nyq = nyquistOf(vals), dec = Math.log10(nyq / 20);
     const fx = (f: number) => (Math.log10(Math.max(20, f) / 20) / dec) * W;
     const yOf = (g: number) => Math.max(12, Math.min(142, mid - g * pxDb));
+    const graphicYOf = (g: number) => Math.max(12, Math.min(138, 75 - g * 5.25));
     let d = '';
     for (let i = 0; i < N; i++) {
       const f = 20 * Math.pow(nyq / 20, i / (N - 1));
@@ -301,13 +343,28 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
     }
     eqLine = d.trim();
     eqArea = eqLine + ` L ${W} 150 L 0 150 Z`;
-    eqDots = EQBANDS.map((bd, n) => {
-      const f0 = num(vals['spectral.f' + n]);
+    const dotBands = eqMode === '9-Band'
+      ? GRAPHIC_EQ_FREQS.map((f, n) => ({ col: EQBANDS[Math.min(4, Math.floor(n * 5 / 9))].col, f, n }))
+      : EQBANDS.map((bd, n) => ({ col: bd.col, f: num(vals['spectral.f' + n]), n }));
+    eqDots = dotBands.map((dot, n) => {
+      const f0 = dot.f;
+      const bd = EQBANDS[Math.min(n, 4)];
+      const responseAtCenter = eqResp(vals, f0);
       return {
-        cx: fx(f0).toFixed(1), cy: yOf(eqResp(vals, f0)).toFixed(1), fill: bd.col, sel: n === bAct,
-        r: n === bAct ? 6.5 : 4.5, sw: n === bAct ? 2.6 : 2, num: String(n + 1), numColor: n === bAct ? bd.col : 'transparent', band: n,
+        cx: fx(f0).toFixed(1),
+        cy: (eqMode === '9-Band' ? graphicYOf(num(vals[`spectral.graphic.g${n}`])) : yOf(responseAtCenter)).toFixed(1),
+        fill: dot.col, sel: eqMode === 'Parametric' && n === bAct,
+        r: eqMode === 'Parametric' && n === bAct ? 6.5 : 4.5, sw: eqMode === 'Parametric' && n === bAct ? 2.6 : 2,
+        num: String(n + 1), numColor: eqMode === 'Parametric' && n === bAct ? dot.col : 'transparent', band: n,
         qk: 'spectral.q' + n, qmin: 0.2, qmax: 8, qstep: 0.1,
-        fmin: bd.fmin, fmax: bandFmax(n, nyq), fstep: bd.fstep, nyq,
+        fmin: bd.fmin, fmax: bandFmax(Math.min(n, 4), nyq), fstep: bd.fstep, nyq,
+        draggable: true,
+        graphic: eqMode === '9-Band',
+        gainKey: `spectral.graphic.g${n}`,
+        gain: num(vals[`spectral.graphic.g${n}`]),
+        freqLabel: eqMode === '9-Band'
+          ? (GRAPHIC_EQ_FREQS[n] >= 1000 ? `${GRAPHIC_EQ_FREQS[n] / 1000}k` : String(GRAPHIC_EQ_FREQS[n]))
+          : '',
       };
     });
     eqAxis = [0, 1, 2, 3, 4].map((i) => {
@@ -315,8 +372,25 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
       return { label: f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 0 : 1) + 'k' : Math.round(f) + '' };
     });
     eqColumns = EQBANDS.map((bd, n) => ({ num: n + 1, type: bd.type, color: bd.col, ctls: [controls[n * 3], controls[n * 3 + 1], controls[n * 3 + 2]] }));
+    graphicBands = GRAPHIC_EQ_FREQS.map((freq, n) => ({
+      n,
+      fk: `spectral.graphic.g${n}`,
+      freq,
+      label: freq >= 1000 ? `${freq / 1000}k` : String(freq),
+      gain: num(vals[`spectral.graphic.g${n}`]),
+      color: EQBANDS[Math.min(4, Math.floor(n * 5 / GRAPHIC_EQ_FREQS.length))].col,
+    }));
     eqPresetCards = EQPRESET_ORDER.map((name) => {
       const p = EQPRESETS[name], on = name === eqPresetName;
+      return {
+        name, desc: p.desc, nameColor: on ? p.color : pal.pInk,
+        dotStyle: `width:9px;height:9px;border-radius:50%;background:${p.color};` + (on ? `box-shadow:0 0 8px ${p.color};` : 'opacity:0.85;'),
+        cardStyle: `flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border-radius:11px;cursor:pointer;background:${on ? 'rgba(58,52,43,0.05)' : 'transparent'};box-shadow:inset 0 0 0 ${on ? 2 : 1.5}px ${on ? p.color : 'rgba(58,52,43,0.16)'}${on ? ',0 4px 14px -6px ' + p.color : ''};`,
+      };
+    });
+    graphicPresetCards = GRAPHIC_EQ_PRESET_ORDER.map((name) => {
+      const p = GRAPHIC_EQ_PRESETS[name] || { color: '#9a6fd0', desc: 'Your settings' };
+      const on = name === graphicPresetName;
       return {
         name, desc: p.desc, nameColor: on ? p.color : pal.pInk,
         dotStyle: `width:9px;height:9px;border-radius:50%;background:${p.color};` + (on ? `box-shadow:0 0 8px ${p.color};` : 'opacity:0.85;'),
@@ -412,16 +486,19 @@ export function computeView(state: DeskState & { userPresets?: any[]; activeUser
     vizTitle: act.viz,
     genCtrl: id !== 'export' && id !== 'spectral',
     isInput, isPre, isSpectral, isDynamics, isStereo, isLoudness, isExport,
-    controls, metaFields, eqColumns, eqAxis,
-    presetName: eqPresetNameDisplay, presetNameUpper: eqPresetNameDisplay.toUpperCase(), presetColor: eqPresetColor,
+    controls, metaFields, eqColumns, graphicBands, eqAxis, eqMode,
+    presetName: displayPresetName, presetNameUpper: displayPresetName.toUpperCase(), presetColor: displayPresetColor,
     isUserActive: eqPresetName === 'User',
-    isEqEdited,
+    isEqEdited: displayEqEdited,
     userPresets: state.userPresets || [],
+    graphicUserPresets: state.graphicUserPresets || [],
+    activeGraphicUserPresetIdx: state.activeGraphicUserPresetIdx ?? -1,
+    isGraphicUserActive: graphicPresetName === 'User',
     activeUserPresetIdx: state.activeUserPresetIdx ?? -1,
     eqShowPresets: !state.eqAdvanced, eqAdvanced: state.eqAdvanced,
     advLabel: state.eqAdvanced ? 'Presets ▴' : 'Advanced ▾',
     advBtnStyle: `font-family:'Archivo';font-size:9.5px;font-weight:700;letter-spacing:0.04em;padding:6px 13px;border-radius:7px;cursor:pointer;border:none;` + (state.eqAdvanced ? `color:${pal.aInk};background:${accent};` : `color:${pal.pInk};background:${pal.paperCtl};`),
-    presetCards: eqPresetCards,
+    presetCards: eqPresetCards, graphicPresetCards,
     waterfall, fftInfo, noiseInfo, eqLine, eqArea, eqDots, dynBars, transPath, transLabel, exciterBars, exLabel, dynTrans, dynExc,
     dynMbOn: isDynamics ? vals['dynamics.multiband'] !== false : true, // v0.8.3: Multiband OFF 면 Transient 비활성 표시
     vizBg: isDynamics ? 'transparent' : pal.panel, vizShadow: isDynamics ? 'none' : 'inset 0 2px 8px rgba(0,0,0,0.4)', vizPad: isDynamics ? '14px 14px 0' : '14px',

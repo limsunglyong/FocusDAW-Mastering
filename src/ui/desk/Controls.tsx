@@ -262,6 +262,10 @@ function DynamicsExtra({ view }: { view: DeskView }) {
 function SpectralControls({ view }: { view: DeskView }) {
   const pal = view.pal;
   const applyPreset = useAppStore((s) => s.applyPreset);
+  const applyGraphicPreset = useAppStore((s) => s.applyGraphicPreset);
+  const recallGraphicUserPreset = useAppStore((s) => s.recallGraphicUserPreset);
+  const saveGraphicUserPreset = useAppStore((s) => s.saveGraphicUserPreset);
+  const renameGraphicUserPreset = useAppStore((s) => s.renameGraphicUserPreset);
   const recallUserPreset = useAppStore((s) => s.recallUserPreset);
   const saveUserPreset = useAppStore((s) => s.saveUserPreset);
   const renameUserPreset = useAppStore((s) => s.renameUserPreset);
@@ -284,6 +288,8 @@ function SpectralControls({ view }: { view: DeskView }) {
 
   return (
     <>
+      {view.eqMode === 'Parametric' && (
+      <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 }}>
         <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070' }}>
           Preset ·{' '}
@@ -539,6 +545,81 @@ function SpectralControls({ view }: { view: DeskView }) {
           ))}
         </div>
       )}
+      </>
+      )}
+      {view.eqMode === '9-Band' && (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 13 }}>
+            <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070' }}>
+              Preset ·{' '}
+              <span style={{ fontWeight: 700, color: view.isEqEdited ? '#9a6fd0' : view.presetColor }}>
+                {view.isEqEdited ? 'Edited' : view.presetName}
+              </span>
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 9 }}>
+            {view.graphicPresetCards.map((p: any) => (
+              <div key={p.name} onClick={() => applyGraphicPreset(p.name)} style={css(p.cardStyle)}>
+                <span style={css(p.dotStyle)} />
+                <span style={{ fontFamily: 'Archivo', fontSize: 12.5, fontWeight: 700, color: p.nameColor }}>{p.name}</span>
+                <span style={{ fontFamily: 'Archivo', fontSize: 8.5, color: '#8a8070', textAlign: 'center', lineHeight: 1.3 }}>{p.desc}</span>
+              </div>
+            ))}
+          </div>
+          {view.isGraphicUserActive && (
+            <div ref={menuContainerRef} style={{ display: 'flex', gap: 8, marginTop: 12, borderTop: '1px solid rgba(58,52,43,0.12)', paddingTop: 12 }}>
+              {view.graphicUserPresets.map((up: any, idx: number) => {
+                const selected = view.activeGraphicUserPresetIdx === idx;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => { if (renamingIdx !== idx) recallGraphicUserPreset(idx); }}
+                    style={{
+                      flex: 1, minWidth: 0, position: 'relative', display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', gap: 6, padding: '12px 6px', borderRadius: 9, cursor: 'pointer',
+                      background: selected ? 'rgba(58,52,43,0.05)' : 'transparent',
+                      boxShadow: `inset 0 0 0 ${selected ? 2 : 1.2}px ${selected ? pal.aMain : 'rgba(58,52,43,0.14)'}`,
+                    }}
+                  >
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: selected ? pal.aMain : 'rgba(58,52,43,0.25)' }} />
+                    {renamingIdx === idx ? (
+                      <input
+                        value={tempName}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setTempName(e.target.value)}
+                        onBlur={() => {
+                          if (tempName.trim()) renameGraphicUserPreset(idx, tempName.trim());
+                          setRenamingIdx(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (tempName.trim()) renameGraphicUserPreset(idx, tempName.trim());
+                            setRenamingIdx(null);
+                          } else if (e.key === 'Escape') setRenamingIdx(null);
+                        }}
+                        style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, textAlign: 'center', color: pal.pInk, background: 'rgba(0,0,0,0.05)', border: `1px solid ${pal.aMain}`, borderRadius: 4, outline: 'none' }}
+                      />
+                    ) : (
+                      <span title={up.name} style={{ width: '100%', padding: '0 4px', boxSizing: 'border-box', fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, color: selected ? pal.aMain : pal.pInk, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{up.name}</span>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuIdx(openMenuIdx === idx ? null : idx); }}
+                      style={{ position: 'absolute', top: 4, right: 4, width: 16, height: 16, padding: 0, border: 0, borderRadius: '50%', background: openMenuIdx === idx ? 'rgba(0,0,0,0.08)' : 'transparent', color: pal.pInk2, cursor: 'pointer' }}
+                    >⋮</button>
+                    {openMenuIdx === idx && (
+                      <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%) translateY(-6px)', zIndex: 999, minWidth: 96, padding: '3px 0', borderRadius: 6, background: pal.paperInput, boxShadow: '0 4px 14px rgba(0,0,0,0.25),0 0 0 1px rgba(0,0,0,0.12)' }}>
+                        <div onClick={(e) => { e.stopPropagation(); setTempName(up.name); setRenamingIdx(idx); setOpenMenuIdx(null); }} style={{ padding: '6px 10px', fontFamily: 'Archivo', fontSize: 10, fontWeight: 600, color: pal.pInk, borderBottom: '1px solid rgba(58,52,43,0.08)' }}>Preset Name</div>
+                        <div onClick={(e) => { e.stopPropagation(); saveGraphicUserPreset(idx); setOpenMenuIdx(null); }} style={{ padding: '6px 10px', fontFamily: 'Archivo', fontSize: 10, fontWeight: 600, color: pal.pInk }}>Save</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -645,9 +726,44 @@ function LoudnessControls({ view }: { view: DeskView }) {
 }
 
 export function Controls({ view }: { view: DeskView }) {
+  const setVal = useAppStore((s) => s.setVal);
   return (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a', marginBottom: 11 }}>PARAMETERS</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 22, marginBottom: 11 }}>
+        <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a' }}>PARAMETERS</div>
+        {view.isSpectral && (
+          <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 6, background: 'rgba(58,52,43,0.08)' }}>
+            {[
+              ['Parametric', 'MIN-φ'],
+              ['9-Band', '9-BAND'],
+            ].map(([mode, label]) => {
+              const selected = view.eqMode === mode;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setVal('spectral.mode', mode)}
+                  title={mode === 'Parametric' ? 'Min-Phase Parametric EQ' : '9-Band Graphic EQ'}
+                  style={{
+                    minWidth: 49,
+                    padding: '3px 7px',
+                    border: 0,
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontFamily: 'Archivo',
+                    fontSize: 8,
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    color: selected ? '#f3ecdd' : view.pal.pInk2,
+                    background: selected ? view.pal.aMain : 'transparent',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {view.isPre ? (
         <PreControls view={view} />

@@ -30,6 +30,7 @@ type ActiveGraph = {
   refs: MasterChainRefs;
   corrL: AnalyserNode | null;
   corrR: AnalyserNode | null;
+  spectrum: AnalyserNode;
   channels: number;
   startCtxTime: number;
   startOffset: number;
@@ -289,6 +290,16 @@ export class PreviewEngine {
     output.connect(wetGain);
     wetGain.connect(out);
 
+    // 최종 A/B mix의 실시간 주파수 레벨(9-Band Graphic EQ 배경 미터용).
+    const spectrum = ctx.createAnalyser();
+    spectrum.fftSize = 4096;
+    spectrum.smoothingTimeConstant = 0.78;
+    spectrum.minDecibels = -84;
+    spectrum.maxDecibels = -6;
+    dryGain.connect(spectrum);
+    wetGain.connect(spectrum);
+    nodes.push(spectrum);
+
     // V Stereo 상관도 측정 탭 — 최종 mix(dry+wet)의 L/R 채널 분리 분석(스테레오만)
     let corrL: AnalyserNode | null = null;
     let corrR: AnalyserNode | null = null;
@@ -304,7 +315,7 @@ export class PreviewEngine {
     }
 
     return {
-      source, nodes, dryGain, wetGain, refs, corrL, corrR,
+      source, nodes, dryGain, wetGain, refs, corrL, corrR, spectrum,
       channels, startCtxTime: ctx.currentTime, startOffset: this.offset, onEnded: null,
     };
   }
@@ -328,6 +339,29 @@ export class PreviewEngine {
   // v0.7.0 (Phase 6): 리미터 게인리덕션(1=무압축, <1=리덕션). 메터링용.
   getLimiterGr(): number {
     return this.limiterGr;
+  }
+
+  /** 63Hz~16kHz 9개 octave band의 실시간 레벨(0..1). 재생 중이 아니면 null. */
+  getGraphicEqLevels(): number[] | null {
+    const g = this.graph;
+    if (!g || !this.playing || !this.ctx) return null;
+    const freqs = [63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+    const data = new Float32Array(g.spectrum.frequencyBinCount);
+    g.spectrum.getFloatFrequencyData(data);
+    const binHz = this.ctx.sampleRate / g.spectrum.fftSize;
+    return freqs.map((freq) => {
+      const lo = Math.max(1, Math.floor((freq / Math.SQRT2) / binHz));
+      const hi = Math.min(data.length - 1, Math.ceil((freq * Math.SQRT2) / binHz));
+      let sumPower = 0;
+      let count = 0;
+      for (let i = lo; i <= hi; i++) {
+        const db = Number.isFinite(data[i]) ? data[i] : -84;
+        sumPower += Math.pow(10, db / 10);
+        count++;
+      }
+      const db = count ? 10 * Math.log10(sumPower / count) : -84;
+      return Math.max(0, Math.min(1, (db + 72) / 60));
+    });
   }
 
   private crossfadePreview(enabled: boolean) {

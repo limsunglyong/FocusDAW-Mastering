@@ -36,9 +36,9 @@ export interface DecodedAudio {
   meta: AudioMeta;
 }
 
-/** 입력 허용 포맷 (우선순위: mp3/wav). 그 외는 브라우저 디코더 지원 범위. */
-export const ACCEPTED_EXTENSIONS = ['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.aiff', '.aif'] as const;
-export const ACCEPT_ATTR = 'audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.aiff,.aif';
+/** 제품이 지원하는 6개 입력 포맷(AIFF의 두 확장자는 같은 포맷). */
+export const ACCEPTED_EXTENSIONS = ['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aiff', '.aif'] as const;
+export const ACCEPT_ATTR = '.mp3,.wav,.flac,.ogg,.m4a,.aiff,.aif,audio/mpeg,audio/wav,audio/flac,audio/ogg,audio/mp4,audio/aiff';
 
 /** 디코딩 실패 시 사용자에게 보여줄 메시지를 담는 에러 */
 export class AudioDecodeError extends Error {
@@ -86,6 +86,79 @@ function readAscii(view: DataView, offset: number, len: number): string {
   let s = '';
   for (let i = 0; i < len; i++) s += String.fromCharCode(view.getUint8(offset + i));
   return s;
+}
+
+function makeAudioBuffer(channels: Float32Array[], sampleRate: number): AudioBuffer {
+  const buffer = getAudioContext().createBuffer(channels.length, channels[0]?.length ?? 0, sampleRate);
+  channels.forEach((data, channel) => buffer.getChannelData(channel).set(data));
+  return buffer;
+}
+
+/** Chromium이 지원하지 않는 AIFF/AIF PCM을 직접 AudioBuffer로 변환한다. */
+export function decodeAiff(arrayBuffer: ArrayBuffer): AudioBuffer {
+  const view = new DataView(arrayBuffer);
+  if (view.byteLength < 12 || readAscii(view, 0, 4) !== 'FORM') throw new Error('Invalid AIFF');
+  const form = readAscii(view, 8, 4);
+  if (form !== 'AIFF' && form !== 'AIFC') throw new Error('Invalid AIFF');
+
+  let channels = 0;
+  let frames = 0;
+  let bits = 0;
+  let sampleRate = 0;
+  let compression = form === 'AIFF' ? 'NONE' : '';
+  let soundOffset = -1;
+  let soundBytes = 0;
+  for (let off = 12; off + 8 <= view.byteLength;) {
+    const id = readAscii(view, off, 4);
+    const size = view.getUint32(off + 4, false);
+    const data = off + 8;
+    if (data + size > view.byteLength) throw new Error('Truncated AIFF');
+    if (id === 'COMM' && size >= 18) {
+      channels = view.getUint16(data, false);
+      frames = view.getUint32(data + 2, false);
+      bits = view.getUint16(data + 6, false);
+      sampleRate = Math.round(read80BitFloat(view, data + 8) ?? 0);
+      if (form === 'AIFC' && size >= 22) compression = readAscii(view, data + 18, 4);
+    } else if (id === 'SSND' && size >= 8) {
+      const offset = view.getUint32(data, false);
+      soundOffset = data + 8 + offset;
+      soundBytes = Math.max(0, size - 8 - offset);
+    }
+    off = data + size + (size & 1);
+  }
+  if (!channels || !frames || !sampleRate || soundOffset < 0) throw new Error('Incomplete AIFF');
+  const littleEndian = compression === 'sowt';
+  const isFloat = compression === 'fl32' || compression === 'FL32' || compression === 'fl64' || compression === 'FL64';
+  if (!isFloat && compression !== 'NONE' && compression !== 'twos' && compression !== 'sowt') {
+    throw new Error(`Unsupported AIFF-C compression: ${compression}`);
+  }
+  const bytesPerSample = Math.ceil(bits / 8);
+  if (![1, 2, 3, 4, 8].includes(bytesPerSample) || (isFloat && bits !== 32 && bits !== 64)) throw new Error('Unsupported AIFF bit depth');
+  const availableFrames = Math.floor(soundBytes / (channels * bytesPerSample));
+  const frameCount = Math.min(frames, availableFrames);
+  const output = Array.from({ length: channels }, () => new Float32Array(frameCount));
+  let pos = soundOffset;
+  for (let frame = 0; frame < frameCount; frame++) {
+    for (let channel = 0; channel < channels; channel++, pos += bytesPerSample) {
+      let value: number;
+      if (isFloat) {
+        value = bits === 32 ? view.getFloat32(pos, littleEndian) : view.getFloat64(pos, littleEndian);
+      } else if (bits === 8) {
+        value = view.getInt8(pos) / 128;
+      } else if (bits === 16) {
+        value = view.getInt16(pos, littleEndian) / 32768;
+      } else if (bits === 24) {
+        const raw = littleEndian
+          ? view.getUint8(pos) | (view.getUint8(pos + 1) << 8) | (view.getUint8(pos + 2) << 16)
+          : (view.getUint8(pos) << 16) | (view.getUint8(pos + 1) << 8) | view.getUint8(pos + 2);
+        value = ((raw & 0x800000) ? raw - 0x1000000 : raw) / 8388608;
+      } else {
+        value = view.getInt32(pos, littleEndian) / 2147483648;
+      }
+      output[channel][frame] = Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
+    }
+  }
+  return makeAudioBuffer(output, sampleRate);
 }
 
 // ---------------------------------------------------------------------------
@@ -319,6 +392,97 @@ function flacHeaderMeta(view: DataView): HeaderMeta {
   return EMPTY_HEADER_META;
 }
 
+function oggHeaderMeta(view: DataView): HeaderMeta {
+  let sampleRate: number | null = null;
+  let channels: number | null = null;
+  let lastGranule = 0;
+  for (let off = 0; off + 27 <= view.byteLength;) {
+    if (readAscii(view, off, 4) !== 'OggS') {
+      off++;
+      continue;
+    }
+    const segments = view.getUint8(off + 26);
+    if (off + 27 + segments > view.byteLength) break;
+    let bodySize = 0;
+    for (let i = 0; i < segments; i++) bodySize += view.getUint8(off + 27 + i);
+    const body = off + 27 + segments;
+    if (body + bodySize > view.byteLength) break;
+    const granuleLow = view.getUint32(off + 6, true);
+    const granuleHigh = view.getUint32(off + 10, true);
+    const granule = granuleHigh * 0x100000000 + granuleLow;
+    if (Number.isSafeInteger(granule) && granule > lastGranule) lastGranule = granule;
+    if (bodySize >= 16 && view.getUint8(body) === 1 && readAscii(view, body + 1, 6) === 'vorbis') {
+      channels = view.getUint8(body + 11) || null;
+      sampleRate = view.getUint32(body + 12, true) || null;
+    }
+    off = body + bodySize;
+  }
+  const duration = sampleRate && lastGranule ? lastGranule / sampleRate : null;
+  return { sampleRate, bitDepth: null, channels, duration, durationExact: duration != null };
+}
+
+type Atom = { type: string; start: number; data: number; end: number };
+function childAtoms(view: DataView, start: number, end: number): Atom[] {
+  const atoms: Atom[] = [];
+  for (let off = start; off + 8 <= end;) {
+    let size = view.getUint32(off, false);
+    const type = readAscii(view, off + 4, 4);
+    let header = 8;
+    if (size === 1 && off + 16 <= end) {
+      const high = view.getUint32(off + 8, false);
+      const low = view.getUint32(off + 12, false);
+      size = high * 0x100000000 + low;
+      header = 16;
+    } else if (size === 0) size = end - off;
+    if (size < header || off + size > end) break;
+    atoms.push({ type, start: off, data: off + header, end: off + size });
+    off += size;
+  }
+  return atoms;
+}
+
+function m4aHeaderMeta(view: DataView): HeaderMeta {
+  const roots = childAtoms(view, 0, view.byteLength);
+  const moov = roots.find((atom) => atom.type === 'moov');
+  if (!moov) return EMPTY_HEADER_META;
+  for (const trak of childAtoms(view, moov.data, moov.end).filter((atom) => atom.type === 'trak')) {
+    const mdia = childAtoms(view, trak.data, trak.end).find((atom) => atom.type === 'mdia');
+    if (!mdia) continue;
+    const mdiaChildren = childAtoms(view, mdia.data, mdia.end);
+    const hdlr = mdiaChildren.find((atom) => atom.type === 'hdlr');
+    if (!hdlr || hdlr.data + 12 > hdlr.end || readAscii(view, hdlr.data + 8, 4) !== 'soun') continue;
+    const mdhd = mdiaChildren.find((atom) => atom.type === 'mdhd');
+    if (!mdhd) continue;
+    const version = view.getUint8(mdhd.data);
+    const base = mdhd.data + (version === 1 ? 20 : 12);
+    if (base + (version === 1 ? 12 : 8) > mdhd.end) continue;
+    const timescale = view.getUint32(base, false);
+    const duration = version === 1
+      ? view.getUint32(base + 4, false) * 0x100000000 + view.getUint32(base + 8, false)
+      : view.getUint32(base + 4, false);
+    let channels: number | null = null;
+    let sampleRate: number | null = timescale || null;
+    const minf = mdiaChildren.find((atom) => atom.type === 'minf');
+    const stbl = minf && childAtoms(view, minf.data, minf.end).find((atom) => atom.type === 'stbl');
+    const stsd = stbl && childAtoms(view, stbl.data, stbl.end).find((atom) => atom.type === 'stsd');
+    if (stsd && stsd.data + 36 <= stsd.end) {
+      const entry = stsd.data + 8;
+      if (entry + 36 <= stsd.end) {
+        channels = view.getUint16(entry + 24, false) || null;
+        sampleRate = (view.getUint32(entry + 32, false) >>> 16) || sampleRate;
+      }
+    }
+    return {
+      sampleRate,
+      bitDepth: null,
+      channels,
+      duration: timescale ? duration / timescale : null,
+      durationExact: timescale > 0,
+    };
+  }
+  return EMPTY_HEADER_META;
+}
+
 // MPEG Layer III 비트레이트(kbps) — CBR 기준 duration 추정용
 const MP3_BITRATES_V1_L3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
 const MP3_BITRATES_V2_L3 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
@@ -360,6 +524,8 @@ export function parseHeaderMeta(buf: ArrayBuffer, ext: string, fileBytes: number
     if (ext === '.aiff' || ext === '.aif') return aiffHeaderMeta(view);
     if (ext === '.flac') return flacHeaderMeta(view);
     if (ext === '.mp3') return mp3HeaderMeta(view, fileBytes);
+    if (ext === '.ogg') return oggHeaderMeta(view);
+    if (ext === '.m4a') return m4aHeaderMeta(view);
     // 확장자 모호 시 시그니처 순서로 시도
     const wav = wavHeaderMeta(view);
     if (wav.sampleRate) return wav;
@@ -380,7 +546,9 @@ export async function readHeaderMeta(file: File): Promise<HeaderMeta> {
     throw new AudioDecodeError(`Unsupported format: ${ext} (recommended: mp3, wav)`);
   }
   if (file.size === 0) throw new AudioDecodeError('Empty file.');
-  const SLICE = 1 << 20; // 1MB: ID3 태그/첫 프레임/데이터 청크 헤더 커버
+  // MP4의 moov atom은 파일 끝에 올 수 있고 OGG duration은 마지막 granule이 필요하다.
+  // 두 포맷은 정확한 최초 메타 표시를 위해 전체 컨테이너를 읽는다(오디오 디코딩은 하지 않음).
+  const SLICE = ext === '.ogg' || ext === '.m4a' ? file.size : 1 << 20;
   let buf: ArrayBuffer;
   try {
     buf = await file.slice(0, Math.min(file.size, SLICE)).arrayBuffer();
@@ -446,7 +614,9 @@ export async function decodeAudioFile(file: File): Promise<DecodedAudio> {
 
   let buffer: AudioBuffer;
   try {
-    buffer = await decodeToBuffer(arrayBuffer, header.sampleRate);
+    buffer = ext === '.aiff' || ext === '.aif'
+      ? decodeAiff(arrayBuffer)
+      : await decodeToBuffer(arrayBuffer, header.sampleRate);
   } catch {
     throw new AudioDecodeError('Could not decode audio. The file may be corrupt or in an unsupported format.');
   }

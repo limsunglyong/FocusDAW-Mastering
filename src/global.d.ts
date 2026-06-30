@@ -46,6 +46,8 @@ declare global {
       // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
       loadUserPresets?: () => Promise<any>;
       saveUserPresets?: (presets: any) => Promise<boolean>;
+      loadGraphicUserPresets?: () => Promise<any>;
+      saveGraphicUserPresets?: (presets: any) => Promise<boolean>;
       // v0.9.0: 세션(프로젝트) 저장/불러오기 IO
       sessionIO?: {
         getContext: () => Promise<{ mode: 'save' | 'load'; payload: import('./session/session').SessionPayload | null; theme: string | null }>;

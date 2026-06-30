@@ -28,7 +28,10 @@ function summarize(name: string, payload: SessionPayload): SessionSummary {
     id: '', name, description: '', savedAt: 0, appVersion: '',
     enabled: payload.enabled,
     denoise: isDenoiseActive(payload),
-    eqPreset: String(v['spectral.preset'] ?? '—'),
+    eqMode: v['spectral.mode'] === '9-Band' ? '9-Band' : 'Parametric',
+    eqPreset: v['spectral.mode'] === '9-Band'
+      ? String(v['spectral.graphic.preset'] ?? 'Normal')
+      : String(v['spectral.preset'] ?? '—'),
     lufs: typeof v['loudness.target'] === 'number' ? (v['loudness.target'] as number) : NaN,
     format: String(v['export.format'] ?? '—'),
     rate: String(v['input.rate'] ?? '—'),
@@ -266,44 +269,34 @@ export function RenderBatchWindow() {
           onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5347'; e.currentTarget.style.background = 'transparent'; }}>×</div>
       </div>
 
-      {/* 헤더: 타이틀 + Select Session + (세션 카드 / 폴더) */}
-      <div style={{ flex: 'none', padding: '12px 18px 8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ fontFamily: 'Spectral, serif', fontSize: 21, fontWeight: 700, color: accent }}>Render Batch</span>
-          <button className="app-no-drag" onClick={openPicker} style={{ padding: '6px 14px', borderRadius: 7, border: `1px solid ${dark}55`, background: session ? 'transparent' : `${dark}14`, color: dark, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
-            {session ? 'Change Session Card' : 'Select Session Card'}
-          </button>
-        </div>
-
-        {session && (
-          // 카드 행을 하단 패널과 동일한 컬럼 폭으로 정렬: 카드(flex1) | 중앙 64 스페이서 | 폴더(flex1)
-          <div style={{ display: 'flex', gap: 14, marginTop: 10, alignItems: 'stretch' }}>
-            <SessionMiniCard s={session.summary} theme={theme} dark={dark} />
-            <div style={{ width: 64, flex: 'none' }} />
-            {/* 출력 폴더 */}
-            <div style={{ flex: 1, minWidth: 0, background: '#efe7d6', border: '1px solid #cabfa9', borderRadius: 10, padding: '10px 13px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
-              <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', color: '#8a8170' }}>OUTPUT FOLDER</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* #1: 클릭 시 탐색기로 열기 + hover 애니메이션 */}
-                <div
-                  className="app-no-drag"
-                  onClick={openFolder}
-                  title={`Open in explorer:\n${folderLabel}`}
-                  style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#5a5347', transition: 'color 0.15s ease, transform 0.15s ease' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = accent; e.currentTarget.style.transform = 'translateX(2px)'; e.currentTarget.style.textDecoration = 'underline'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5347'; e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.textDecoration = 'none'; }}
-                >
-                  <span style={{ flex: 'none', fontSize: 13 }}>📁</span>
-                  <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--mono)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'rtl', textAlign: 'left' }}>{folderLabel}</span>
-                </div>
-                <button className="app-no-drag" onClick={changeDir} disabled={running} style={{ flex: 'none', padding: '4px 12px', borderRadius: 6, border: `1px solid ${dark}`, background: `${dark}12`, color: dark, fontSize: 11, fontWeight: 700, cursor: running ? 'default' : 'pointer', opacity: running ? 0.5 : 1 }}>Change</button>
-              </div>
+      {/* 헤더: Render Batch | 수평 Progress | Start/Cancel */}
+      <div style={{ flex: 'none', padding: '12px 18px 10px', display: 'flex', alignItems: 'center', gap: 22 }}>
+        <span style={{ flex: 'none', fontFamily: 'Spectral, serif', fontSize: 21, fontWeight: 700, color: accent }}>Render Batch</span>
+        <div style={{ flex: 1, minWidth: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <div style={{ flex: 1, maxWidth: 520, height: 18, position: 'relative', background: '#e0d6c0', borderRadius: 9, overflow: 'hidden', border: '1px solid #cabfa9' }}>
+            <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: `linear-gradient(90deg, ${accent}, ${pal.aBright})`, borderRadius: 8, overflow: 'hidden', transition: 'width 0.35s ease' }}>
+              {running && pct > 0 && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)', animation: 'dkbatchflow 1.3s linear infinite' }} />}
             </div>
           </div>
+          <div style={{ flex: 'none', width: 78, textAlign: 'left' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 800, color: accent }}>{pct}%</span>
+            <span style={{ marginLeft: 5, fontFamily: 'Archivo', fontSize: 8, fontWeight: 700, color: '#8a8170' }}>
+              {cancelling ? 'CANCEL' : running ? 'RUN' : doneCount > 0 ? 'DONE' : 'READY'}
+            </span>
+          </div>
+        </div>
+        {running ? (
+          <button className="app-no-drag" onClick={() => setCancelModal(true)} disabled={cancelling} style={{ flex: 'none', padding: '9px 20px', borderRadius: 8, border: 'none', background: cancelling ? '#9b927f' : '#c23a52', color: '#fff', fontSize: 11.5, fontWeight: 800, cursor: cancelling ? 'default' : 'pointer' }}>
+            {cancelling ? 'CANCELLING…' : '✕ CANCEL'}
+          </button>
+        ) : (
+          <button className="app-no-drag" onClick={start} disabled={!canStart} style={{ flex: 'none', padding: '9px 27px', borderRadius: 8, border: 'none', background: canStart ? `linear-gradient(180deg, ${pal.aBright}, ${accent})` : '#cabfa9', color: '#fff', fontSize: 11.5, fontWeight: 800, letterSpacing: '0.08em', cursor: canStart ? 'pointer' : 'default' }}>
+            START
+          </button>
         )}
       </div>
 
-      {/* 본문: 좌 패널 | 세로 진행바 | 우 패널 */}
+      {/* 본문: Original Files | Session Card | Mastered Files */}
       <div style={{ flex: 1, display: 'flex', gap: 14, padding: '4px 18px 10px', minHeight: 0 }}>
         {/* 좌: ORIGINAL FILES */}
         <div style={paneBox}>
@@ -348,21 +341,32 @@ export function RenderBatchWindow() {
           </div>
         </div>
 
-        {/* 가운데: 세로 진행바 (가로 ×4 확대, %·메시지는 상단 배치) */}
-        <div style={{ flex: 'none', width: 64, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 700, color: accent }}>{pct}%</div>
-            <div style={{ fontFamily: 'Archivo', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.06em', color: '#8a8170' }}>
-              {cancelling ? 'CANCELLING' : running ? 'PROCESSING' : doneCount > 0 ? 'DONE' : 'READY'}
+        {/* 가운데: Session Card 선택 및 적용 이펙트 */}
+        <div style={{ flex: 'none', width: 280, minWidth: 240, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ ...paneBox, flex: 'none', minHeight: 210 }}>
+            <div style={paneHead}>
+              <span style={headLabel}>SESSION CARD</span>
+              <button className="app-no-drag" onClick={openPicker} disabled={running} style={{ ...miniBtn(dark), opacity: running ? 0.5 : 1 }}>
+                {session ? 'CHANGE' : 'SELECT'}
+              </button>
             </div>
-          </div>
-          <div style={{ position: 'relative', width: 48, flex: 1, maxHeight: 240, background: '#e0d6c0', borderRadius: 10, overflow: 'hidden', border: '1px solid #cabfa9' }}>
-            {/* 채워진 안쪽 bar — sheen 애니메이션을 이 안에서만(overflow:hidden) 흐르게 함 */}
-            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${pct}%`, background: `linear-gradient(180deg, ${pal.aBright}, ${accent})`, borderRadius: 10, overflow: 'hidden', transition: 'height 0.35s ease' }}>
-              {running && pct > 0 && (
-                <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '60%', background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 100%)', animation: 'dkbatchflow 1.3s linear infinite' }} />
+            <div style={{ flex: 1, minHeight: 0, padding: 9, display: 'flex' }}>
+              {session ? (
+                <SessionMiniCard s={session.summary} theme={theme} dark={dark} />
+              ) : (
+                <button className="app-no-drag" onClick={openPicker} style={{ flex: 1, border: `1px dashed ${dark}66`, borderRadius: 9, background: `${dark}08`, color: dark, fontFamily: 'Archivo', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+                  SELECT SESSION CARD
+                </button>
               )}
             </div>
+          </div>
+          <div style={{ background: '#efe7d6', border: '1px solid #cabfa9', borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ fontFamily: 'Archivo', fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', color: '#8a8170' }}>OUTPUT FOLDER</div>
+            <div className="app-no-drag" onClick={openFolder} title={folderLabel} style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#5a5347' }}>
+              <span>📁</span>
+              <span style={{ minWidth: 0, flex: 1, fontFamily: 'var(--mono)', fontSize: 9.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folderLabel}</span>
+            </div>
+            <button className="app-no-drag" onClick={changeDir} disabled={running} style={{ ...miniBtn(dark), opacity: running ? 0.5 : 1 }}>CHANGE FOLDER</button>
           </div>
         </div>
 
@@ -407,19 +411,6 @@ export function RenderBatchWindow() {
             })}
           </div>
         </div>
-      </div>
-
-      {/* 하단: Start / Cancel */}
-      <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '4px 0 16px' }}>
-        {running ? (
-          <button className="app-no-drag" onClick={() => setCancelModal(true)} disabled={cancelling} style={{ padding: '11px 34px', borderRadius: 9, border: 'none', background: cancelling ? '#9b927f' : '#c23a52', color: '#fff', fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', cursor: cancelling ? 'default' : 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', animation: cancelling ? 'dkblink 0.6s infinite alternate' : 'none' }}>
-            {cancelling ? 'CANCELLING…' : '✕ CANCEL'}
-          </button>
-        ) : (
-          <button className="app-no-drag" onClick={start} disabled={!canStart} style={{ padding: '11px 44px', borderRadius: 9, border: 'none', background: canStart ? `linear-gradient(180deg, ${pal.aBright}, ${accent})` : '#cabfa9', color: '#fff', fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', cursor: canStart ? 'pointer' : 'default', boxShadow: canStart ? '0 4px 14px rgba(0,0,0,0.18)' : 'none' }}>
-            START
-          </button>
-        )}
       </div>
 
       {/* 드래그 오버레이 */}
@@ -508,11 +499,12 @@ function SessionMiniCard({ s, theme, dark, hoverable }: { s: SessionSummary; the
             <span key={label} style={{ fontFamily: 'Archivo', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 20, color: active ? (theme.includes('Light') ? '#fff' : dark) : '#9b927f', background: active ? `${dark}22` : '#dcd3c0', border: `1px solid ${active ? `${dark}55` : '#cabfa9'}` }}>{label}</span>
           );
           if (m.id === 'pre') return [chip(m.short, on), chip(`Denoise ${s.denoise ? 'On' : 'Off'}`, s.denoise)];
+          if (m.id === 'spectral') return chip(s.eqMode === '9-Band' ? '9-EQ' : 'Min-EQ', on);
           return chip(m.short, on);
         })}
       </div>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: '#5a5347' }}>
-        EQ {s.eqPreset} · {Number.isFinite(s.lufs) ? `${s.lufs} LUFS` : '— LUFS'}{s.hasArtwork ? ' · ● art' : ''}
+        {s.eqMode === '9-Band' ? 'EQ 9-band' : 'EQ Min-φ'} · {s.eqPreset} · {Number.isFinite(s.lufs) ? `${s.lufs} LUFS` : '— LUFS'}{s.hasArtwork ? ' · ● art' : ''}
       </div>
     </div>
   );

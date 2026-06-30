@@ -81,6 +81,58 @@ function makeAiff(sampleRate, bits, channels, frames = 0) {
   return u8.buffer;
 }
 
+function makeAiffPcm16() {
+  const comm = new Uint8Array(makeAiff(48000, 16, 2, 2));
+  const u8 = new Uint8Array(comm.length + 8 + 8 + 8);
+  const dv = new DataView(u8.buffer);
+  u8.set(comm); dv.setUint32(4, u8.length - 8, false);
+  const off = comm.length;
+  ascii(u8, off, 'SSND'); dv.setUint32(off + 4, 16, false);
+  dv.setInt16(off + 16, 16384, false); dv.setInt16(off + 18, -16384, false);
+  dv.setInt16(off + 20, 32767, false); dv.setInt16(off + 22, -32768, false);
+  return u8.buffer;
+}
+
+function makeOgg(sampleRate, channels, granule) {
+  const body = 30;
+  const u8 = new Uint8Array(27 + 1 + body);
+  const dv = new DataView(u8.buffer);
+  ascii(u8, 0, 'OggS'); u8[4] = 0; u8[5] = 2;
+  dv.setUint32(6, granule >>> 0, true);
+  dv.setUint32(10, Math.floor(granule / 0x100000000), true);
+  u8[26] = 1; u8[27] = body;
+  u8[28] = 1; ascii(u8, 29, 'vorbis');
+  u8[39] = channels; dv.setUint32(40, sampleRate, true);
+  return u8.buffer;
+}
+
+function atom(type, payload) {
+  const u8 = new Uint8Array(payload.length + 8);
+  const dv = new DataView(u8.buffer);
+  dv.setUint32(0, u8.length, false); ascii(u8, 4, type); u8.set(payload, 8);
+  return u8;
+}
+function concat(...parts) {
+  const u8 = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let off = 0; for (const part of parts) { u8.set(part, off); off += part.length; }
+  return u8;
+}
+function makeM4a(sampleRate, channels, seconds) {
+  const hdlr = new Uint8Array(12); ascii(hdlr, 8, 'soun');
+  const mdhd = new Uint8Array(20); const mdhdView = new DataView(mdhd.buffer);
+  mdhdView.setUint32(12, sampleRate, false); mdhdView.setUint32(16, sampleRate * seconds, false);
+  const entry = new Uint8Array(36); const entryView = new DataView(entry.buffer);
+  entryView.setUint32(0, entry.length, false); ascii(entry, 4, 'mp4a');
+  entryView.setUint16(24, channels, false); entryView.setUint16(26, 16, false);
+  entryView.setUint32(32, sampleRate << 16, false);
+  const stsdPayload = new Uint8Array(8 + entry.length);
+  new DataView(stsdPayload.buffer).setUint32(4, 1, false); stsdPayload.set(entry, 8);
+  const stbl = atom('stbl', atom('stsd', stsdPayload));
+  const minf = atom('minf', stbl);
+  const mdia = atom('mdia', concat(atom('mdhd', mdhd), atom('hdlr', hdlr), minf));
+  return atom('moov', atom('trak', mdia)).buffer;
+}
+
 // ── 실행 ────────────────────────────────────────────────────────
 let pass = 0, fail = 0;
 function check(name, got, expected) {
@@ -115,7 +167,7 @@ const {
 const {
   truePeakDb, loudnessGain, saturationAmount, ceilingLinear, limiterEnabled, limiterReleaseSec, thdStatus,
 } = await import(ldUrl);
-const { parseAudioHeader, parseHeaderMeta } = await import(decUrl);
+const { parseAudioHeader, parseHeaderMeta, decodeAiff } = await import(decUrl);
 const { formatBytes } = await import(qfUrl);
 const { integratedLufsFromChannels } = await import(loudUrl);
 const { computeSpectrogram, makeWindow, DB_FLOOR } = await import(stftUrl);
@@ -149,6 +201,29 @@ check('WAV header meta 1s stereo', parseHeaderMeta(makeWav(44100, 16, 2, 176400)
 // AIFF: 48000 frames @ 48000 → 1.0s, stereo, 정확
 check('AIFF header meta 1s stereo', parseHeaderMeta(makeAiff(48000, 24, 2, 48000), '.aiff', 1024),
   { sampleRate: 48000, bitDepth: 24, channels: 2, duration: 1, durationExact: true });
+check('OGG header meta 2s stereo', parseHeaderMeta(makeOgg(48000, 2, 96000), '.ogg', 1024),
+  { sampleRate: 48000, bitDepth: null, channels: 2, duration: 2, durationExact: true });
+check('M4A header meta 3s stereo', parseHeaderMeta(makeM4a(44100, 2, 3), '.m4a', 1024),
+  { sampleRate: 44100, bitDepth: null, channels: 2, duration: 3, durationExact: true });
+globalThis.window = {
+  AudioContext: class {
+    constructor() { this.sampleRate = 48000; }
+    createBuffer(channels, length, sampleRate) {
+      const data = Array.from({ length: channels }, () => new Float32Array(length));
+      return { numberOfChannels: channels, length, sampleRate, getChannelData: (channel) => data[channel] };
+    }
+  },
+};
+{
+  const decoded = decodeAiff(makeAiffPcm16());
+  check('AIFF PCM decode/play buffer', {
+    channels: decoded.numberOfChannels,
+    length: decoded.length,
+    sampleRate: decoded.sampleRate,
+    left: Array.from(decoded.getChannelData(0)),
+    right: Array.from(decoded.getChannelData(1)),
+  }, { channels: 2, length: 2, sampleRate: 48000, left: [0.5, 32767 / 32768], right: [-0.5, -1] });
+}
 // FLAC: STREAMINFO 채널/비트뎁스(총샘플 0 → duration 미정)
 check('FLAC header meta channels', parseHeaderMeta(makeFlac(), '.flac', 1024),
   { sampleRate: 48000, bitDepth: 24, channels: 2, duration: null, durationExact: false });

@@ -214,6 +214,49 @@ function SpectralViz({ view }: { view: DeskView }) {
   const pal = view.pal;
   const setEqNode = useAppStore((s) => s.setEqNode);
   const svgRef = useRef<SVGSVGElement>(null);
+  const [graphicLevels, setGraphicLevels] = useState<number[]>(() => Array(9).fill(0));
+  const wheelUndoActive = useRef(false);
+  const wheelUndoTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (view.eqMode !== '9-Band') return;
+    let raf = 0;
+    let last = 0;
+    const tick = (now: number) => {
+      if (now - last >= 50) {
+        const levels = previewEngine.getGraphicEqLevels();
+        setGraphicLevels((prev) => levels ?? prev.map((v) => v * 0.82));
+        last = now;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [view.eqMode]);
+
+  useEffect(() => () => {
+    if (wheelUndoTimer.current !== null) window.clearTimeout(wheelUndoTimer.current);
+  }, []);
+
+  const adjustGraphicByWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const svg = svgRef.current;
+    if (!svg || !view.eqDots.length) return;
+    const rect = svg.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 338;
+    const dot = view.eqDots.reduce((best: any, item: any) =>
+      Math.abs(Number(item.cx) - x) < Math.abs(Number(best.cx) - x) ? item : best,
+    );
+    if (!wheelUndoActive.current) {
+      useAppStore.getState().pushUndoSnap();
+      wheelUndoActive.current = true;
+    }
+    if (wheelUndoTimer.current !== null) window.clearTimeout(wheelUndoTimer.current);
+    wheelUndoTimer.current = window.setTimeout(() => { wheelUndoActive.current = false; }, 250);
+    const direction = e.deltaY < 0 ? 1 : -1;
+    const next = Math.max(-12, Math.min(12, Math.round(Number(dot.gain) + direction)));
+    useAppStore.getState().setVal(dot.gainKey, next, true);
+  };
 
   const startDrag = (dot: any) => (e: React.PointerEvent) => {
     e.preventDefault();
@@ -223,13 +266,19 @@ function SpectralViz({ view }: { view: DeskView }) {
     useAppStore.getState().pushUndoSnap(); // Drag start snapshot (v0.8.9)
     const apply = (cx: number, cy: number) => {
       const rect = svg.getBoundingClientRect();
-      const x = Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
       const y = ((cy - rect.top) / rect.height) * 150;
+      let g = dot.graphic
+        ? (75 - ((cy - rect.top) / rect.height) * 166) / 5.25
+        : (82 - y) / 2.6;
+      g = Math.max(-12, Math.min(12, Math.round(g * 10) / 10));
+      if (dot.graphic) {
+        useAppStore.getState().setVal(dot.gainKey, g, true);
+        return;
+      }
+      const x = Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
       let f = 20 * Math.pow(dot.nyq / 20, x);
       f = Math.max(dot.fmin, Math.min(dot.fmax, f));
       if (dot.fstep) f = Math.round(f / dot.fstep) * dot.fstep;
-      let g = (82 - y) / 2.6;
-      g = Math.max(-12, Math.min(12, Math.round(g * 10) / 10));
       setEqNode(dot.band, Number(f.toFixed(0)), g, true); // skipUndo during drag
     };
     apply(e.clientX, e.clientY);
@@ -254,8 +303,45 @@ function SpectralViz({ view }: { view: DeskView }) {
         >
           {view.isEqEdited ? 'EDITED' : view.presetNameUpper}
         </span>
-        <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#6f6657' }}>20Hz — 20kHz</span>
+        <span style={{ fontFamily: 'Archivo', fontSize: 9, color: '#6f6657' }}>
+          {view.eqMode === '9-Band' ? '±12 dB · 9 bands' : '20Hz — 20kHz'}
+        </span>
       </div>
+      {view.eqMode === '9-Band' ? (
+      <svg ref={svgRef} width="338" height="166" viewBox="0 0 338 166" onWheel={adjustGraphicByWheel} style={{ display: 'block' }}>
+        <g fontFamily="Archivo" fontSize="7.5" fill={pal.nInk2}>
+          <text x="0" y="15">+12</text>
+          <text x="0" y="45">+6</text>
+          <text x="0" y="78">0</text>
+          <text x="0" y="108">−6</text>
+          <text x="0" y="141">−12</text>
+        </g>
+        {[12, 43.5, 75, 106.5, 138].map((y, i) => (
+          <line key={y} x1="24" y1={y} x2="334" y2={y} stroke={i === 2 ? 'rgba(160,190,195,0.28)' : 'rgba(255,240,210,0.055)'} strokeWidth={i === 2 ? 1.2 : 1} />
+        ))}
+        {view.eqDots.map((d: any) => (
+          <g key={d.band}>
+            <line x1={d.cx} y1="9" x2={d.cx} y2="140" stroke="rgba(255,240,210,0.07)" />
+            <rect
+              x={Number(d.cx) - 13}
+              y={138 - graphicLevels[d.band] * 126}
+              width="26"
+              height={graphicLevels[d.band] * 126}
+              rx="3"
+              fill={d.fill}
+              opacity={0.08 + graphicLevels[d.band] * 0.18}
+              style={{ pointerEvents: 'none' }}
+            />
+            <g onPointerDown={startDrag(d)} style={{ cursor: 'ns-resize', touchAction: 'none' }}>
+              <rect x={Number(d.cx) - 14} y={Number(d.cy) - 6} width="28" height="12" rx="2.5" fill="rgba(118,123,124,0.48)" stroke="rgba(225,230,226,0.14)" />
+              <line x1={Number(d.cx) - 13} y1={d.cy} x2={Number(d.cx) + 13} y2={d.cy} stroke="#b9dfe4" strokeWidth="2.2" />
+            </g>
+            <text x={d.cx} y="158" fontFamily="Archivo" fontSize="8" fontWeight="700" fill={d.fill} textAnchor="middle">{d.freqLabel}</text>
+          </g>
+        ))}
+      </svg>
+      ) : (
+      <>
       <svg ref={svgRef} width="338" height="150" viewBox="0 0 338 150" style={{ display: 'block' }}>
         <defs>
           <linearGradient id="dk-eq" x1="0" y1="0" x2="0" y2="1">
@@ -269,7 +355,7 @@ function SpectralViz({ view }: { view: DeskView }) {
         <path d={view.eqArea} fill="url(#dk-eq)" />
         <path d={view.eqLine} fill="none" stroke={pal.aBright} strokeWidth="2.2" strokeLinejoin="round" />
         {view.eqDots.map((d: any) => (
-          <g key={d.band} onPointerDown={startDrag(d)} data-knob-key={d.qk} data-knob-min={d.qmin} data-knob-max={d.qmax} data-knob-step={d.qstep} style={{ cursor: 'grab', touchAction: 'none' }}>
+          <g key={d.band} onPointerDown={d.draggable ? startDrag(d) : undefined} data-knob-key={d.draggable ? (d.graphic ? d.gainKey : d.qk) : undefined} data-knob-min={d.graphic ? -12 : d.qmin} data-knob-max={d.graphic ? 12 : d.qmax} data-knob-step={d.graphic ? 0.1 : d.qstep} style={{ cursor: d.draggable ? 'grab' : 'default', touchAction: 'none' }}>
             <circle cx={d.cx} cy={d.cy} r="14" fill="transparent" />
             <circle cx={d.cx} cy={d.cy} r={d.r} fill={pal.panel} stroke={d.fill} strokeWidth={d.sw} />
             <text x={d.cx} y={d.cy} fontFamily="Archivo" fontSize="7" fontWeight="700" fill={d.numColor} textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>{d.num}</text>
@@ -279,6 +365,8 @@ function SpectralViz({ view }: { view: DeskView }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'Archivo', fontSize: 8.5, color: pal.nInk2, padding: '0 2px' }}>
         {view.eqAxis.map((t: any, i: number) => <span key={i}>{t.label}</span>)}
       </div>
+      </>
+      )}
     </>
   );
 }

@@ -109,6 +109,8 @@ function StudioDesk() {
   const userPresets = useAppStore((s) => s.userPresets);
   const activeUserPresetIdx = useAppStore((s) => s.activeUserPresetIdx);
   const lastActivePresetName = useAppStore((s) => s.lastActivePresetName);
+  const graphicUserPresets = useAppStore((s) => s.graphicUserPresets);
+  const activeGraphicUserPresetIdx = useAppStore((s) => s.activeGraphicUserPresetIdx);
   const initUserPresets = useAppStore((s) => s.initUserPresets);
   const exporting = useAppStore((s) => s.exporting);
   const exportCancelling = useAppStore((s) => s.exportCancelling);
@@ -177,8 +179,8 @@ function StudioDesk() {
   }, []);
 
   const view = useMemo(
-    () => computeView({ open, curFile, openMenu, eqAdvanced, enabled, vals, userPresets, activeUserPresetIdx, lastActivePresetName } as any, theme, files),
-    [open, curFile, openMenu, eqAdvanced, enabled, vals, theme, files, userPresets, activeUserPresetIdx, lastActivePresetName],
+    () => computeView({ open, curFile, openMenu, eqAdvanced, enabled, vals, userPresets, activeUserPresetIdx, lastActivePresetName, graphicUserPresets, activeGraphicUserPresetIdx } as any, theme, files),
+    [open, curFile, openMenu, eqAdvanced, enabled, vals, theme, files, userPresets, activeUserPresetIdx, lastActivePresetName, graphicUserPresets, activeGraphicUserPresetIdx],
   );
 
   const onDrop = useCallback(

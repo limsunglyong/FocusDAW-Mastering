@@ -20,7 +20,10 @@ function summaryFromPayload(name: string, description: string, payload: SessionP
     appVersion: APP_VERSION,
     enabled: payload.enabled,
     denoise: isDenoiseActive(payload),
-    eqPreset: String(v['spectral.preset'] ?? '—'),
+    eqMode: v['spectral.mode'] === '9-Band' ? '9-Band' : 'Parametric',
+    eqPreset: v['spectral.mode'] === '9-Band'
+      ? String(v['spectral.graphic.preset'] ?? 'Normal')
+      : String(v['spectral.preset'] ?? '—'),
     lufs: typeof v['loudness.target'] === 'number' ? (v['loudness.target'] as number) : NaN,
     format: String(v['export.format'] ?? '—'),
     rate: String(v['input.rate'] ?? '—'),
@@ -210,13 +213,14 @@ export function SessionsWindow() {
               chip(`Denoise ${s.denoise ? 'On' : 'Off'}`, s.denoise),
             ];
           }
+          if (m.id === 'spectral') return chip(s.eqMode === '9-Band' ? '9-EQ' : 'Min-EQ', on);
           return chip(m.short, on);
         })}
       </div>
 
       {/* 요약 라인 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', fontFamily: 'var(--mono)', fontSize: 10, color: '#5a5347' }}>
-        <span>EQ {s.eqPreset}</span>
+        <span>{s.eqMode === '9-Band' ? 'EQ 9-band' : 'EQ Min-φ'} · {s.eqPreset}</span>
         <span>{Number.isFinite(s.lufs) ? `${s.lufs} LUFS` : '— LUFS'}</span>
         <span>{s.format} · {s.rate}/{s.bit}</span>
         {s.hasArtwork && <span style={{ color: dark }}>● art</span>}

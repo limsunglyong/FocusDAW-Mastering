@@ -331,7 +331,7 @@ ipcMain.on('win:open-manual', (event) => {
 // v0.9.1: Render Batch 창 열기(모달 — 메인 앱 사용 차단). 세션 기반 일괄 Export.
 let renderBatchWindow = null;
 let renderBatchTheme = null;
-const RENDER_BATCH_W = 880;
+const RENDER_BATCH_W = 1120;
 const RENDER_BATCH_H = 640;
 ipcMain.on('win:open-render-batch', (event, opts) => {
   renderBatchTheme = (opts && opts.theme) || null;
@@ -351,7 +351,7 @@ ipcMain.on('win:open-render-batch', (event, opts) => {
   renderBatchWindow = new BrowserWindow({
     width: RENDER_BATCH_W,
     height: RENDER_BATCH_H,
-    minWidth: 760,
+    minWidth: 980,
     minHeight: 560,
     x,
     y,
@@ -476,6 +476,27 @@ ipcMain.handle('win:save-user-presets', async (_event, presets) => {
   }
 });
 
+ipcMain.handle('win:load-graphic-user-presets', async () => {
+  const filePath = path.join(app.getPath('userData'), 'graphic-user-presets.json');
+  try {
+    if (fs.existsSync(filePath)) return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (err) {
+    console.error('Failed to load graphic user presets:', err);
+  }
+  return null;
+});
+
+ipcMain.handle('win:save-graphic-user-presets', async (_event, presets) => {
+  const filePath = path.join(app.getPath('userData'), 'graphic-user-presets.json');
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(presets, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('Failed to save graphic user presets:', err);
+    return false;
+  }
+});
+
 // v0.9.0: 세션(프로젝트) 저장/불러오기 IO. userData/sessions/<id>.json 한 파일 = 세션 1건.
 function sessionsDir() {
   const dir = path.join(app.getPath('userData'), 'sessions');
@@ -509,7 +530,10 @@ ipcMain.handle('session:list', async () => {
           appVersion: data.appVersion || '',
           enabled: p.enabled || {},
           denoise: !!v['pre.denoise'] && (p.enabled ? p.enabled.pre !== false : true),
-          eqPreset: v['spectral.preset'] || '—',
+          eqMode: v['spectral.mode'] === '9-Band' ? '9-Band' : 'Parametric',
+          eqPreset: v['spectral.mode'] === '9-Band'
+            ? (v['spectral.graphic.preset'] || 'Normal')
+            : (v['spectral.preset'] || '—'),
           lufs: typeof v['loudness.target'] === 'number' ? v['loudness.target'] : null,
           format: v['export.format'] || '—',
           rate: v['input.rate'] || '—',

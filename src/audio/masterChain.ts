@@ -6,7 +6,7 @@
 //
 // 신호:  source ─ inputGain ─ [pre] ─ [spectral] ─ [dynamics] ─ [stereo] ─ [loudness] ─ output
 //   각 [section] 은 내부 dry/wet 병렬(On=wet / Bypass=dry)로 감싸 sum 을 반환한다.
-import type { Vals, ModId } from '../desk/data';
+import { GRAPHIC_EQ_FREQS, type Vals, type ModId } from '../desk/data';
 import type { AudioMeta } from './decoder';
 import {
   DYN_XOVER_LOW, DYN_XOVER_HIGH, DYN_EXCITER_HP, DYN_KEYS,
@@ -173,6 +173,31 @@ export function eqQ(vals: Vals, i: number): number {
   return i === 0 || i === 4 ? 0.71 : Math.max(0.2, num(vals[`spectral.q${i}`], 1));
 }
 
+function isGraphicEq(vals: Vals): boolean {
+  return vals['spectral.mode'] === '9-Band';
+}
+
+function configureEqFilter(f: BiquadFilterNode, vals: Vals, i: number, nyq: number) {
+  if (isGraphicEq(vals)) {
+    f.type = 'peaking';
+    f.frequency.value = Math.min(nyq - 1, GRAPHIC_EQ_FREQS[i]);
+    f.gain.value = num(vals[`spectral.graphic.g${i}`]);
+    f.Q.value = Math.SQRT1_2;
+    return;
+  }
+  if (i < 5) {
+    f.type = i === 0 ? 'lowshelf' : i === 4 ? 'highshelf' : 'peaking';
+    f.frequency.value = eqFreq(vals, i, nyq);
+    f.gain.value = num(vals[`spectral.g${i}`]);
+    f.Q.value = eqQ(vals, i);
+  } else {
+    f.type = 'peaking';
+    f.frequency.value = Math.min(nyq - 1, GRAPHIC_EQ_FREQS[i]);
+    f.gain.value = 0;
+    f.Q.value = Math.SQRT1_2;
+  }
+}
+
 export function loudnessGainValue(params: PreviewParams): number {
   return loudnessMakeupGain(num(params.vals['loudness.target'], -14), params.meta.integratedLufs);
 }
@@ -305,16 +330,14 @@ export function buildMasterChain(ctx: BaseAudioContext, source: AudioNode, param
     return g;
   });
 
-  // III Spectral EQ — 5 band biquad
+  // III EQ — 5-band Parametric / fixed-frequency 9-band Graphic.
+  // 9 nodes are always present so mode switching during playback needs no graph rebuild.
   const eqFilters: BiquadFilterNode[] = [];
   tail = wrapSection('spectral', tail, (input) => {
     let t = input;
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 9; i++) {
       const f = ctx.createBiquadFilter();
-      f.type = i === 0 ? 'lowshelf' : i === 4 ? 'highshelf' : 'peaking';
-      f.frequency.value = eqFreq(vals, i, nyq);
-      f.gain.value = num(vals[`spectral.g${i}`]);
-      f.Q.value = eqQ(vals, i);
+      configureEqFilter(f, vals, i, nyq);
       t.connect(f);
       nodes.push(f);
       eqFilters.push(f);
@@ -465,9 +488,19 @@ export function applyMasterChainParams(ctx: BaseAudioContext, refs: MasterChainR
   if (refs.fade) scheduleFade(refs.fade, params, ctx.currentTime, fadeOffset);
 
   refs.eqFilters.forEach((f, i) => {
-    setParam(f.frequency, eqFreq(vals, i, nyq), ctx);
-    setParam(f.gain, num(vals[`spectral.g${i}`]), ctx);
-    setParam(f.Q, eqQ(vals, i), ctx);
+    if (isGraphicEq(vals)) {
+      f.type = 'peaking';
+      setParam(f.frequency, Math.min(nyq - 1, GRAPHIC_EQ_FREQS[i]), ctx);
+      setParam(f.gain, num(vals[`spectral.graphic.g${i}`]), ctx);
+      setParam(f.Q, Math.SQRT1_2, ctx);
+    } else if (i < 5) {
+      f.type = i === 0 ? 'lowshelf' : i === 4 ? 'highshelf' : 'peaking';
+      setParam(f.frequency, eqFreq(vals, i, nyq), ctx);
+      setParam(f.gain, num(vals[`spectral.g${i}`]), ctx);
+      setParam(f.Q, eqQ(vals, i), ctx);
+    } else {
+      setParam(f.gain, 0, ctx);
+    }
   });
 
   if (refs.dyn) {

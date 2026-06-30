@@ -89,6 +89,17 @@ export const EQBANDS: EqBand[] = [
   { type: 'H-Shelf', col: '#f06a6a', fmin: 6000, fmax: 20000, fstep: 50 },
 ];
 
+/** 1-octave 9-band Graphic EQ fixed centre frequencies. */
+export const GRAPHIC_EQ_FREQS = [63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000] as const;
+export const GRAPHIC_EQ_PRESET_ORDER = ['Normal', 'Pop', 'Dance', 'Classic', 'User'] as const;
+export type GraphicEqPreset = { color: string; desc: string; g: readonly number[] };
+export const GRAPHIC_EQ_PRESETS: Record<string, GraphicEqPreset> = {
+  Normal: { color: '#6f6657', desc: 'Flat reference', g: [0, 0, 0, 0, 0, 0, 0, 0, 0] },
+  Pop: { color: '#e0568f', desc: 'Punch & vocal air', g: [1.5, 1, 0, -1, -0.5, 1, 2, 2.5, 1.5] },
+  Dance: { color: '#3fb6d6', desc: 'Deep lows & sparkle', g: [3.5, 2.5, 0.5, -1.5, -2, 0, 2, 3, 2.5] },
+  Classic: { color: '#c79a3f', desc: 'Warm & natural', g: [-1, 0.5, 1.5, 1, 0.5, 0, -0.5, -1, -1.5] },
+};
+
 export const EQPRESET_ORDER = ['Normal', 'Pop', 'Dance', 'Classic', 'User'];
 
 export type EqPreset = { color: string; desc: string; f: number[]; g: number[]; q: number[] };
@@ -161,12 +172,16 @@ export const DEFAULT_STATE: DeskState = {
   vals: {
     'input.source': 'Files', 'input.bit': '24', 'input.rate': '48k', 'input.scope': 'Sub Folder', 'input.normimp': false,
     'pre.denoise': false, 'pre.noiseDepth': '2', 'pre.denoiseAmt': 35, 'pre.fadein': 20, 'pre.fadeout': 600, 'pre.lufs': -14, 'pre.tp': -1, 'pre.rms': -12,
-    'spectral.band': '2', 'spectral.preset': 'Normal',
+    'spectral.mode': '9-Band', 'spectral.band': '2', 'spectral.preset': 'Normal',
+    'spectral.graphic.preset': 'Normal', 'spectral.graphic.lastPreset': 'Normal',
     'spectral.f0': 60, 'spectral.g0': 0, 'spectral.q0': 0.71,
     'spectral.f1': 250, 'spectral.g1': 0, 'spectral.q1': 1.0,
     'spectral.f2': 1000, 'spectral.g2': 0, 'spectral.q2': 1.0,
     'spectral.f3': 4000, 'spectral.g3': 0, 'spectral.q3': 1.2,
     'spectral.f4': 12000, 'spectral.g4': 0, 'spectral.q4': 0.71,
+    'spectral.graphic.g0': 0, 'spectral.graphic.g1': 0, 'spectral.graphic.g2': 0,
+    'spectral.graphic.g3': 0, 'spectral.graphic.g4': 0, 'spectral.graphic.g5': 0,
+    'spectral.graphic.g6': 0, 'spectral.graphic.g7': 0, 'spectral.graphic.g8': 0,
     'dynamics.multiband': false, 'dynamics.low': -2, 'dynamics.mid': -1, 'dynamics.high': -1, 'dynamics.ratio': '4:1', 'dynamics.transient': 10, 'dynamics.exciter': 15,
     'stereo.width': 120, 'stereo.reverb': 5, 'stereo.delay': 2, 'stereo.crossover': 120, 'stereo.bassmono': true, 'stereo.mono': false,
     'loudness.ceiling': -1, 'loudness.target': -14, 'loudness.sat': 5, 'loudness.limiter': 'Punchy', 'loudness.tplimit': true,

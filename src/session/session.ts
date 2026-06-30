@@ -24,9 +24,10 @@ export function sessionValKeys(): string[] {
       if (!VAL_BLOCKLIST.has(k)) keys.push(k);
     });
   });
-  // Spectral EQ: CTRL.spectral 은 비어 있으므로 프리셋명 + 5밴드 f/g/q 를 직접 포함.
-  keys.push('spectral.preset');
+  // EQ: 모드 + Parametric 5밴드 + Graphic 9밴드를 함께 보관해 모드 전환 후 값도 유지한다.
+  keys.push('spectral.mode', 'spectral.preset', 'spectral.graphic.preset', 'spectral.graphic.lastPreset');
   for (let n = 0; n < 5; n++) keys.push(`spectral.f${n}`, `spectral.g${n}`, `spectral.q${n}`);
+  for (let n = 0; n < 9; n++) keys.push(`spectral.graphic.g${n}`);
   // Export 메타: CTRL.export 가 비어 있으므로 META(album/artist/year/genre/format) 를 포함.
   META.forEach((m) => keys.push(`export.${m.key}`));
   return keys;
@@ -40,6 +41,8 @@ export type SessionPayload = {
   enabled: Record<ModId, boolean>;
   activeUserPresetIdx: number;
   lastActivePresetName: string;
+  /** 9-Band User 프리셋 활성 슬롯. 이전 세션 호환을 위해 optional. */
+  activeGraphicUserPresetIdx?: number;
   artworkDataUrl: string | null;
   exportDir: string | null;
 };
@@ -66,6 +69,8 @@ export type SessionSummary = {
   enabled: Record<ModId, boolean>;
   /** v0.9.0: Denoise 적용 여부(Pre 섹션 On + Denoise 토글 On). */
   denoise: boolean;
+  /** 세션 카드용 EQ 종류. 구형 세션은 Parametric으로 간주. */
+  eqMode?: 'Parametric' | '9-Band';
   eqPreset: string;
   lufs: number;
   format: string;
@@ -95,6 +100,7 @@ type SerializeInput = {
   enabled: Record<ModId, boolean>;
   activeUserPresetIdx: number;
   lastActivePresetName: string;
+  activeGraphicUserPresetIdx: number;
   artworkDataUrl: string | null;
   exportDir: string | null;
 };
@@ -110,6 +116,7 @@ export function serializeSession(s: SerializeInput): SessionPayload {
     enabled: { ...s.enabled },
     activeUserPresetIdx: s.activeUserPresetIdx,
     lastActivePresetName: s.lastActivePresetName,
+    activeGraphicUserPresetIdx: s.activeGraphicUserPresetIdx,
     artworkDataUrl: s.artworkDataUrl ?? null,
     exportDir: s.exportDir ?? null,
   };

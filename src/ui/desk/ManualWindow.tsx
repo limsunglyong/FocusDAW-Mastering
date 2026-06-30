@@ -96,8 +96,8 @@ const SECTIONS: ManualSection[] = [
       en: 'Shapes brightness, bass weight, and midrange clarity by adjusting frequency bands.',
     },
     steps: {
-      ko: ['그래프의 밴드 점을 드래그하거나 노브로 Frequency·Gain·Q를 조절합니다.', 'Low/High Shelf는 넓은 저역·고역, Bell은 특정 중심 대역을 조절합니다.', 'Q가 높을수록 좁고 정밀하게, 낮을수록 넓고 자연스럽게 바뀝니다.', '문제가 들리는 대역은 먼저 조금 줄이고 전체 음량을 맞춰 비교하세요.'],
-      en: ['Drag band nodes or adjust Frequency, Gain, and Q controls.', 'Low/High Shelf shapes broad lows/highs; Bell targets a centered band.', 'Higher Q is narrower and more surgical; lower Q is broader and smoother.', 'Try a small cut first and level-match before comparing.'],
+      ko: ['MIN-PHASE PARAMETRIC과 9-BAND GRAPHIC 중 원하는 방식을 선택합니다.', 'Parametric에서는 그래프의 밴드 점이나 노브로 Frequency·Gain·Q를 조절합니다.', '9-Band에서는 그래프의 9개 고정 주파수 포인트를 위아래로 드래그해 Gain을 조절하거나 전용 프리셋을 선택합니다.', '두 방식의 설정은 독립적으로 유지되므로 전환해 비교할 수 있습니다.'],
+      en: ['Choose MIN-PHASE PARAMETRIC or 9-BAND GRAPHIC.', 'In Parametric mode, drag graph nodes or adjust Frequency, Gain, and Q.', 'In 9-Band mode, drag the nine fixed-frequency graph points vertically or choose a dedicated preset.', 'Both modes retain independent settings for easy comparison.'],
     },
     effect: {
       ko: '음원 효과: 탁한 저중역을 걷거나, 보컬 존재감을 높이거나, 거친 고역을 부드럽게 만들 수 있습니다.',

@@ -17,10 +17,17 @@ import eqOverviewImage from '../../../assets/manual/eq-overview.png';
 import eqAdvancedImage from '../../../assets/manual/eq-advanced.png';
 import eqUserPresetImage from '../../../assets/manual/eq-user-preset.png';
 import eqPresetSaveImage from '../../../assets/manual/eq-preset-save.png';
+import eq9BandOverviewImage from '../../../assets/manual/eq-9band-overview.png';
+import eq9BandUserPresetsImage from '../../../assets/manual/eq-9band-user-presets.png';
 import dynamicsDetailsImage from '../../../assets/manual/dynamics-details.png';
 import stereoDetailsImage from '../../../assets/manual/stereo-details.png';
 import loudnessDetailsImage from '../../../assets/manual/loudness-details.png';
 import exportDetailsImage from '../../../assets/manual/export-details.png';
+import renderBatchOverviewImage from '../../../assets/manual/render-batch-overview.png';
+import renderBatchSessionPickerImage from '../../../assets/manual/render-batch-session-picker.png';
+import renderBatchSessionLoadedImage from '../../../assets/manual/render-batch-session-loaded.png';
+import renderBatchAddJobImage from '../../../assets/manual/render-batch-add-job.png';
+import renderBatchMultipleJobsImage from '../../../assets/manual/render-batch-multiple-jobs.png';
 
 type Lang = 'ko' | 'en';
 type ManualSection = {
@@ -169,6 +176,18 @@ const SECTIONS: ManualSection[] = [
     },
   },
   {
+    id: 'renderBatch',
+    title: { ko: 'Render Batch — 다중 작업 출력', en: 'Render Batch' },
+    intro: {
+      ko: '메인 프로젝트와 별도로, 여러 원본 묶음에 저장된 Session Card를 각각 지정해 한 번에 렌더링하는 독립 작업 창입니다.',
+      en: 'A separate workspace that renders multiple source groups at once, each with its own saved Session Card.',
+    },
+    steps: {
+      ko: ['+ FILE, + FOLDER 또는 드래그 앤 드롭으로 첫 작업의 원본을 추가합니다.', 'SELECT에서 해당 원본에 적용할 Session Card를 선택하고 출력 폴더를 확인합니다.', '다른 원본에 다른 설정을 적용하려면 + ADD BATCH JOB으로 작업을 추가합니다.', 'START를 누르면 모든 작업을 위에서 아래 순서로 처리하며 상단에서 전체 진행률을 확인할 수 있습니다.'],
+      en: ['Add sources to the first job with + FILE, + FOLDER, or drag and drop.', 'Choose the Session Card for those sources with SELECT and confirm the output folder.', 'Use + ADD BATCH JOB when another source group needs different settings.', 'Press START to process all jobs from top to bottom while the header shows overall progress.'],
+    },
+  },
+  {
     id: 'tips',
     title: { ko: '단축키와 문제 해결', en: 'Shortcuts & Troubleshooting' },
     intro: {
@@ -217,7 +236,10 @@ const SETTINGS: Partial<Record<string, Setting[]>> = {
     { name: 'Recommendation', values: 'Analyze → Apply', detail: { ko: 'SNR과 Noise Floor를 분석해 Depth와 Amount를 제안합니다. Apply를 누르면 추천값이 설정에 반영됩니다.', en: 'Analyzes SNR and noise floor to suggest Depth and Amount. Apply writes the recommendation into the controls.' } },
   ],
   eq: [
+    { name: 'EQ mode', values: 'MIN-φ / 9-BAND', detail: { ko: 'PARAMETERS 오른쪽 위 스위치로 기존 5밴드 Min-φ Parametric EQ와 9밴드 Graphic EQ를 전환합니다. 두 모드는 각각의 설정과 프리셋을 유지합니다.', en: 'Use the switch at the upper right of PARAMETERS to choose the original five-band Min-φ Parametric EQ or the nine-band Graphic EQ. Each mode retains its own settings and presets.' } },
     { name: 'Preset', values: 'Normal / Pop / Dance / Classic / User', detail: { ko: 'Normal은 평탄, Pop은 보컬·고역 강조, Dance는 저역과 Air 강조, Classic은 따뜻하고 부드러운 방향입니다.', en: 'Normal is flat; Pop lifts vocal/treble; Dance emphasizes lows and air; Classic is warmer and smoother.' } },
+    { name: '9-Band', values: '63 Hz–16 kHz · ±12 dB', detail: { ko: '9개의 고정 주파수 슬라이더를 위아래로 드래그하거나 해당 주파수 위치에서 마우스 휠을 돌려 1 dB 단위로 조절합니다. 그래프 배경의 레벨 미터로 대역별 신호를 확인할 수 있습니다.', en: 'Drag the nine fixed-frequency sliders vertically, or use the mouse wheel over a band for 1 dB steps. The graph background meters show the live level in each band.' } },
+    { name: '9-Band User', values: 'User 1–5', detail: { ko: 'User를 선택하면 5개의 사용자 슬롯이 나타납니다. 각 슬롯 메뉴에서 이름을 변경하고 현재 9밴드 설정을 저장하거나 다시 불러옵니다.', en: 'Selecting User reveals five user slots. Use a slot menu to rename it, save the current nine-band curve, or recall it later.' } },
     { name: 'Graph node', values: 'Drag / Wheel', detail: { ko: '노드를 좌우로 끌면 Frequency, 위아래로 끌면 Gain이 바뀝니다. 노드 위 휠은 Bell 밴드의 Q를 0.1 단위로 조절합니다.', en: 'Drag left/right for Frequency and up/down for Gain. Wheel over a Bell node adjusts Q in 0.1 steps.' } },
     { name: 'Band 1 · L-Shelf', values: '20–240 Hz', detail: { ko: '저역 전체의 무게를 넓게 조절합니다. Q는 0.71로 고정됩니다.', en: 'Broadly adjusts low-end weight. Q is fixed at 0.71.' } },
     { name: 'Band 2 · Bell', values: '80–600 Hz', detail: { ko: '저음의 두께와 탁함이 주로 위치하는 대역입니다.', en: 'Targets bass body and common muddy low-mid content.' } },
@@ -257,6 +279,12 @@ const SETTINGS: Partial<Record<string, Setting[]>> = {
     { name: 'MP3 320', values: '320 kbps', detail: { ko: '용량이 작고 배포가 편리한 손실 압축 형식입니다.', en: 'Lossy 320 kbps format for smaller, convenient distribution files.' } },
     { name: 'FLAC', values: 'Lossless', detail: { ko: 'WAV보다 용량을 줄이면서 PCM 품질을 보존하는 무손실 형식입니다.', en: 'Lossless compression that preserves PCM quality with smaller files than WAV.' } },
   ],
+  renderBatch: [
+    { name: 'Render Batch', values: 'Multiple jobs', detail: { ko: '상단 Render Batch를 열면 여러 작업을 만들 수 있습니다. 각 작업은 원본 파일·폴더, Session Card, 출력 폴더를 독립적으로 가집니다.', en: 'Open Render Batch from the top bar to create multiple jobs. Each job has independent source files/folders, a Session Card, and an output folder.' } },
+    { name: 'Original Sources', values: '+ FILE / + FOLDER / Drop', detail: { ko: '파일 또는 폴더를 여러 번 추가하거나 드래그 앤 드롭해 한 작업에 누적합니다. ×는 개별 파일 삭제, 제목 옆 ×는 해당 작업의 원본 전체 삭제입니다.', en: 'Add files or folders repeatedly, or drag and drop them into one job. Use × to remove one file, or the × beside the heading to clear all sources in that job.' } },
+    { name: 'Session Card', values: 'SELECT / CHANGE', detail: { ko: '저장된 Session Card를 선택하면 해당 카드의 EQ 종류, 프리셋, 활성 이펙트와 출력 형식이 작업에 적용됩니다.', en: 'Choose a saved Session Card to apply its EQ type, preset, enabled effects, and output format to that job.' } },
+    { name: 'Add Batch Job', values: '+ ADD BATCH JOB', detail: { ko: '서로 다른 원본 묶음에 다른 Session Card를 적용하려면 작업을 추가합니다. START는 모든 작업을 위에서 아래 순서로 처리합니다.', en: 'Add another job when different source groups need different Session Cards. START processes every job from top to bottom.' } },
+  ],
 };
 
 const MEDIA: Partial<Record<string, Media[]>> = {
@@ -284,11 +312,22 @@ const MEDIA: Partial<Record<string, Media[]>> = {
     { src: eqAdvancedImage, caption: { ko: 'Advanced — 5개 밴드의 Frequency·Gain·Q', en: 'Advanced — Frequency, Gain, and Q for five bands' } },
     { src: eqUserPresetImage, caption: { ko: 'User 프리셋 선택', en: 'Selecting the User preset' } },
     { src: eqPresetSaveImage, caption: { ko: 'User 프리셋 이름 변경과 현재 설정 저장', en: 'Renaming and saving current settings to a User preset' } },
+    { src: eq9BandOverviewImage, caption: { ko: '9-Band EQ 기본 화면 — 9개 고정 주파수와 모드 전환 스위치', en: '9-Band EQ overview — nine fixed frequencies and the mode switch' } },
+    { src: eq9BandUserPresetsImage, caption: { ko: '9-Band Pop 프리셋 곡선과 User 1–5 사용자 프리셋', en: '9-Band Pop curve and the User 1–5 preset slots' } },
   ],
   dynamics: [{ src: dynamicsDetailsImage, caption: { ko: 'Dynamics — 3밴드 Gain Reduction, Ratio, Transient와 Exciter', en: 'Dynamics — three-band gain reduction, Ratio, Transient, and Exciter' } }],
   stereo: [{ src: stereoDetailsImage, caption: { ko: 'Stereo — Width·공간 효과·Bass Mono와 Correlation', en: 'Stereo — Width, spatial effects, Bass Mono, and Correlation' } }],
   loudness: [{ src: loudnessDetailsImage, caption: { ko: 'Loudness / Limiter — 목표 LUFS, True Peak, Saturation과 Limiter', en: 'Loudness / Limiter — target LUFS, True Peak, Saturation, and Limiter' } }],
-  export: [{ src: exportDetailsImage, caption: { ko: 'Export — 메타데이터, 아트워크, 저장 위치와 출력 포맷', en: 'Export — metadata, artwork, destination, and output format' } }],
+  export: [
+    { src: exportDetailsImage, caption: { ko: 'Export — 메타데이터, 아트워크, 저장 위치와 출력 포맷', en: 'Export — metadata, artwork, destination, and output format' } },
+  ],
+  renderBatch: [
+    { src: renderBatchOverviewImage, caption: { ko: 'Render Batch 기본 화면 — 원본, Session Card, 출력으로 구성된 첫 작업', en: 'Render Batch overview — the first source, Session Card, and output job' } },
+    { src: renderBatchSessionPickerImage, caption: { ko: '저장된 Session Card 목록에서 작업에 적용할 설정 선택', en: 'Selecting the settings to apply from saved Session Cards' } },
+    { src: renderBatchSessionLoadedImage, caption: { ko: '원본 파일과 Session Card가 준비되어 START가 활성화된 작업', en: 'A job ready to start with source files and a loaded Session Card' } },
+    { src: renderBatchAddJobImage, caption: { ko: '다른 Session Card를 적용하기 위한 두 번째 Batch Job 추가', en: 'Adding a second Batch Job for a different Session Card' } },
+    { src: renderBatchMultipleJobsImage, caption: { ko: '서로 다른 원본 묶음과 Session Card를 지정한 다중 작업 목록', en: 'Multiple jobs with different source groups and Session Cards' } },
+  ],
 };
 
 function Marked({ text, query }: { text: string; query: string }) {

@@ -1,6 +1,5 @@
 // FocusDAW Mastering Desk v0.10.5 - 릴리스 노트 (현재 버전 전용)
-// Help ▸ Release Notes 창에 표시. 버전을 올릴 때마다 이 파일을 "현재 버전" 내용으로 교체한다
-//   (이전 버전 노트는 남기지 않는다 — A4 수정요청 #2). 버그=상세, 기능/개선=간략.
+// Help ▸ Release Notes 창에 표시. v0.10.0 이후 현재 버전까지의 변경 내용을 간략히 누적한다.
 import { APP_VERSION } from './version';
 
 export type ReleaseNotes = {
@@ -16,12 +15,21 @@ export type ReleaseNotes = {
 
 export const RELEASE_NOTES: ReleaseNotes = {
   version: APP_VERSION,
-  date: '2026-06-30',
-  features: [],
-  improvements: [
-    'Optimized denoise performance by implementing time-domain silent range detection.',
-    'Denoising is now parallelized across channels using separate Web Workers for multi-threading speedup.',
-    'Removed heavy Math.hypot and Math.log10 calls in the inner loops of spectral gating.',
+  date: '2026-07-01',
+  features: [
+    'Added Help > Release Notes and an in-app update-check result window.',
+    'Added direct AIFF/AIF playback, analysis, and export support.',
+    'Added a 9-band graphic EQ with presets, user presets, live metering, and session support.',
+    'Expanded Render Batch with multiple jobs, per-job Session Cards, and mixed file/folder input.',
   ],
-  fixes: [],
+  improvements: [
+    'Greatly improved Denoise speed with fast quiet-range detection and parallel channel processing.',
+    'Improved OGG and M4A metadata detection for sample rate, channels, and duration.',
+    'Added drag-and-drop, duplicate filtering, source-path tooltips, and clearer progress animations to Render Batch.',
+    'Added the support contact address to Help > About.',
+  ],
+  fixes: [
+    'Fixed AIFF/AIF files failing to show metadata or play.',
+    'Fixed 9-band EQ graph, preset state, export, batch render, session save, and new-project reset behavior.',
+  ],
 };

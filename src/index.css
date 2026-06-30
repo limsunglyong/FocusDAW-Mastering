@@ -267,3 +267,26 @@ body {
     transform: translateY(-120%);
   }
 }
+
+/* Render Batch 수평 진행바 안에서 좌→우로 흐르는 광택 */
+@keyframes dkbatchflowx {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
+}
+
+/* Render Batch 취소 대기 상태의 버튼/글자 breathing */
+@keyframes dkcancelbreathe {
+  0%,
+  100% {
+    color: rgba(255, 255, 255, 0.48);
+    opacity: 0.68;
+  }
+  50% {
+    color: rgba(255, 255, 255, 1);
+    opacity: 1;
+  }
+}

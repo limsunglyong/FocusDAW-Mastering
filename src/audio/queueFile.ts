@@ -38,6 +38,7 @@ export type QueueFile = FileItem & {
   noiseDepth?: string;
   denoiseAmt?: number;
   denoiseRecommended?: { depth: string; amount: number; text: string };
+  noisePrint?: any;
 };
 
 /**

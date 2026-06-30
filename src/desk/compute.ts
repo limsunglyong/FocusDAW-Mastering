@@ -54,7 +54,8 @@ function makeKnob(fk: string, def: CtrlDef, raw: number, vals: Record<string, an
   const fixed =
     fk === 'spectral.q0' || fk === 'spectral.q4' ||
     (fk === 'stereo.crossover' && !vals['stereo.bassmono']) ||
-    (fk === 'loudness.ceiling' && !vals['loudness.tplimit']);
+    (fk === 'loudness.ceiling' && !vals['loudness.tplimit']) ||
+    ((fk === 'dynamics.low' || fk === 'dynamics.mid' || fk === 'dynamics.high') && vals['dynamics.multiband'] === false);
   let u = UNITS[fk];
   if (def.k && u === 'ms' && Math.abs(raw) >= 1000) u = 'sec';
   if (def.khz) u = Math.abs(raw) >= 1000 ? 'kHz' : 'Hz';
@@ -66,7 +67,7 @@ function makeKnob(fk: string, def: CtrlDef, raw: number, vals: Record<string, an
     valColor: fk === 'loudness.sat' ? satCol : warn ? def.warnVal || '#d98a1f' : fixed ? '#9a907c' : pal.pInk,
     px1: p1[0].toFixed(2), py1: p1[1].toFixed(2), px2: p2[0].toFixed(2), py2: p2[1].toFixed(2),
     fk: fixed ? '' : fk, kmin: def.min!, kmax: def.max!, kstep: def.step || 1,
-    knobStyle: fixed ? 'cursor:not-allowed;opacity:0.42;' : 'cursor:ns-resize;', fixed,
+    knobStyle: fixed ? 'cursor:default;opacity:0.42;pointer-events:none;' : 'cursor:ns-resize;', fixed,
   };
 }
 

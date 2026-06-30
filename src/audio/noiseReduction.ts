@@ -53,18 +53,22 @@ function processChannel(
   const im = new Float32Array(fftSize);
   const output = new Float32Array(paddedLength);
   const norm = new Float32Array(paddedLength);
-  const noiseAmp = new Float32Array(bins);
-
-  for (let k = 0; k < bins; k++) {
-    noiseAmp[k] = dbToAmp(print.profileDb[Math.min(k, print.profileDb.length - 1)]) / ampScale;
-  }
-
   const frames = 1 + Math.floor((paddedLength - fftSize) / hopSize);
   const amount = clamp01(options.amount);
   const floor = clamp01(options.floor);
   const thresholdDb = Math.max(0, options.thresholdDb);
   const oversub = options.oversubFactor !== undefined ? options.oversubFactor : 1.0;
   const progressEvery = Math.max(1, Math.floor(Math.max(1, frames) / 100));
+
+  const thresholdAmp = new Float32Array(bins);
+  const subAmp = new Float32Array(bins);
+
+  for (let k = 0; k < bins; k++) {
+    const profileDb = print.profileDb[Math.min(k, print.profileDb.length - 1)];
+    const noiseAmpK = dbToAmp(profileDb) / ampScale;
+    thresholdAmp[k] = Math.max(0, (Math.pow(10, (profileDb + thresholdDb) / 20) - 1e-12) / ampScale);
+    subAmp[k] = noiseAmpK * amount * oversub;
+  }
 
   for (let f = 0; f < frames; f++) {
     const start = f * hopSize;
@@ -76,14 +80,11 @@ function processChannel(
     fft.transform(re, im);
 
     for (let k = 0; k < bins; k++) {
-      const mag = Math.hypot(re[k], im[k]);
+      const mag = Math.sqrt(re[k] * re[k] + im[k] * im[k]);
       if (mag <= 1e-12) continue;
+      if (mag > thresholdAmp[k]) continue;
 
-      const db = 20 * Math.log10(mag * ampScale + 1e-12);
-      const profileDb = print.profileDb[Math.min(k, print.profileDb.length - 1)];
-      if (db > profileDb + thresholdDb) continue;
-
-      const subtraction = (noiseAmp[k] / mag) * amount * oversub;
+      const subtraction = subAmp[k] / mag;
       const gain = Math.max(floor, 1 - subtraction);
       re[k] *= gain;
       im[k] *= gain;

@@ -171,7 +171,7 @@ function PreViz({ view }: { view: DeskView }) {
   const files = useAppStore((s) => s.files);
   const preAnalysis = useAppStore((s) => s.preAnalysis);
   const denoiseOn = useAppStore((s) => !!s.vals['pre.denoise']);
-  const denoiseAmt = useAppStore((s) => Number(s.vals['pre.denoiseAmt']) || 0);
+  const denoiseAmt = useAppStore((s) => Number(s.appliedDenoiseAmt) || 0);
   useEffect(() => {
     void useAppStore.getState().analyzePreSelected();
   }, [curFile, fileCount]);

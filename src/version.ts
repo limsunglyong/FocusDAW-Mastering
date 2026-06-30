@@ -341,6 +341,11 @@
  *  - v0.10.3: (Patch, A4 수정요청 ④) About 창에 연락 이메일(focustone.el@gmail.com) 추가 — OK 버튼 위,
  *             윗줄·아랫줄 한 칸씩 간격([AboutWindow.tsx](src/ui/desk/AboutWindow.tsx)). 한 줄 추가로 About
  *             창 높이 370→400([main.cjs](electron/main.cjs)). **검증:** lint·build·verify(90/90). *(A3 §5 MT-10.3.)*
+ *  - v0.10.4: (Patch, II.Pre-Proc Denoise Optimization) 노이즈 제거(Denoise) 처리 성능 극대화.
+ *             ① 시간 도메인 RMS 기반 조용한 2초 구간 고속 자동 탐색 (~10ms) 구현.
+ *             ② 탐색된 2초 구간에 대해서만 STFT 스펙트로그램 및 NoisePrint 분석을 수행하여 불필요한 전체 분석 제거.
+ *             ③ 스펙트럴 게이팅 연산부(processChannel) 내부 loop 내 Math.hypot/Math.log10 제거 및 임계값 사전 연산 적용.
+ *             ④ 각 채널(L/R)을 병렬 Web Worker 로 구동하여 멀티 코어 성능 극대화 (2채널 2배속).
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

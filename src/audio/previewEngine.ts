@@ -165,11 +165,11 @@ export class PreviewEngine {
     this.start(buffer, onEnded);
   }
 
-  stop(resetOffset = true) {
+  stop(resetOffset = true, keepLoopOffset = false) {
     this.stopGraph();
     this.playing = false;
     if (resetOffset) {
-      this.offset = 0;
+      this.offset = (keepLoopOffset && this.loopEnabled && this.loopEnd > this.loopStart) ? this.loopStart : 0;
       this.currentBuffer = null;
       this.currentOnEnded = null;
     }

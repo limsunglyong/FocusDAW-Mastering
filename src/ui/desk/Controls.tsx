@@ -74,15 +74,17 @@ function PreControls({ view }: { view: DeskView }) {
   const denoise = view.controls.find((c) => c.key === 'denoise');
   const knobs = view.controls.filter((c) => c.isRot); // Noise Reduction, Fade In, Fade Out
   const preAnalysis = useAppStore((s) => s.preAnalysis);
-  const setVal = useAppStore((s) => s.setVal);
+  const applyManualDenoise = useAppStore((s) => s.applyManualDenoise);
   const currentDepth = useAppStore((s) => s.vals['pre.noiseDepth']);
   const currentAmt = useAppStore((s) => s.vals['pre.denoiseAmt']);
+  const appliedDepth = useAppStore((s) => s.appliedNoiseDepth);
+  const appliedAmt = useAppStore((s) => s.appliedDenoiseAmt);
 
   let recommendationHtml = null;
   if (denoise?.on && preAnalysis) {
     const rec = getDenoiseRecommendation(preAnalysis.snrDb, preAnalysis.floorDb);
     const depthLabel = rec.depth === '1' ? 'Original' : rec.depth === '3' ? 'Deep' : 'Normal';
-    const isApplied = String(currentDepth) === rec.depth && Number(currentAmt) === rec.amount;
+    const isApplied = String(currentDepth) === String(appliedDepth) && Number(currentAmt) === Number(appliedAmt);
 
     recommendationHtml = (
       <div style={{
@@ -132,8 +134,7 @@ function PreControls({ view }: { view: DeskView }) {
         ) : (
           <button
             onClick={() => {
-              setVal('pre.noiseDepth', rec.depth);
-              setVal('pre.denoiseAmt', rec.amount);
+              void applyManualDenoise();
             }}
             style={{
               fontFamily: 'Archivo',

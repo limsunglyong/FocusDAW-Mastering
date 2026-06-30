@@ -115,6 +115,7 @@ type AppState = DeskState & {
   loadFiles: (files: File[] | FileList) => Promise<void>;
   removeFile: (id: string) => void;
   clearFiles: () => void;
+  newSession: () => void;
   togglePreview: () => Promise<void>;
   stopPreview: () => void;
   syncPreviewParams: () => void;
@@ -165,6 +166,11 @@ type AppState = DeskState & {
   // ── 세션(프로젝트) 적용 (v0.9.0) ──
   /** 세션 payload(체인 설정)를 현재 상태에 적용한다. 곡별 denoise·파일 큐는 건드리지 않는다. */
   applySession: (payload: SessionPayload) => void;
+
+  // ── Denoise 조작 개선 (v0.10.4) ──
+  appliedDenoiseAmt: number;
+  appliedNoiseDepth: string;
+  applyManualDenoise: () => Promise<void>;
 };
 
 const clone = (s: DeskState): DeskState => ({
@@ -185,6 +191,7 @@ function invalidateProcessingBuffers(files: QueueFile[]): QueueFile[] {
     // v0.2.28: 처리 버퍼가 무효화되면 그로부터 파생된 denoise 버퍼도 무효화.
     denoisedBuffer: undefined,
     denoiseKey: undefined,
+    noisePrint: undefined,
   }));
 }
 
@@ -411,6 +418,8 @@ async function runExport(ids: string[]) {
 export const useAppStore = create<AppState>((set, get) => ({
   ...clone(DEFAULT_STATE),
   theme: DEFAULT_THEME,
+  appliedDenoiseAmt: 35,
+  appliedNoiseDepth: '2',
   undoStacks: {},
   redoStacks: {},
   pushUndoSnap: () => {
@@ -641,9 +650,27 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (extra && s.vals['spectral.preset'] !== 'User') {
           activeUserPresetIdx = -1;
         }
-        const vals = { ...s.vals, [fk]: v, ...(extra || {}) };
+        const vals: Record<string, any> = { ...s.vals, [fk]: v, ...(extra || {}) };
         let files = s.files;
-        if (fk === 'pre.noiseDepth' || fk === 'pre.denoiseAmt') {
+        let appliedPatch = {};
+        if (fk === 'pre.denoise' && v === true) {
+          const file = s.files[s.curFile];
+          if (file && file.denoiseRecommended) {
+            const rec = file.denoiseRecommended;
+            vals['pre.noiseDepth'] = rec.depth;
+            vals['pre.denoiseAmt'] = rec.amount;
+            appliedPatch = {
+              appliedNoiseDepth: rec.depth,
+              appliedDenoiseAmt: rec.amount
+            };
+            files = s.files.map((f, idx) => {
+              if (idx === s.curFile) {
+                return { ...f, noiseDepth: rec.depth, denoiseAmt: rec.amount };
+              }
+              return f;
+            });
+          }
+        } else if (fk === 'pre.noiseDepth' || fk === 'pre.denoiseAmt') {
           files = s.files.map((f, idx) => {
             if (idx === s.curFile) {
               const patch: Partial<QueueFile> = {};
@@ -654,11 +681,10 @@ export const useAppStore = create<AppState>((set, get) => ({
             return f;
           });
         }
-        return { vals, files, activeUserPresetIdx };
+        return { vals, files, activeUserPresetIdx, ...appliedPatch };
       });
       get().syncPreviewParams();
-      // v0.2.28: Denoise 관련 파라미터는 유효 버퍼를 재계산해야 하므로 디바운스 갱신.
-      if (fk === 'pre.denoise' || fk === 'pre.noiseDepth' || fk === 'pre.denoiseAmt') get().refreshDenoise();
+      if (fk === 'pre.denoise') get().refreshDenoise();
     },
 
   applyPreset: (name) =>
@@ -788,7 +814,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         vals['pre.noiseDepth'] = file.noiseDepth ?? '2';
         vals['pre.denoiseAmt'] = file.denoiseAmt ?? 35;
       }
-      return { curFile: nextIdx, vals };
+      return {
+        curFile: nextIdx,
+        vals,
+        appliedNoiseDepth: file ? (file.noiseDepth ?? '2') : '2',
+        appliedDenoiseAmt: file ? (file.denoiseAmt ?? 35) : 35,
+      };
     });
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
     prioritizeSelectedDecode();
@@ -808,7 +839,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         vals['pre.noiseDepth'] = file.noiseDepth ?? '2';
         vals['pre.denoiseAmt'] = file.denoiseAmt ?? 35;
       }
-      return { curFile: nextIdx, vals };
+      return {
+        curFile: nextIdx,
+        vals,
+        appliedNoiseDepth: file ? (file.noiseDepth ?? '2') : '2',
+        appliedDenoiseAmt: file ? (file.denoiseAmt ?? 35) : 35,
+      };
     });
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
     prioritizeSelectedDecode();
@@ -827,7 +863,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         vals['pre.noiseDepth'] = file.noiseDepth ?? '2';
         vals['pre.denoiseAmt'] = file.denoiseAmt ?? 35;
       }
-      return { curFile: i, vals };
+      return {
+        curFile: i,
+        vals,
+        appliedNoiseDepth: file ? (file.noiseDepth ?? '2') : '2',
+        appliedDenoiseAmt: file ? (file.denoiseAmt ?? 35) : 35,
+      };
     });
     if (shouldResumeOriginal) void get().resumeOriginalPlaybackAfterSelection(resumeSeq);
     prioritizeSelectedDecode();
@@ -872,6 +913,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         // 빈 큐였다면 첫 추가 파일을 선택, 아니면 현재 선택 유지(범위 보정)
         curFile: curFileIdx,
         vals,
+        appliedNoiseDepth: firstFile ? (firstFile.noiseDepth ?? '2') : '2',
+        appliedDenoiseAmt: firstFile ? (firstFile.denoiseAmt ?? 35) : 35,
       };
     });
     // 백그라운드 LUFS 측정 등록 + 현재 선택 파일 우선 디코딩
@@ -903,6 +946,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     measureQueue = [];
     previewEngine.setLoop(false, 0, 0);
     set({ files: [], curFile: 0, importError: null, loopEnabled: false, loopStart: 0, loopEnd: 0, preAnalysis: null });
+  },
+
+  newSession: () => {
+    get().stopPreview();
+    get().stopOriginalPlayback();
+    measureQueue = [];
+    previewEngine.setLoop(false, 0, 0);
+    set({
+      ...clone(DEFAULT_STATE),
+      appliedDenoiseAmt: 35,
+      appliedNoiseDepth: '2',
+      undoStacks: {},
+      redoStacks: {},
+      files: [],
+      curFile: 0,
+      importError: null,
+      loopEnabled: false,
+      loopStart: 0,
+      loopEnd: 0,
+      preAnalysis: null,
+      artworkDataUrl: null,
+    });
+    get().syncPreviewParams();
   },
 
   togglePreview: async () => {
@@ -973,11 +1039,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
         const vals = { ...s.vals };
         const currentFile = files[s.curFile];
+        const appliedPatch = (currentFile && currentFile.id === file.id && autoApplied) ? {
+          appliedNoiseDepth: rec.depth,
+          appliedDenoiseAmt: rec.amount
+        } : {};
         if (currentFile && currentFile.id === file.id && autoApplied) {
           vals['pre.noiseDepth'] = rec.depth;
           vals['pre.denoiseAmt'] = rec.amount;
         }
-        return { preAnalysis: analysis, files, vals };
+        return { preAnalysis: analysis, files, vals, ...appliedPatch };
       });
 
       if (autoApplied) {
@@ -1051,11 +1121,31 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ processingAudio: true, processingMessage: 'Denoising', processingCurrentName: file.name, processingDone: 0, processingTotal: 1 });
     try {
-      const denoised = await denoiseBuffer(processing, depth, amt);
-      set((state) => ({
-        files: state.files.map((f) => (f.id === id ? { ...f, denoisedBuffer: denoised, denoiseKey: key } : f)),
-        processingDone: 1,
-      }));
+      let computedPrint = file.noisePrint;
+      const denoised = await denoiseBuffer(
+        processing,
+        depth,
+        amt,
+        file.noisePrint,
+        (print) => {
+          computedPrint = print;
+        }
+      );
+      set((state) => {
+        const files = state.files.map((f) => (
+          f.id === id ? { ...f, denoisedBuffer: denoised, denoiseKey: key, noisePrint: computedPrint } : f
+        ));
+        const curFileObj = files[state.curFile];
+        const appliedPatch = (curFileObj && curFileObj.id === id) ? {
+          appliedDenoiseAmt: amt,
+          appliedNoiseDepth: depth
+        } : {};
+        return {
+          files,
+          processingDone: 1,
+          ...appliedPatch
+        };
+      });
       return denoised;
     } finally {
       set({ processingAudio: false, processingMessage: '', processingCurrentName: '', processingDone: 0, processingTotal: 0 });
@@ -1065,6 +1155,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   // v0.2.28: Pre ON + Denoise ON → denoised, 그 외 → processing.
   effectivePlaybackBuffer: async (id) => {
     return denoiseActive(get()) ? get().ensureDenoisedBuffer(id) : get().ensureProcessingBuffer(id);
+  },
+
+  // v0.10.4: 현재 UI의 Denoise 파라미터 값으로 Denoise를 강제 수행
+  applyManualDenoise: async () => {
+    const file = get().files[get().curFile];
+    if (!file) return;
+    try {
+      await get().ensureDenoisedBuffer(file.id);
+      void get().analyzePreSelected();
+      void swapPlaybackToEffective();
+    } catch (e) {
+      console.error('applyManualDenoise failed:', e);
+    }
   },
 
   // v0.2.28: Denoise 파라미터/토글 변경 시 디바운스로 분석+재생 버퍼를 갱신(드래그 thrash 방지).
@@ -1087,7 +1190,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       files: state.files.map((f) => {
         if (f.id === id) return applyDecodedMeta(f, decoded, true);
         if (f.sourceBuffer || f.processingBuffer || f.denoisedBuffer) {
-          return { ...f, sourceBuffer: undefined, processingBuffer: undefined, processingSampleRate: undefined, denoisedBuffer: undefined, denoiseKey: undefined };
+          return { ...f, sourceBuffer: undefined, processingBuffer: undefined, processingSampleRate: undefined, denoisedBuffer: undefined, denoiseKey: undefined, noisePrint: undefined };
         }
         return f;
       }),
@@ -1179,7 +1282,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   stopOriginalPlayback: () => {
     originalSelectionResumeSeq++;
-    previewEngine.stop();
+    previewEngine.stop(true, true);
     set({ isOriginalPlaying: false });
   },
 

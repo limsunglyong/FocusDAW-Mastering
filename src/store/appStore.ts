@@ -1099,14 +1099,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     // v0.2.28: Denoise 적용 후 기준으로 표시(P2-4) — denoise on 이면 denoised 버퍼를 분석.
-    // dry 는 원본 sourceBuffer 로 분석(resample 생략, 빠른 진입). 주파수 내용은 rate 무관.
+    // Denoise OFF도 선택한 Input Rate의 processingBuffer를 분석한다.
+    // 그래야 ON/OFF 비교에서 리샘플링 유무가 섞이지 않고 Denoise 영향만 분리된다.
     const active = denoiseActive(st);
-    const key = `${file.id}:${active ? 'dn:' + currentDenoiseKey(st) : 'dry'}`;
+    const analysisRate = sampleRateFromInputRate(st.vals['input.rate']);
+    const key = `${file.id}:${active ? 'dn:' + currentDenoiseKey(st) : `dry:${analysisRate}`}`;
     if (st.preAnalysis?.key === key) return; // 이미 동일 조건으로 분석됨
     const seq = ++preAnalysisSeq;
     let buffer: AudioBuffer;
     try {
-      buffer = active ? await get().ensureDenoisedBuffer(file.id) : await get().ensureSourceBuffer(file.id);
+      buffer = active ? await get().ensureDenoisedBuffer(file.id) : await get().ensureProcessingBuffer(file.id);
     } catch {
       return; // 디코딩/처리 실패 → 절차적 폴백 유지
     }
@@ -1304,12 +1306,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({
       vals: { ...s.vals, 'input.rate': rate },
       files: invalidateProcessingBuffers(s.files),
+      preAnalysis: null,
       isOriginalPlaying: false,
       previewError: null,
       originalPlayError: null,
     }));
 
     if (!currentFile) return;
+
+    void get().analyzePreSelected();
 
     if (resumeOriginal) {
       set({

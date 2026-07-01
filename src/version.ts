@@ -358,6 +358,11 @@
  *             재시작은 중앙 모달 하나에서 처리한다. 유효 버전 없음/서버·파일 없음/dev 상태는 모두
  *             비경고형 "No update available" 안내로 통합한다. 기동 자동 확인에서 유효 버전 발견 시
  *             Footer 버전 왼쪽에 "Update vX is available" 문구가 오른쪽→왼쪽으로 반복 흐른다.
+ *  - v0.11.4: (Patch) 비원본 Sample Rate의 Pre 스펙트럼 진단 및 업샘플링 anti-imaging 보완.
+ *             STFT FFT/Hop을 48 kHz 기준 물리 시간에 맞춰 비례 선택하고(96 kHz=4096/1024),
+ *             Denoise OFF도 선택 Rate의 processingBuffer를 분석하도록 ON/OFF 비교 경로와 캐시를
+ *             바로잡았다. 48→96 kHz OfflineAudioContext SRC의 원본 Nyquist 상부 이미지 성분은
+ *             원본 Nyquist 96% 지점의 8차 Butterworth 저역통과 필터로 제거한다.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

@@ -18,6 +18,23 @@ export const DEFAULT_STFT_PARAMS: StftParams = {
   window: 'hann',
 };
 
+/**
+ * Keep the STFT window and hop durations close to the 48 kHz baseline.
+ * FFT sizes must be powers of two, so the proportional size is rounded to
+ * the nearest supported power (44.1/48 kHz -> 2048, 88.2/96 kHz -> 4096).
+ */
+export function stftParamsForSampleRate(sampleRate: number): StftParams {
+  const safeRate = Number.isFinite(sampleRate) && sampleRate > 0 ? sampleRate : 48000;
+  const proportionalSize = DEFAULT_STFT_PARAMS.fftSize * safeRate / 48000;
+  const exponent = Math.round(Math.log2(proportionalSize));
+  const fftSize = Math.max(256, Math.min(32768, 2 ** exponent));
+  return {
+    fftSize,
+    hopSize: fftSize >> 2,
+    window: DEFAULT_STFT_PARAMS.window,
+  };
+}
+
 /** dBFS 하한 (이보다 작은 값은 클램프) */
 export const DB_FLOOR = -120;
 

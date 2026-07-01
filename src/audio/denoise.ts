@@ -1,7 +1,7 @@
 // FocusDAW Mastering Desk v0.2.28 (Phase 2) - STFT 스펙트럴 게이팅 Denoise 실처리(2-A)
 // 선택 파일의 processingBuffer 를 오프라인으로 노이즈 제거해 denoised AudioBuffer 를 1회 생성한다.
 // 흐름: computeSpectrogram → findQuietNoiseRange(가장 조용한 구간 자동 탐색) → buildNoisePrint → reduceNoiseBuffer.
-import { bufferToMono, computeSpectrogram, DEFAULT_STFT_PARAMS } from './stft';
+import { bufferToMono, computeSpectrogram, stftParamsForSampleRate } from './stft';
 import { buildNoisePrint, findQuietNoiseRange, findQuietNoiseRangeTimeDomain } from './noisePrint';
 import { reduceNoiseBuffer, type NoiseReductionOptions } from './noiseReduction';
 import { getAudioContext } from './decoder';
@@ -67,7 +67,7 @@ export async function denoiseAudioBuffer(
     onProgress?.(1);
     return buffer;
   }
-  const params = DEFAULT_STFT_PARAMS;
+  const params = stftParamsForSampleRate(buffer.sampleRate);
   const mono = bufferToMono(buffer);
   const spec = computeSpectrogram(mono, buffer.sampleRate, params);
   const range = findQuietNoiseRange(spec);
@@ -100,7 +100,7 @@ export function denoiseBuffer(
     const numCh = buffer.numberOfChannels;
     const length = buffer.length;
     const sampleRate = buffer.sampleRate;
-    const params = DEFAULT_STFT_PARAMS;
+    const params = stftParamsForSampleRate(sampleRate);
 
     try {
       const opts = depthToOptions(depth, amtPct);
@@ -181,6 +181,7 @@ export function denoiseBuffer(
               depth,
               amtPct,
               print,
+              params,
             };
             worker.postMessage(req, [chBuffer]);
           })

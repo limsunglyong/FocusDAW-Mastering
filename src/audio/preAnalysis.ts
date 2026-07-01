@@ -1,7 +1,7 @@
 // FocusDAW Mastering Desk v0.2.25 (Phase 2) - Pre Processing 3D 워터폴 실데이터 분석
 // 선택 파일 버퍼 → (Web Worker)STFT 스펙트로그램 → 로그-주파수 다운샘플 그리드 + noise floor/SNR 실측.
 // 무거운 STFT 는 worker 에서 돌려 메인 스레드를 막지 않는다(긴 곡 대응).
-import { bufferToMono, DEFAULT_STFT_PARAMS, type Spectrogram, type StftParams } from './stft';
+import { bufferToMono, stftParamsForSampleRate, type Spectrogram, type StftParams } from './stft';
 import { buildNoisePrint, findQuietNoiseRange } from './noisePrint';
 import type { StftWorkerRequest, StftWorkerResponse } from './stft.worker';
 
@@ -151,13 +151,14 @@ export async function analyzePre(
   buffer: AudioBuffer,
 ): Promise<PreAnalysis> {
   const mono = bufferToMono(buffer);
+  const baseParams = stftParamsForSampleRate(buffer.sampleRate);
   // v0.2.29: 시각화/노이즈 추정에는 고해상 시간축이 불필요 → 긴 곡은 hop 을 키워 분석을 가속(off-thread).
-  // fftSize 2048·Hann 은 유지(주파수 해상도·binHz 동일), hop 만 적응적으로 확대.
+  // 샘플레이트 비례 FFT·Hann 기준을 유지하고, 긴 곡은 hop 만 적응적으로 확대.
   const adaptiveHop = Math.max(
-    DEFAULT_STFT_PARAMS.hopSize,
-    Math.floor((mono.length - DEFAULT_STFT_PARAMS.fftSize) / ANALYSIS_TARGET_FRAMES),
+    baseParams.hopSize,
+    Math.floor((mono.length - baseParams.fftSize) / ANALYSIS_TARGET_FRAMES),
   );
-  const params: StftParams = { ...DEFAULT_STFT_PARAMS, hopSize: adaptiveHop };
+  const params: StftParams = { ...baseParams, hopSize: adaptiveHop };
   const spec = await runStftWorker(mono, buffer.sampleRate, params);
 
   const grid = downsampleGrid(spec, WATERFALL_NT, WATERFALL_NF);

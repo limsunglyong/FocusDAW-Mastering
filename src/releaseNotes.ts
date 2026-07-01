@@ -1,4 +1,4 @@
-// FocusDAW Mastering Desk v0.11.0 - 릴리스 노트 (현재 버전 전용)
+// FocusDAW Mastering Desk v0.11.4 - 릴리스 노트 (현재 버전 전용)
 // Help ▸ Release Notes 창에 표시. v0.10.0 이후 현재 버전까지의 변경 내용을 간략히 누적한다.
 import { APP_VERSION } from './version';
 
@@ -23,6 +23,7 @@ export const RELEASE_NOTES: ReleaseNotes = {
     'Expanded Render Batch with multiple jobs, per-job Session Cards, and mixed file/folder input.',
   ],
   improvements: [
+    'Matched STFT FFT and hop sizes to the selected sample rate and made Pre spectrum comparisons use the selected processing rate in both Denoise states.',
     'Update availability is now shown as a scrolling footer message with a single centered update dialog.',
     'Updates now ask for permission before downloading or installing.',
     'Greatly improved Denoise speed with fast quiet-range detection and parallel channel processing.',
@@ -32,6 +33,7 @@ export const RELEASE_NOTES: ReleaseNotes = {
     'Added the support contact address to Help > About.',
   ],
   fixes: [
+    'Reduced ultrasonic imaging after upsampling, including 48 kHz to 96 kHz, with a source-Nyquist anti-imaging filter.',
     'Removed the duplicate lower-right update banner and unified unavailable/error states as a normal informational message.',
     'Update-server or release-file failures no longer obstruct the app or expose raw server responses.',
     'Fixed Later still allowing an update to install automatically when the app exited.',

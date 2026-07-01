@@ -290,3 +290,26 @@ body {
     opacity: 1;
   }
 }
+
+@keyframes dkbatchjobbreathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px var(--dk-batch-glow-soft),
+      0 0 9px var(--dk-batch-glow-soft);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px var(--dk-batch-glow-soft),
+      0 0 24px var(--dk-batch-glow-strong);
+  }
+}
+
+@keyframes dkupdateticker {
+  from { transform: translateX(250px); }
+  to { transform: translateX(-100%); }
+}
+
+.dk-update-ticker {
+  animation: dkupdateticker 8s linear infinite;
+  will-change: transform;
+}

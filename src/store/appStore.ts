@@ -17,8 +17,9 @@ import { sanitizeSessionVals, type SessionPayload } from '../session/session';
 
 // v0.10.2: Help ▸ Check for Updates 결과 모달 상태.
 export type UpdateCheckStatus = {
-  state: 'checking' | 'not-available' | 'available' | 'downloaded' | 'error' | 'dev';
+  state: 'checking' | 'not-available' | 'available' | 'progress' | 'downloaded' | 'error' | 'dev';
   version?: string;
+  percent?: number;
   message?: string;
 };
 
@@ -379,7 +380,11 @@ async function runExport(ids: string[]) {
           useAppStore.setState({ exportStage: 'Denoising' });
           buffer = await st.ensureDenoisedBuffer(file.id);
         }
-        const params = previewParamsFromState(useAppStore.getState(), file);
+        // ensureProcessingBuffer 가 디코딩하며 store 의 meta(peakDb 등)를 갱신하므로,
+        // Normalize 등 meta 의존 파라미터가 신선하도록 최신 file 을 다시 조회한다(Preview/Batch 와 동일 신선도).
+        const latest = useAppStore.getState();
+        const latestFile = latest.files.find((f) => f.id === file.id) ?? file;
+        const params = previewParamsFromState(latest, latestFile);
         // v0.8.4 (7-E): MP3/FLAC 태그·아트워크. 트랙 제목은 파일명(별도 title 필드 없음), 나머지는 Export 메타.
         const meta = {
           title: baseName(file.name),

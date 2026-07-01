@@ -346,6 +346,18 @@
  *             ② 탐색된 2초 구간에 대해서만 STFT 스펙트로그램 및 NoisePrint 분석을 수행하여 불필요한 전체 분석 제거.
  *             ③ 스펙트럴 게이팅 연산부(processChannel) 내부 loop 내 Math.hypot/Math.log10 제거 및 임계값 사전 연산 적용.
  *             ④ 각 채널(L/R)을 병렬 Web Worker 로 구동하여 멀티 코어 성능 극대화 (2채널 2배속).
+ *  - v0.11.1: (Patch) 업데이트 설치를 사용자 선택형으로 변경. 기동 시 신규 버전 확인은 유지하되
+ *             autoDownload/autoInstallOnAppQuit를 비활성화하고, Download update 선택 시에만
+ *             updater:download → downloadUpdate를 실행한다. 다운로드 완료 후에도 Restart now를
+ *             선택해야 설치되며 Later/일반 종료는 현재 버전을 유지한다.
+ *  - v0.11.2: (Patch) 업데이트 서버/Release 파일 부재 fallback. 기동 시 자동 확인 오류는 콘솔에만
+ *             기록하고 UI에는 표시하지 않아 앱을 정상 사용할 수 있다. 수동 확인/다운로드 오류는
+ *             원본 HTML·XML 대신 짧은 안전 안내만 표시하며 요청 출처(auto/manual-check/download)를
+ *             상태에 포함해 자동 오류와 사용자 요청 오류를 구분한다.
+ *  - v0.11.3: (Patch) 업데이트 UI 단일화. 우측 하단 UpdateBanner를 제거하고 수동 확인·다운로드·
+ *             재시작은 중앙 모달 하나에서 처리한다. 유효 버전 없음/서버·파일 없음/dev 상태는 모두
+ *             비경고형 "No update available" 안내로 통합한다. 기동 자동 확인에서 유효 버전 발견 시
+ *             Footer 버전 왼쪽에 "Update vX is available" 문구가 오른쪽→왼쪽으로 반복 흐른다.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

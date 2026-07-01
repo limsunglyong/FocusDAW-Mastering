@@ -271,8 +271,20 @@ export function RenderBatchWindow() {
         {jobs.map((job, index) => {
           const done = Object.values(job.statuses).filter((s) => s.state === 'done').length;
           const active = Object.values(job.statuses).some((s) => s.state === 'processing');
+          const activeCancelling = active && cancelling;
+          const jobStyle = {
+            marginBottom: 10,
+            border: `1px solid ${activeCancelling ? '#9b927f' : active ? accent : '#cabfa9'}`,
+            borderRadius: 12,
+            background: activeCancelling ? '#e2dbce' : '#e8dfcc',
+            boxShadow: activeCancelling ? '0 0 0 2px rgba(120,112,98,.18)' : active ? `0 0 0 2px ${accent}38, 0 0 18px ${accent}68` : 'none',
+            animation: active && !activeCancelling ? 'dkbatchjobbreathe 1.8s ease-in-out infinite' : 'none',
+            transition: 'border-color .18s ease, background .18s ease, box-shadow .18s ease',
+            '--dk-batch-glow-soft': `${accent}30`,
+            '--dk-batch-glow-strong': `${accent}8c`,
+          } as CSSProperties;
           return (
-            <section key={job.id} style={{ marginBottom: 10, border: `1px solid ${active ? accent : '#cabfa9'}`, borderRadius: 12, background: '#e8dfcc', boxShadow: active ? `0 0 0 2px ${accent}25` : 'none' }}>
+            <section key={job.id} style={jobStyle}>
               <div style={{ height: 34, padding: '0 10px 0 13px', display: 'flex', alignItems: 'center', gap: 9, borderBottom: job.expanded ? '1px solid #d3c9b2' : 'none' }}>
                 <button onClick={() => updateJob(job.id, { expanded: !job.expanded })} style={iconBtn}>{job.expanded ? '▾' : '▸'}</button>
                 <span style={label}>JOB {index + 1}</span>
@@ -309,13 +321,22 @@ export function RenderBatchWindow() {
                       </>}
                     </PaneHead>
                     <div style={{ flex: 1, overflowY: 'auto', maxHeight: 190, padding: 7 }}>
-                      {!job.sources.length ? <Empty text="Drop files / folders here or use + File / + Folder" /> : job.sources.map((s) => (
-                        <div key={s.id} style={fileRow}>
+                      {!job.sources.length ? <Empty text="Drop files / folders here or use + File / + Folder" /> : job.sources.map((s) => {
+                        const processing = job.statuses[s.id]?.state === 'processing';
+                        return (
+                        <div key={s.id} style={{
+                          ...fileRow,
+                          background: processing ? (cancelling ? '#ddd7cb' : `${accent}20`) : fileRow.background,
+                          borderColor: processing ? (cancelling ? '#aaa294' : `${accent}80`) : '#e4d9c2',
+                          boxShadow: processing && !cancelling ? `inset 3px 0 0 ${accent}` : 'none',
+                          transition: 'background .18s ease, border-color .18s ease, box-shadow .18s ease',
+                        }}>
                           <span style={{ opacity: .6 }}>♪</span><span title={s.folder} style={ellipsis}>{s.name}</span>
                           <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: '#8a8170' }}>{formatBytes(s.bytes)}</span>
                           {!running && <button onClick={() => removeSource(job.id, s.id)} title="Remove file" style={{ ...iconBtn, color: '#a34252' }}>×</button>}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -346,7 +367,14 @@ export function RenderBatchWindow() {
                         const st = job.statuses[s.id];
                         const ext = st?.ext || outputExt(job.session?.payload.vals['export.format']);
                         return (
-                          <div key={s.id} style={{ ...fileRow, opacity: !st || st.state === 'waiting' ? .5 : 1 }}>
+                          <div key={s.id} style={{
+                            ...fileRow,
+                            opacity: !st || st.state === 'waiting' ? .5 : 1,
+                            background: st?.state === 'processing' ? (cancelling ? '#ddd7cb' : `${accent}20`) : fileRow.background,
+                            borderColor: st?.state === 'processing' ? (cancelling ? '#aaa294' : `${accent}80`) : '#e4d9c2',
+                            boxShadow: st?.state === 'processing' && !cancelling ? `inset 3px 0 0 ${accent}` : 'none',
+                            transition: 'background .18s ease, border-color .18s ease, box-shadow .18s ease',
+                          }}>
                             <StatusIcon status={st} accent={accent} />
                             <div style={{ ...ellipsis, display: 'block' }}>
                               <div style={ellipsis}>{MASTERED_PREFIX}{s.name.replace(/\.[^.]+$/, '')}.{ext}</div>

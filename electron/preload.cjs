@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld('focusdaw', {
     },
     restart: () => ipcRenderer.send('updater:restart'),
     check: () => ipcRenderer.send('updater:check'),
+    download: () => ipcRenderer.send('updater:download'),
   },
 
   // v0.4.0: User EQ Preset disk storage handlers (cache-proof)

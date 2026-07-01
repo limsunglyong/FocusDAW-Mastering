@@ -5,7 +5,7 @@ import { previewEngine } from '../../audio/previewEngine';
 import { useAppStore } from '../../store/appStore';
 import { APP_VERSION_LABEL } from '../../version';
 
-export function Footer({ view }: { view: DeskView }) {
+export function Footer({ view, updateVersion }: { view: DeskView; updateVersion?: string | null }) {
   const transportOpen = useAppStore((s) => s.transportOpen);
   const toggleTransport = useAppStore((s) => s.toggleTransport);
   const duration = useAppStore((s) => s.files[s.curFile]?.meta.duration ?? 0);
@@ -80,7 +80,19 @@ export function Footer({ view }: { view: DeskView }) {
           />
         </svg>
       </button>
-      <span style={{ fontFamily: 'Archivo', fontSize: 10, color: '#5e6b73' }}>{APP_VERSION_LABEL}</span>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        {updateVersion && (
+          <div style={{ width: 250, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <span
+              className="dk-update-ticker"
+              style={{ display: 'inline-block', fontFamily: 'Archivo', fontSize: 10, color: view.accent }}
+            >
+              Update v{updateVersion} is available
+            </span>
+          </div>
+        )}
+        <span style={{ flexShrink: 0, fontFamily: 'Archivo', fontSize: 10, color: '#5e6b73' }}>{APP_VERSION_LABEL}</span>
+      </div>
     </div>
   );
 }

@@ -682,6 +682,8 @@ ipcMain.handle('export:open-folder', async (_event, target) => {
 //   항상 등록(개발/미패키징 포함). dev 에서는 'dev' 상태를 돌려 "설치본에서만 가능"을 안내한다.
 let autoUpdaterInstance = null;
 let updaterWired = false;
+let updaterDownloadStarted = false;
+let updaterRequestSource = 'auto';
 
 function getAutoUpdater() {
   if (autoUpdaterInstance) return autoUpdaterInstance;
@@ -700,17 +702,43 @@ function sendUpdaterStatus(status) {
   }
 }
 
+function updaterErrorMessage(source) {
+  return source === 'download'
+    ? 'The update could not be downloaded. You can continue using the current version.'
+    : 'No update information is currently available. You can continue using the app normally.';
+}
+
 function wireUpdaterEvents(autoUpdater) {
   if (updaterWired) return;
   updaterWired = true;
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('checking-for-update', () => sendUpdaterStatus({ state: 'checking' }));
-  autoUpdater.on('update-available', (info) => sendUpdaterStatus({ state: 'available', version: info && info.version }));
-  autoUpdater.on('update-not-available', () => sendUpdaterStatus({ state: 'not-available' }));
-  autoUpdater.on('download-progress', (p) => sendUpdaterStatus({ state: 'progress', percent: p && p.percent ? Math.round(p.percent) : 0 }));
-  autoUpdater.on('update-downloaded', (info) => sendUpdaterStatus({ state: 'downloaded', version: info && info.version }));
-  autoUpdater.on('error', (err) => sendUpdaterStatus({ state: 'error', message: err && err.message ? err.message : String(err) }));
+  // Check automatically, but leave both download and installation to the user.
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.on('checking-for-update', () =>
+    sendUpdaterStatus({ state: 'checking', source: updaterRequestSource }));
+  autoUpdater.on('update-available', (info) => {
+    updaterDownloadStarted = false;
+    sendUpdaterStatus({ state: 'available', version: info && info.version, source: updaterRequestSource });
+    updaterRequestSource = 'auto';
+  });
+  autoUpdater.on('update-not-available', () => {
+    sendUpdaterStatus({ state: 'not-available', source: updaterRequestSource });
+    updaterRequestSource = 'auto';
+  });
+  autoUpdater.on('download-progress', (p) =>
+    sendUpdaterStatus({ state: 'progress', percent: p && p.percent ? Math.round(p.percent) : 0, source: 'download' }));
+  autoUpdater.on('update-downloaded', (info) => {
+    updaterDownloadStarted = false;
+    sendUpdaterStatus({ state: 'downloaded', version: info && info.version, source: 'download' });
+    updaterRequestSource = 'auto';
+  });
+  autoUpdater.on('error', (err) => {
+    const source = updaterRequestSource;
+    updaterDownloadStarted = false;
+    console.error('autoUpdater error:', err);
+    sendUpdaterStatus({ state: 'error', message: updaterErrorMessage(source), source });
+    updaterRequestSource = 'auto';
+  });
 }
 
 // 배너 "지금 재시작".
@@ -735,8 +763,42 @@ ipcMain.on('updater:check', () => {
     return;
   }
   wireUpdaterEvents(autoUpdater);
+  updaterRequestSource = 'manual-check';
   autoUpdater.checkForUpdates().catch((err) =>
-    sendUpdaterStatus({ state: 'error', message: err && err.message ? err.message : String(err) }),
+    {
+      console.error('manual update check failed:', err);
+      sendUpdaterStatus({
+        state: 'error',
+        message: updaterErrorMessage('manual-check'),
+        source: 'manual-check',
+      });
+      updaterRequestSource = 'auto';
+    },
+  );
+});
+
+// Download only after the user explicitly accepts the available update.
+ipcMain.on('updater:download', () => {
+  if (isDev) {
+    sendUpdaterStatus({ state: 'dev' });
+    return;
+  }
+  const autoUpdater = getAutoUpdater();
+  if (!autoUpdater) {
+    sendUpdaterStatus({ state: 'error', message: 'Updater unavailable.' });
+    return;
+  }
+  wireUpdaterEvents(autoUpdater);
+  if (updaterDownloadStarted) return;
+  updaterDownloadStarted = true;
+  updaterRequestSource = 'download';
+  autoUpdater.downloadUpdate().catch((err) =>
+    {
+      updaterDownloadStarted = false;
+      console.error('update download failed:', err);
+      sendUpdaterStatus({ state: 'error', message: updaterErrorMessage('download'), source: 'download' });
+      updaterRequestSource = 'auto';
+    },
   );
 });
 
@@ -747,10 +809,11 @@ function setupAutoUpdater() {
   const autoUpdater = getAutoUpdater();
   if (!autoUpdater) return;
   wireUpdaterEvents(autoUpdater);
+  updaterRequestSource = 'auto';
   // 기동 직후 1회 확인.
   autoUpdater.checkForUpdates().catch((err) => {
     console.error('checkForUpdates failed:', err);
-    sendUpdaterStatus({ state: 'error', message: err && err.message ? err.message : String(err) });
+    // Startup update failures are non-fatal and deliberately silent in the UI.
   });
 }
 

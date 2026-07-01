@@ -38,10 +38,12 @@ declare global {
             version?: string;
             percent?: number;
             message?: string;
+            source?: 'auto' | 'manual-check' | 'download';
           }) => void,
         ) => () => void;
         restart: () => void;
         check: () => void;
+        download: () => void;
       };
       // v0.4.0: User EQ Preset disk storage handlers (cache-proof)
       loadUserPresets?: () => Promise<any>;

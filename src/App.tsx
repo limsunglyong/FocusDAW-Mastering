@@ -22,14 +22,6 @@ import { RenderBatchWindow } from './ui/desk/RenderBatchWindow';
 import { Footer } from './ui/desk/Footer';
 import { APP_VERSION_LABEL } from './version';
 
-// v0.10.0 (Phase 9): 자동 업데이트 배너 상태.
-type UpdateStatus = {
-  state: 'available' | 'progress' | 'downloaded' | 'error';
-  version?: string;
-  percent?: number;
-  message?: string;
-};
-
 export default function App() {
   const isPreferences = window.location.hash === '#preferences' || window.location.search.includes('window=preferences');
   const isAbout = window.location.hash === '#about' || window.location.search.includes('window=about');
@@ -128,8 +120,7 @@ function StudioDesk() {
 
   const [dragOver, setDragOver] = useState(false);
   const [dimmed, setDimmed] = useState(false);
-  // v0.10.0 (Phase 9): 자동 업데이트 상태(인앱 배너용).
-  const [update, setUpdate] = useState<UpdateStatus | null>(null);
+  const [availableUpdateVersion, setAvailableUpdateVersion] = useState<string | null>(null);
 
   // v0.8.5: 어떤 드롭/드래그 종료에도 'Drop audio files' 오버레이를 확실히 해제(캡처 단계 → 자식의
   // stopPropagation 과 무관하게 실행). 아트워크(섹션 VII) 이미지 드롭 후 오버레이 고착 방지.
@@ -162,17 +153,13 @@ function StudioDesk() {
   // v0.10.2: 수동 확인 모달(Help ▸ Check for Updates)이 열려 있으면 결과를 모달에도 반영한다.
   useEffect(() => {
     const unsub = window.focusdaw?.updater?.onStatus?.((s) => {
-      // 모달용: 'progress'(다운로드 중)는 모달에선 'available' 로 간주.
       useAppStore.getState().setUpdateCheckResult(
-        s.state === 'progress'
-          ? { state: 'available', version: s.version }
-          : { state: s.state, version: s.version, message: s.message },
+        { state: s.state, version: s.version, percent: s.percent, message: s.message },
       );
-      // 자동 인앱 배너: 가능/진행/완료/오류만 표시.
-      if (s.state === 'available' || s.state === 'progress' || s.state === 'downloaded' || s.state === 'error') {
-        setUpdate({ state: s.state, version: s.version, percent: s.percent, message: s.message });
-      } else {
-        setUpdate(null);
+      if (s.state === 'available' && s.version) {
+        setAvailableUpdateVersion(s.version);
+      } else if (s.state === 'not-available' || s.state === 'error') {
+        setAvailableUpdateVersion(null);
       }
     });
     return () => { unsub?.(); };
@@ -240,21 +227,8 @@ function StudioDesk() {
         <Desk view={view} />
         <DetailSheet view={view} />
         {transportOpen && <TransportPanel view={view} />}
-        <Footer view={view} />
+        <Footer view={view} updateVersion={availableUpdateVersion} />
       </div>
-
-      {/* v0.10.0 (Phase 9): 자동 업데이트 인앱 배너 */}
-      {update && (
-        <UpdateBanner
-          status={update}
-          accent={view.accent}
-          bright={view.pal.aBright}
-          glow={view.pal.glow}
-          track={view.pal.panelDark}
-          onRestart={() => window.focusdaw?.updater?.restart?.()}
-          onDismiss={() => setUpdate(null)}
-        />
-      )}
 
       {/* v0.9.1: Render Batch 모달 표시 중 메인 창 흐림 오버레이 */}
       {dimmed && (
@@ -343,49 +317,10 @@ function StudioDesk() {
           status={updateCheck}
           accent={view.accent}
           glow={view.pal.glow}
+          onDownload={() => window.focusdaw?.updater?.download?.()}
           onRestart={() => window.focusdaw?.updater?.restart?.()}
           onClose={closeUpdateCheck}
         />
-      )}
-    </div>
-  );
-}
-
-// v0.8.5: Export 완료 알림 모달 — 저장 개수·위치 + Reveal/OK.
-// v0.10.0 (Phase 9): 자동 업데이트 인앱 배너(하단 우측). 진행 중엔 진행률, 완료 시 "지금 재시작".
-function UpdateBanner({ status, accent, bright, glow, track, onRestart, onDismiss }: {
-  status: UpdateStatus; accent: string; bright: string; glow: string; track: string;
-  onRestart: () => void; onDismiss: () => void;
-}) {
-  const { state, version, percent, message } = status;
-  const title =
-    state === 'downloaded' ? 'Update ready'
-    : state === 'progress' ? 'Downloading update…'
-    : state === 'available' ? 'Update available'
-    : 'Update check failed';
-  const sub =
-    state === 'downloaded' ? `Version ${version || ''} will install on restart.`
-    : state === 'progress' ? `${percent ?? 0}%`
-    : state === 'available' ? `Version ${version || ''} — downloading…`
-    : (message || 'Could not check for updates.');
-  const isErr = state === 'error';
-  return (
-    <div style={{ position: 'fixed', right: 18, bottom: 18, zIndex: 10002, width: 320, padding: '14px 16px 13px', borderRadius: 14, background: 'linear-gradient(160deg, rgba(40,48,56,0.82), rgba(18,23,28,0.9))', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(16px) saturate(1.3)', boxShadow: `0 22px 50px -16px rgba(0,0,0,0.85), 0 0 30px ${glow}` }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontFamily: 'Spectral, serif', fontSize: 15, fontWeight: 600, color: isErr ? '#f0a8a8' : '#efe7d6' }}>{title}</div>
-        <button onClick={onDismiss} aria-label="Dismiss" style={{ fontFamily: 'Archivo', fontSize: 14, lineHeight: 1, padding: '2px 6px', borderRadius: 6, border: 'none', cursor: 'pointer', color: '#9aa7af', background: 'transparent' }}>×</button>
-      </div>
-      <div style={{ marginTop: 4, fontFamily: 'Archivo', fontSize: 11.5, color: isErr ? '#e0a0a0' : '#cdd3da', lineHeight: 1.45, wordBreak: 'break-word' }}>{sub}</div>
-      {state === 'progress' && (
-        <div style={{ marginTop: 10, height: 6, borderRadius: 4, background: track, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${percent ?? 0}%`, background: `linear-gradient(90deg, ${accent}, ${bright})`, borderRadius: 4, transition: 'width 0.25s ease' }} />
-        </div>
-      )}
-      {state === 'downloaded' && (
-        <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onDismiss} style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, padding: '7px 13px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', color: '#dfe5ea', background: 'rgba(255,255,255,0.06)' }}>Later</button>
-          <button onClick={onRestart} style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: 700, padding: '7px 13px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#10151a', background: accent }}>Restart now</button>
-        </div>
       )}
     </div>
   );
@@ -423,40 +358,48 @@ function ExportNotice({ notice, accent, glow, onReveal, onClose }: {
 }
 
 // v0.10.2: Help ▸ Check for Updates 결과 모달 — 최신/업데이트 필요 여부 안내.
-function CheckUpdateModal({ status, accent, glow, onRestart, onClose }: {
-  status: { state: 'checking' | 'not-available' | 'available' | 'downloaded' | 'error' | 'dev'; version?: string; message?: string };
-  accent: string; glow: string; onRestart: () => void; onClose: () => void;
+function CheckUpdateModal({ status, accent, glow, onDownload, onRestart, onClose }: {
+  status: { state: 'checking' | 'not-available' | 'available' | 'progress' | 'downloaded' | 'error' | 'dev'; version?: string; percent?: number; message?: string };
+  accent: string; glow: string; onDownload: () => void; onRestart: () => void; onClose: () => void;
 }) {
-  const { state, version, message } = status;
-  const isErr = state === 'error';
+  const { state, version, percent } = status;
+  const noValidUpdate = state === 'not-available' || state === 'error' || state === 'dev';
   const title =
     state === 'checking' ? 'Checking for updates…'
-    : state === 'not-available' ? 'You’re up to date'
     : state === 'available' ? 'Update available'
+    : state === 'progress' ? 'Downloading update…'
     : state === 'downloaded' ? 'Update ready'
-    : state === 'dev' ? 'Update check unavailable'
-    : 'Update check failed';
+    : 'No update available';
   const body =
     state === 'checking' ? 'Contacting the update server…'
-    : state === 'not-available' ? `You are running the latest version (${APP_VERSION_LABEL}).`
-    : state === 'available' ? `A new version (${version || ''}) is available and is downloading in the background. You’ll be notified when it’s ready to install.`
+    : state === 'available' ? `A new version (${version || ''}) is available. Choose Download update to download it now, or Later to leave the current version unchanged.`
+    : state === 'progress' ? `Downloading the update… ${percent ?? 0}%`
     : state === 'downloaded' ? `Version ${version || ''} has been downloaded. Restart to apply the update.`
-    : state === 'dev' ? 'Update checking is only available in the installed app.'
-    : (message || 'Could not check for updates. Please try again later.');
+    : `There is currently no valid newer version available. You can continue using ${APP_VERSION_LABEL}.`;
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,11,14,0.66)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: 380, padding: '26px 28px 22px', borderRadius: 18, background: 'linear-gradient(160deg, rgba(40,48,56,0.74), rgba(18,23,28,0.84))', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(18px) saturate(1.3)', boxShadow: `0 30px 70px -18px rgba(0,0,0,0.85), 0 0 44px ${glow}` }}>
-        <div style={{ fontFamily: 'Spectral, serif', fontSize: 20, fontWeight: 600, color: isErr ? '#f0a8a8' : '#efe7d6', textAlign: 'center' }}>
+        <div style={{ fontFamily: 'Spectral, serif', fontSize: 20, fontWeight: 600, color: '#efe7d6', textAlign: 'center' }}>
           {title}
         </div>
-        <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 12.5, color: isErr ? '#e0a0a0' : '#cdd3da', textAlign: 'center', lineHeight: 1.5, wordBreak: 'break-word' }}>
+        <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 12.5, color: '#cdd3da', textAlign: 'center', lineHeight: 1.5, wordBreak: 'break-word' }}>
           {body}
         </div>
+        {state === 'progress' && (
+          <div style={{ marginTop: 12, height: 6, borderRadius: 4, background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${percent ?? 0}%`, background: accent, transition: 'width 0.25s ease' }} />
+          </div>
+        )}
         <div style={{ marginTop: 18, display: 'flex', gap: 9, justifyContent: 'center' }}>
+          {state === 'available' && (
+            <button onClick={onDownload} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#10151a', background: accent }}>Download update</button>
+          )}
           {state === 'downloaded' && (
             <button onClick={() => { onRestart(); onClose(); }} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', color: '#10151a', background: accent }}>Restart now</button>
           )}
-          <button onClick={onClose} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', color: '#dfe5ea', background: 'rgba(255,255,255,0.06)' }}>{state === 'downloaded' ? 'Later' : 'OK'}</button>
+          {state !== 'progress' && (
+            <button onClick={onClose} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', color: '#dfe5ea', background: 'rgba(255,255,255,0.06)' }}>{state === 'downloaded' || state === 'available' ? 'Later' : noValidUpdate ? 'OK' : 'Cancel'}</button>
+          )}
         </div>
       </div>
     </div>

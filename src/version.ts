@@ -363,6 +363,10 @@
  *             Denoise OFF도 선택 Rate의 processingBuffer를 분석하도록 ON/OFF 비교 경로와 캐시를
  *             바로잡았다. 48→96 kHz OfflineAudioContext SRC의 원본 Nyquist 상부 이미지 성분은
  *             원본 Nyquist 96% 지점의 8차 Butterworth 저역통과 필터로 제거한다.
+ *  - v0.12.0: (Minor) Sample Rate Conversion 파이프라인 전면 개선.
+ *             Chromium SRC를 Worker 기반 Kaiser polyphase sinc로 교체해 48→44.1 고역 alias와
+ *             48→96 source-Nyquist image를 제거했다. WASM SIMD를 우선 사용하고 TypeScript
+ *             폴백을 유지하며, 파일 선택·Rate 변경 시 선택 곡 processingBuffer를 선행 생성한다.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

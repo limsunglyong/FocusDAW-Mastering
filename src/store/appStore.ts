@@ -220,6 +220,7 @@ let originalSelectionResumeSeq = 0;
 // ── v0.2.8: lazy 디코딩 + 백그라운드 LUFS 측정 ──────────────────────────────
 // 같은 파일을 동시에 디코딩하지 않도록 in-flight 프로미스를 공유한다.
 const decodeInFlight = new Map<string, Promise<DecodedAudio>>();
+const processingInFlight = new Map<string, Promise<AudioBuffer>>();
 function decodeOnce(file: QueueFile): Promise<DecodedAudio> {
   let p = decodeInFlight.get(file.id);
   if (!p) {
@@ -284,7 +285,9 @@ function prioritizeSelectedDecode() {
   }
   enqueueMeasure(sel.id, true);
   void pumpMeasureQueue();
-  if (!sel.sourceBuffer) void st.ensureSourceBuffer(sel.id).catch(() => {});
+  // 선택 즉시 원본 디코딩과 현재 Input Rate processingBuffer 생성을 선행한다.
+  // 여러 곡이 들어와도 선택 곡 하나만 처리하며, ensureProcessingBuffer가 중복 요청을 합친다.
+  void st.ensureProcessingBuffer(sel.id).catch(() => {});
   // 선택이 바뀌었으면 기존 워터폴 분석을 비우고(엉뚱한 파일 표시 방지) 새로 분석.
   useAppStore.setState({ preAnalysis: null });
   void st.analyzePreSelected();
@@ -1162,14 +1165,43 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (file.processingBuffer && file.processingSampleRate === targetSampleRate) {
       return file.processingBuffer;
     }
-    const sourceBuffer = await get().ensureSourceBuffer(id);
-    const processingBuffer = await resampleAudioBuffer(sourceBuffer, targetSampleRate);
-    set((state) => ({
-      files: state.files.map((f) => (
-        f.id === id ? { ...f, processingBuffer, processingSampleRate: targetSampleRate } : f
-      )),
-    }));
-    return processingBuffer;
+    const inFlightKey = `${id}:${targetSampleRate}`;
+    const existingTask = processingInFlight.get(inFlightKey);
+    if (existingTask) return existingTask;
+
+    const task = (async () => {
+      set((state) => ({
+        files: state.files.map((f) => (
+          f.id === id ? { ...f, resampling: true, resamplingRate: targetSampleRate } : f
+        )),
+      }));
+      try {
+        const sourceBuffer = await get().ensureSourceBuffer(id);
+        const processingBuffer = await resampleAudioBuffer(sourceBuffer, targetSampleRate);
+        set((state) => ({
+          files: state.files.map((f) => {
+            if (f.id !== id) return f;
+            const rateStillCurrent = sampleRateFromInputRate(state.vals['input.rate']) === targetSampleRate;
+            const isSelected = state.files[state.curFile]?.id === id;
+            return rateStillCurrent && (isSelected || state.exporting)
+              ? { ...f, processingBuffer, processingSampleRate: targetSampleRate }
+              : f;
+          }),
+        }));
+        return processingBuffer;
+      } finally {
+        processingInFlight.delete(inFlightKey);
+        set((state) => ({
+          files: state.files.map((f) => (
+            f.id === id && f.resamplingRate === targetSampleRate
+              ? { ...f, resampling: false, resamplingRate: undefined }
+              : f
+          )),
+        }));
+      }
+    })();
+    processingInFlight.set(inFlightKey, task);
+    return task;
   },
 
   // v0.9.1: 곡별 denoise 추천값이 없으면(=Pre 패널에서 분석한 적 없는 곡) export/재생 직전에 1회 분석한다.
@@ -1314,19 +1346,19 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (!currentFile) return;
 
+    // Rate 변경 직후 현재 선택 곡만 선행 리샘플링한다.
+    // 행 단위 resampling 상태가 Input 파일 목록에서 애니메이션으로 표시된다.
+    try {
+      await get().ensureProcessingBuffer(currentFile.id);
+    } catch {
+      set({ previewError: 'Resampling failed.' });
+      return;
+    }
     void get().analyzePreSelected();
 
     if (resumeOriginal) {
-      set({
-        processingAudio: true,
-        processingMessage: `Resampling to ${rate}`,
-        processingCurrentName: currentFile.name,
-        processingDone: 0,
-        processingTotal: 1,
-      });
       try {
         const playBuffer = await get().effectivePlaybackBuffer(currentFile.id);
-        set({ processingDone: 1 });
         const latest = get();
         const latestFile = latest.files[latest.curFile];
         if (latestFile?.id === currentFile.id) {
@@ -1341,8 +1373,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       } catch {
         set({ isOriginalPlaying: false, originalPlayError: 'Resampling failed.' });
-      } finally {
-        set({ processingAudio: false, processingMessage: '', processingCurrentName: '', processingDone: 0, processingTotal: 0 });
       }
     }
   },

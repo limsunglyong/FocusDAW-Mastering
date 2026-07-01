@@ -1,7 +1,7 @@
 {
   "name": "focusdaw-mastering-desk",
   "private": true,
-  "version": "0.11.4",
+  "version": "0.12.0",
   "description": "FocusDAW - Mastering Desk",
   "author": "FocusDAW",
   "type": "module",
@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "npm run electron:dev",
     "web:dev": "vite",
-    "build": "tsc -b && vite build",
+    "build:wasm": "asc assembly/resampler.ts --outFile src/audio/wasm/resampler.wasm --optimize --enable simd --runtime stub --importMemory --noAssert",
+    "build": "npm run build:wasm && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && node scripts/run-electron.mjs\"",
@@ -32,6 +33,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.0.3",
+    "assemblyscript": "^0.28.19",
     "autoprefixer": "^10.4.19",
     "concurrently": "^9.1.0",
     "electron": "42.4.0",

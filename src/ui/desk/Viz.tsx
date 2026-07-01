@@ -132,6 +132,12 @@ function InputQueue({ view }: { view: DeskView }) {
             <div key={f.id} onClick={() => pickFile(f.i)} style={css(f.rowStyle)}>
               <span style={{ flex: 'none', color: f.iconColor }}><DeskIcon icon="note" size={12} /></span>
               <span style={{ flex: 1, minWidth: 0, fontFamily: 'Archivo', fontSize: 11, fontWeight: f.weight as any, color: f.nameColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+              {f.resampling && (
+                <span
+                  title={`Resampling to ${((f.resamplingRate ?? 0) / 1000).toFixed(1)} kHz`}
+                  style={{ flex: 'none', width: 12, height: 12, boxSizing: 'border-box', borderRadius: '50%', border: `2px solid ${f.on ? 'rgba(255,255,255,.38)' : `${view.accent}44`}`, borderTopColor: f.on ? view.pal.aInk : view.accent, animation: 'dkspin .7s linear infinite' }}
+                />
+              )}
               <span style={{ fontFamily: 'Archivo', fontSize: 9, color: f.sizeColor, width: 48, textAlign: 'right' }}>{f.size}</span>
               <span
                 role="button"

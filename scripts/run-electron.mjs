@@ -10,7 +10,11 @@ const electronPath = require('electron'); // electron 실행 파일 절대경로
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 
-const child = spawn(electronPath, ['.', ...process.argv.slice(2)], {
+const requestedArgs = process.argv.slice(2);
+const electronArgs = requestedArgs[0] === '--script'
+  ? requestedArgs.slice(1)
+  : ['.', ...requestedArgs];
+const child = spawn(electronPath, electronArgs, {
   stdio: 'inherit',
   env,
 });

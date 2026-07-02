@@ -617,7 +617,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isOriginalPaused: false,
   originalPlayError: null,
   transportOpen: false,
-  volume: 1,
+  volume: 0.5,
   muted: false,
   loopEnabled: false,
   loopStart: 0,

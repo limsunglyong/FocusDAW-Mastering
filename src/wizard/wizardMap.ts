@@ -3,7 +3,7 @@
 // 계층적 delta 방식: 장르가 베이스 프리셋을 정하고, 이후 단계가 그 위에 가감/확정을 누적한다.
 // 우선순위(충돌 시): output > loudness > space/bass > mood > genre.
 // 산출물은 기존 세션과 동일한 SessionPayload 이므로 applySession/sessionIO 로 그대로 적용·저장된다.
-import { DEFAULT_STATE, EQPRESETS, type ModId, type Vals } from '../desk/data';
+import { DEFAULT_STATE, EQPRESETS, GRAPHIC_EQ_PRESETS, type ModId, type Vals } from '../desk/data';
 import { sanitizeSessionVals, type SessionPayload } from '../session/session';
 import type { WizardAnswers } from './wizardModel';
 
@@ -21,28 +21,36 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
   const v: Vals = { ...DEFAULT_STATE.vals };
   const num = (k: string): number => Number(v[k]) || 0;
   const add = (k: string, d: number) => { v[k] = Math.round((num(k) + d) * 100) / 100; };
+  const addGraphic = (band: number, delta: number) => add(`spectral.graphic.g${band}`, delta);
 
   // ── I. Genre — 베이스 EQ 프리셋 + Ratio ───────────────────────────────
   const preset = GENRE_EQ[a.genre];
   const eq = EQPRESETS[preset];
-  v['spectral.mode'] = 'Parametric';
+  v['spectral.mode'] = a.eqMode === 'graphic' ? '9-Band' : 'Parametric';
   v['spectral.preset'] = preset;
   for (let n = 0; n < 5; n++) {
     v[`spectral.f${n}`] = eq.f[n];
     v[`spectral.g${n}`] = eq.g[n];
     v[`spectral.q${n}`] = eq.q[n];
   }
+  const graphicEq = GRAPHIC_EQ_PRESETS[preset] ?? GRAPHIC_EQ_PRESETS.Normal;
+  v['spectral.graphic.preset'] = preset;
+  v['spectral.graphic.lastPreset'] = preset;
+  for (let n = 0; n < 9; n++) v[`spectral.graphic.g${n}`] = graphicEq.g[n];
   v['dynamics.ratio'] = GENRE_RATIO[a.genre];
 
   // ── II. Mood — 색채/질감 delta ────────────────────────────────────────
   switch (a.mood) {
     case 'bright':
       add('spectral.g4', 2.5); // 고역 shelf(12k) ↑
+      addGraphic(7, 2); addGraphic(8, 2.5);
       add('dynamics.exciter', 10);
       break;
     case 'warm':
       add('spectral.g0', 2); add('spectral.g1', 1.5); // 저·중역 ↑
       add('spectral.g4', -1.5);                        // 고역 살짝 ↓
+      addGraphic(1, 1.5); addGraphic(2, 2);
+      addGraphic(7, -1); addGraphic(8, -1.5);
       add('loudness.sat', 10);
       break;
     case 'punchy':
@@ -52,15 +60,19 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
     case 'smooth':
       add('dynamics.transient', -10);
       v['spectral.g3'] = Math.round(num('spectral.g3') * 0.5 * 100) / 100; // 존재감대 완화
+      v['spectral.graphic.g6'] = Math.round(num('spectral.graphic.g6') * 0.5 * 100) / 100;
+      v['spectral.graphic.g7'] = Math.round(num('spectral.graphic.g7') * 0.5 * 100) / 100;
       break;
   }
 
   // ── III. Bass — 저역 무게감 ───────────────────────────────────────────
   if (a.bass === 'light') {
     add('spectral.g0', -3);
+    addGraphic(0, -3); addGraphic(1, -2);
     v['stereo.crossover'] = 90;
   } else if (a.bass === 'thick') {
     add('spectral.g0', 3);
+    addGraphic(0, 3); addGraphic(1, 2);
     v['stereo.bassmono'] = true;
     v['stereo.crossover'] = 120;
   }
@@ -78,7 +90,7 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
   // ── V. Loudness — 목표 LUFS/리미터(확정형) ────────────────────────────
   const LOUD = {
     dynamic: { target: -16, limiter: 'Clear', sat: 5 },
-    balanced: { target: -14, limiter: 'Punchy', sat: num('loudness.sat') },
+    balanced: { target: -14, limiter: 'Punchy', sat: Math.max(5, num('loudness.sat')) },
     loud: { target: -9, limiter: 'Loud', sat: Math.max(8, num('loudness.sat')) },
   }[a.loudness];
   v['loudness.target'] = LOUD.target;

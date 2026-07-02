@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('focusdaw', {
     // v0.13.0: Mastering Wizard 창 열기 + 초기 테마 취득.
     openWizard: (opts) => ipcRenderer.send('win:open-wizard', opts),
     getWizardTheme: () => ipcRenderer.invoke('wizard:get-theme'),
+    getWizardContext: () => ipcRenderer.invoke('wizard:get-context'),
+    fitWizardHeight: (height) => ipcRenderer.send('wizard:fit-height', height),
     setTheme: (theme) => ipcRenderer.send('win:set-theme', theme),
     // v0.9.1: 메인 창 흐림(dim) 토글 수신 — Render Batch 등 모달 창 표시 중.
     onDim: (callback) => {
@@ -80,6 +82,7 @@ contextBridge.exposeInMainWorld('focusdaw', {
     read: (id) => ipcRenderer.invoke('session:read', id),
     save: (arg) => ipcRenderer.invoke('session:save', arg),
     delete: (id) => ipcRenderer.invoke('session:delete', id),
+    rename: (id, name) => ipcRenderer.invoke('session:rename', id, name),
     apply: (payload) => ipcRenderer.invoke('session:apply', payload),
     // 세션 창이 이미 열려 있을 때 mode/payload 갱신 통지.
     onContextUpdated: (callback) => {

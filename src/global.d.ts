@@ -26,8 +26,10 @@ declare global {
         openRenderBatch?: (opts: { theme?: string }) => void;
         getRenderBatchTheme?: () => Promise<string | null>;
         /** v0.13.0: Mastering Wizard 창 열기 + 초기 테마 취득. */
-        openWizard?: (opts: { theme?: string }) => void;
+        openWizard?: (opts: { theme?: string; volume?: number }) => void;
         getWizardTheme?: () => Promise<string | null>;
+        getWizardContext?: () => Promise<{ theme: string | null; volume: number }>;
+        fitWizardHeight?: (height: number) => void;
         setTheme?: (theme: string) => void;
         /** v0.9.1: 메인 창 흐림(dim) 토글 수신. */
         onDim?: (callback: (on: boolean) => void) => () => void;
@@ -60,6 +62,7 @@ declare global {
         read: (id: string) => Promise<import('./session/session').SessionFile | null>;
         save: (arg: { id?: string; name: string; description?: string; payload: import('./session/session').SessionPayload; appVersion?: string }) => Promise<{ ok: boolean; id?: string; error?: string }>;
         delete: (id: string) => Promise<{ ok: boolean; error?: string }>;
+        rename: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
         apply: (payload: import('./session/session').SessionPayload) => Promise<{ ok: boolean; error?: string }>;
         onContextUpdated: (callback: (ctx: { mode: 'save' | 'load'; payload: import('./session/session').SessionPayload | null; theme: string | null }) => void) => () => void;
         onApply: (callback: (payload: import('./session/session').SessionPayload) => void) => () => void;

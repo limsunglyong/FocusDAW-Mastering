@@ -166,6 +166,7 @@ const {
 } = await import(stUrl);
 const {
   truePeakDb, loudnessGain, saturationAmount, ceilingLinear, limiterEnabled, limiterReleaseSec, thdStatus,
+  loudnessSatSample, loudnessSatBlend,
 } = await import(ldUrl);
 const { parseAudioHeader, parseHeaderMeta, decodeAiff } = await import(decUrl);
 const { formatBytes } = await import(qfUrl);
@@ -472,6 +473,17 @@ console.log('— Loudness / Limiter mapping + True Peak (Phase 6) —');
   // saturation amount
   check('saturationAmount 0% = 0', saturationAmount({ 'loudness.sat': 0 }), 0);
   checkClose('saturationAmount 100% = 0.5', saturationAmount({ 'loudness.sat': 100 }), 0.5, 1e-9);
+
+  // saturation transfer (v0.8.3 정규화 수정): 저레벨 unity(노이즈 플로어 리프트 없음) + 0% 완전 투명
+  checkClose('sat blend 5% = 0.05', loudnessSatBlend(saturationAmount({ 'loudness.sat': 5 })), 0.05, 1e-9);
+  checkClose('sat 0% 완전 투명 (s=0.5)', loudnessSatSample(0.5, saturationAmount({ 'loudness.sat': 0 })), 0.5, 1e-12);
+  // 저레벨 s=1e-4: 어떤 Saturate% 에서도 게인 ≈ 1 (이전 버그: 5%→+1.2dB, 100%→+12dB 리프트)
+  const lowGain = (p) => loudnessSatSample(1e-4, saturationAmount({ 'loudness.sat': p })) / 1e-4;
+  checkClose('sat 저레벨 게인 5% ≈ 1 (플로어 투명)', lowGain(5), 1, 1e-3);
+  checkClose('sat 저레벨 게인 100% ≈ 1 (플로어 투명)', lowGain(100), 1, 1e-3);
+  // 압축은 피크에서만: s=1(0dBFS) 은 sat% 만큼만 눌림 (리미터가 흡수)
+  check('sat 피크 5% < unity (압축은 피크에서)', loudnessSatSample(1, saturationAmount({ 'loudness.sat': 5 })) < 1, true);
+  check('sat 홀수대칭 f(-s) = -f(s)', Math.abs(loudnessSatSample(-0.3, 0.25) + loudnessSatSample(0.3, 0.25)) < 1e-12, true);
 
   // ceiling linear
   checkClose('ceilingLinear -1dB ≈ 0.891', ceilingLinear({ 'loudness.ceiling': -1 }), 0.89125, 1e-4);

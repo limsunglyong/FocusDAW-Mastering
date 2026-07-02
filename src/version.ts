@@ -367,6 +367,16 @@
  *             Chromium SRC를 Worker 기반 Kaiser polyphase sinc로 교체해 48→44.1 고역 alias와
  *             48→96 source-Nyquist image를 제거했다. WASM SIMD를 우선 사용하고 TypeScript
  *             폴백을 유지하며, 파일 선택·Rate 변경 시 선택 곡 processingBuffer를 선행 생성한다.
+ *  - v0.14.0: (Minor) VI Loudness 새츄레이터 정규화 버그 수정 — Saturate 를 올릴수록 노이즈가 크게
+ *             늘던 문제. 전달함수 `tanh(drive·s)/tanh(drive)` 는 "피크(s=1)=unity" 정규화라 원점 기울기가
+ *             drive(≈4)배가 되어, 피크는 통과하지만 저레벨(노이즈 플로어·리버브 꼬리·숨소리)을 Saturate
+ *             5%만 해도 +1.2dB, 100%면 +12dB 들어올렸다(상향 컴프레서로 오동작). → `/tanh(drive)` →
+ *             `/drive` 로 바꿔 원점 기울기=1(저레벨 투명), 압축·배음은 피크 근처에서만 생기고 천장은
+ *             리미터가 담당(원 설계 의도 일치). 순수 전달함수를 loudnessDsp(loudnessSatSample/
+ *             loudnessSatBlend)로 이관해 단위 시험 추가. Preview·Export 공용 커브라 양쪽 자동 반영.
+ *             추가: Wizard V.Loudness 'balanced' 프리셋 새츄레이션 베이스라인 0→5%(warm 무드의 +10 은
+ *             Math.max 로 유지) — 무색이던 balanced 에 최소 글루. (audio/loudnessDsp.ts, audio/masterChain.ts,
+ *             wizard/wizardMap.ts, scripts/verify-decoder.mjs) 검증: lint(tsc)·verify(99/99) 통과.
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

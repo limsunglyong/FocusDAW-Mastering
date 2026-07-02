@@ -1,5 +1,5 @@
-// FocusDAW Mastering Desk v0.12.7 - 릴리스 노트 (현재 버전 전용)
-// Help ▸ Release Notes 창에 표시. v0.10.0 이후 현재 버전까지의 변경 내용을 간략히 누적한다.
+// FocusDAW Mastering Desk v0.14.0 - 릴리스 노트
+// Help ▸ Release Notes 창에 표시. v0.12.0 이후 변경 내용만 요약한다.
 import { APP_VERSION } from './version';
 
 export type ReleaseNotes = {
@@ -15,41 +15,35 @@ export type ReleaseNotes = {
 
 export const RELEASE_NOTES: ReleaseNotes = {
   version: APP_VERSION,
-  date: '2026-07-02',
+  date: '2026-07-03',
   features: [
-    'Added a compact LOW/MID/HIGH/RMS Segment LED level meter to the Transport panel.',
-    'Added a WASM SIMD polyphase sinc sample-rate conversion engine with automatic TypeScript fallback.',
-    'Added Help > Release Notes and an in-app update-check result window.',
+    'Added Session Wizard, an eight-step guided workflow that creates, previews, sends, and saves complete mastering setups.',
+    'Added Min-φ Parametric and 9-Band Graphic EQ selection to Session Wizard, with genre, mood, and bass-aware EQ mapping.',
+    'Added editable Session Cards with descriptions, theme-highlighted headers, rename/delete controls, and full-title tooltips.',
+    'Added a WASM SIMD Kaiser polyphase sinc sample-rate conversion engine with an automatic TypeScript fallback.',
+    'Added 9-Band Graphic EQ presets, user presets, live graph control, export, batch, and session support.',
     'Added direct AIFF/AIF playback, analysis, and export support.',
-    'Added a 9-band graphic EQ with presets, user presets, live metering, and session support.',
     'Expanded Render Batch with multiple jobs, per-job Session Cards, and mixed file/folder input.',
   ],
   improvements: [
-    'Expanded the Transport level meter from three frequency bands to SUB/LOW/MID/HIGH/AIR plus RMS.',
-    'Added two-way MP3/96 kHz compatibility prompts that preserve the previous format or rate until the user confirms.',
-    'Refined the Transport meters to a centered fixed-width group with six vertical segments, 20/35/50/65/80% thresholds, and green/yellow/orange/red ranges.',
-    'Selected tracks are now resampled immediately after loading, selection, or input-rate changes without blocking the UI.',
-    'Matched STFT FFT and hop sizes to the selected sample rate and made Pre spectrum comparisons use the selected processing rate in both Denoise states.',
-    'Update availability is now shown as a scrolling footer message with a single centered update dialog.',
-    'Updates now ask for permission before downloading or installing.',
-    'Greatly improved Denoise speed with fast quiet-range detection and parallel channel processing.',
-    'Improved OGG and M4A metadata detection for sample rate, channels, and duration.',
-    'Added drag-and-drop, duplicate filtering, source-path tooltips, and clearer progress animations to Render Batch.',
-    'Added theme-colored glow and breathing feedback for the active Batch Job and active file.',
-    'Added the support contact address to Help > About.',
+    'Session Wizard Balanced loudness now applies a 5% saturation baseline for subtle glue instead of no coloring.',
+    'Session Wizard now provides automatic content-height sizing, fixed width and top position, Before/After switching, detailed waveforms, and monitor volume inherited from the Desk.',
+    'Wizard sessions use automatic genre-based serial names, localized Korean or English names, and preserve the generated setup summary as the session description.',
+    'Moved Session Wizard from the Project submenu to the main application top bar.',
+    'Expanded the Transport meter to SUB/LOW/MID/HIGH/AIR plus RMS with six-segment color thresholds.',
+    'Selected tracks are resampled immediately after loading, selection, or rate changes without blocking the interface.',
+    'Matched spectrum FFT and hop sizes to the selected sample rate and improved Denoise analysis performance with parallel channel processing.',
+    'Added MP3/96 kHz compatibility prompts, improved OGG/M4A metadata detection, and refined Render Batch feedback and file handling.',
   ],
   fixes: [
-    'Fixed the PAUSE overlay appearing after Stop in Repeat mode by tracking Pause explicitly instead of inferring it from playback position.',
-    'Fixed the next selected track not preparing its decoded and processing buffers after the current track was removed.',
-    'Fixed playback stopping when a different, non-playing file was removed from the input queue.',
-    'Fixed Repeat playback Fade In/Out so overlapping track-edge fades are reapplied on every loop without accumulated-time silence.',
-    'Removed 48→44.1 kHz high-band alias residue and 48→96 kHz source-Nyquist spectral images by replacing Chromium SRC with measured Kaiser polyphase sinc conversion.',
-    'Removed the duplicate lower-right update banner and unified unavailable/error states as a normal informational message.',
-    'Update-server or release-file failures no longer obstruct the app or expose raw server responses.',
-    'Fixed Later still allowing an update to install automatically when the app exited.',
-    'Fixed AIFF/AIF files failing to show metadata or play.',
-    'Fixed 9-band EQ graph, preset state, export, batch render, session save, and new-project reset behavior.',
+    'Fixed the Loudness saturator lifting the low-level noise floor as Saturate increased (up to +12 dB), so raising Saturate no longer adds audible hiss; harmonics and compression now occur only near peaks.',
+    'Removed 48→44.1 kHz high-band alias residue and 48→96 kHz source-Nyquist imaging by replacing Chromium SRC with measured sinc conversion.',
+    'Fixed 9-Band EQ graph, preset state, export, batch render, session save, and new-project reset behavior.',
+    'Fixed Session Card Korean IME composition by preserving the editing input across renders.',
+    'Fixed Wizard playback continuing after Start over and restored missing selected-option check icons.',
+    'Fixed Wizard window clipping, repeated width changes, and off-screen bottom controls.',
     'Fixed Normalize being skipped when exporting a newly loaded file before Preview.',
-    'Fixed Render Batch cancellation feedback so the active job and file turn inactive immediately.',
+    'Fixed Repeat Fade In/Out, queue selection preparation, unrelated-file removal playback, and Pause overlay state.',
+    'Fixed AIFF/AIF metadata and playback issues and improved Render Batch cancellation feedback.',
   ],
 };

@@ -20,6 +20,22 @@ export function loudnessGain(targetLufs: number, measuredLufs: number): number {
 // Saturate(0~100%) → tanh 드라이브용 amount(0~0.5).
 export const saturationAmount = (vals: Vals) => (num(vals['loudness.sat']) / 100) * 0.5;
 
+// v0.8.3 (버그): 새추레이터 정규화 오류 수정.
+//  이전 커브 tanh(drive·s)/tanh(drive) 는 "피크(s=1)=unity" 로 정규화해 원점 기울기가 drive(≈4)배가
+//  됐다. 그 결과 피크는 그대로 통과하지만 저레벨(노이즈 플로어·리버브 꼬리·숨소리)이 Saturate 5%만
+//  해도 +1.2dB, 100%면 +12dB 들려 올라와 "노이즈가 확 는다"는 청감을 만들었다(상향 컴프레서로 오동작).
+//  → tanh(drive·s)/drive 로 정규화해 원점 기울기 = 1(저레벨 투명). 배음/압축은 피크 근처에서만 생기고
+//    피크 천장은 리미터가 담당한다는 원래 설계 의도와 일치. (피크는 sat% 만큼만 살짝 눌림 → 리미터 흡수)
+export const LOUDNESS_SAT_DRIVE = 4; // blend 되는 tanh 의 캐릭터 강도(고정)
+// Saturate amount([0,0.5]) → 선형↔tanh blend 비율([0,1]). Saturate% 와 동일.
+export const loudnessSatBlend = (amount: number) => Math.min(1, Math.max(0, amount) * 2);
+// 실제 레벨 s(±) 에 대한 새추레이션 전달함수(순수). 저레벨 unity, 피크 근처만 tanh 압축.
+export function loudnessSatSample(s: number, amount: number): number {
+  const b = loudnessSatBlend(amount);
+  const sat = Math.tanh(s * LOUDNESS_SAT_DRIVE) / LOUDNESS_SAT_DRIVE;
+  return (1 - b) * s + b * sat;
+}
+
 // True Peak ceiling(−3~0dBTP) → 선형 천장(0.0001~1).
 export const ceilingLinear = (vals: Vals) => Math.max(0.0001, Math.min(1, Math.pow(10, num(vals['loudness.ceiling'], -1) / 20)));
 // TP Limit 토글.

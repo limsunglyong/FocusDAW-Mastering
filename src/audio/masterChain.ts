@@ -18,6 +18,7 @@ import {
 import {
   LIMITER_LOOKAHEAD_MS, loudnessGain as loudnessMakeupGain, saturationAmount,
   ceilingLinear, limiterEnabled, limiterReleaseSec,
+  loudnessSatSample,
 } from './loudnessDsp';
 import { LIMITER_PROCESSOR_NAME } from './limiterWorklet';
 
@@ -120,19 +121,15 @@ export function saturatorCurve(amount: number): Float32Array<ArrayBuffer> {
 //     통과시키고 천장은 리미터가 담당), % 를 올릴수록 하모닉 캐릭터만 더한다. 5% THD 8.9%→1.8%,
 //     0% 는 완전 투명, 0dBFS 에서 unity 유지.
 //  ② DOMAIN 8(+18dB)→32(+30dB), n 2048→8192. make-up 누적이 도메인 끝에서 하드클립되지 않게.
+// v0.8.3: 전달함수(정규화) 는 loudnessSatSample 로 이관·수정(저레벨 unity). 여기선 prescale 복원만.
 export const LOUDNESS_SAT_DOMAIN = 32;
-export const LOUDNESS_SAT_DRIVE = 4; // blend 되는 tanh 의 캐릭터 강도(고정)
 export function loudnessSatCurve(amount: number): Float32Array<ArrayBuffer> {
   const n = 8192;
   const curve = new Float32Array(n);
-  const a = Math.max(0, Math.min(1, amount)); // saturationAmount = (Saturate%/100)×0.5 → [0,0.5]
   const D = LOUDNESS_SAT_DOMAIN;
-  const blend = Math.min(1, a * 2);           // Saturate 0~100% → blend 0~1
-  const norm = Math.tanh(LOUDNESS_SAT_DRIVE);
   for (let i = 0; i < n; i++) {
     const x = ((i / (n - 1)) * 2 - 1) * D;    // prescale 복원 = 실제 레벨
-    const sat = Math.tanh(x * LOUDNESS_SAT_DRIVE) / norm;
-    curve[i] = (1 - blend) * x + blend * sat; // 선형↔tanh blend
+    curve[i] = loudnessSatSample(x, amount);  // 선형↔tanh blend (저레벨 투명)
   }
   return curve;
 }

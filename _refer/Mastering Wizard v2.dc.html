@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=Archivo:wght@400;500;600;700&family=Noto+Serif+KR:wght@500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  html,body{margin:0;height:100%}
+  body{background:#0c0f12;font-family:"Archivo","Noto Sans KR",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  @keyframes wzfade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes wzrise{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+  .wz-anim{animation:wzrise .34s cubic-bezier(.2,.7,.2,1) both}
+  .wz-card{transition:transform .16s cubic-bezier(.4,0,.2,1),box-shadow .18s,border-color .16s,background .16s}
+  .wz-card:hover{transform:translateY(-2px)}
+  .wz-tip{position:relative;display:inline-flex;vertical-align:middle}
+  .wz-tipbox{position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%) translateY(4px);opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;width:210px;z-index:20}
+  .wz-tip:hover .wz-tipbox{opacity:1;transform:translateX(-50%)}
+  .wz-tipbox:after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#241f18}
+  input.wz-title{font-family:"Spectral","Noto Serif KR",serif;outline:none}
+  input.wz-title::placeholder{color:#a99f8a}
+  input[type=range].wz-xf{-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;outline:none}
+  input[type=range].wz-xf::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:#f6f2e8;box-shadow:0 1px 4px rgba(0,0,0,.5);cursor:pointer;border:2px solid var(--wzac)}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#cdbfa4;border-radius:5px}
+</style>
+</helmet>
+
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>
+  <symbol id="wz-sparkle" viewBox="0 0 24 24"><path d="M12 2.5l1.7 6.6 6.6 1.7-6.6 1.7L12 19.1l-1.7-6.6L3.7 10.8l6.6-1.7z" fill="currentColor"/></symbol>
+  <symbol id="wz-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 11a6 6 0 0 0 12 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="wz-pulse" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M7.6 8.6a5 5 0 0 0 0 6.8M4.8 6.1a9 9 0 0 0 0 11.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16.4 8.6a5 5 0 0 1 0 6.8M19.2 6.1a9 9 0 0 1 0 11.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="wz-note" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.2" cy="18" r="2.8" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="16.2" cy="16" r="2.8" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="wz-strings" viewBox="0 0 24 24"><path d="M6 21c0-4 3-5 3-9s-2-3-2-6 3-3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13 21c0-4 3-5 3-9s-2-3-2-6 3-3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="wz-boom" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="14" r="3.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="8.4" r="1.2" fill="currentColor"/></symbol>
+  <symbol id="wz-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="12" y1="2.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="21.5" y2="12"/><line x1="5.2" y1="5.2" x2="6.9" y2="6.9"/><line x1="17.1" y1="17.1" x2="18.8" y2="18.8"/><line x1="18.8" y1="5.2" x2="17.1" y2="6.9"/><line x1="6.9" y1="17.1" x2="5.2" y2="18.8"/></g></symbol>
+  <symbol id="wz-flame" viewBox="0 0 24 24"><path d="M12 3c3.4 3.8 5.2 6.2 5.2 9.2A5.2 5.2 0 0 1 6.8 12.2c0-1.6.8-2.8 1.9-3.8.1 1.3 1 2.2 2 2.2.2-3-1.1-5 1.3-7.6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="wz-bolt" viewBox="0 0 24 24"><path d="M13 2.5L6 13h5l-1 8.5L18 10h-5z" fill="currentColor"/></symbol>
+  <symbol id="wz-feather" viewBox="0 0 24 24"><path d="M19 5c0 7-5 12-11 13 0 0-2-8 3-12 3.5-2.8 8-1 8-1z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><line x1="16" y1="8" x2="7" y2="18" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="wz-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></symbol>
+  <symbol id="wz-cloud" viewBox="0 0 24 24"><path d="M7 17a4 4 0 0 1 .3-8A5 5 0 0 1 17 9.3 3.6 3.6 0 0 1 16.8 17z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="wz-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/><ellipse cx="12" cy="12" rx="3.6" ry="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="3.5" y1="12" x2="20.5" y2="12" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="wz-disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="wz-film" viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="6" x2="8" y2="18" stroke="currentColor" stroke-width="1.4"/><line x1="16" y1="6" x2="16" y2="18" stroke="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="wz-wave" viewBox="0 0 24 24"><path d="M2.5 12q2.4-6 4.8 0t4.8 0 4.8 0 4.6 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="wz-static" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="4" y1="15" x2="4" y2="9"/><line x1="8" y1="17" x2="8" y2="7"/><line x1="12" y1="14" x2="12" y2="10"/><line x1="16" y1="18" x2="16" y2="6"/><line x1="20" y1="16" x2="20" y2="8"/></g></symbol>
+  <symbol id="wz-check" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 6.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="wz-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-9.2-9C1.3 8 3 4.5 6.4 4.5c2 0 3.2 1.2 3.9 2.4l1.7 2 1.7-2c.7-1.2 1.9-2.4 3.9-2.4 3.4 0 5.1 3.5 3.6 6.5C19 15.6 12 20 12 20z" fill="currentColor"/></symbol>
+</defs></svg>
+
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#15191e"/><path d="M50 24l4.5 17.5L72 46l-17.5 4.5L50 68l-4.5-17.5L28 46l17.5-4.5z" fill="#3fd6c2"/></svg></template>
+
+<div style="position:fixed;inset:0;background:{{ pageBg }};display:flex;align-items:center;justify-content:center;padding:22px;box-sizing:border-box">
+  <div style="--wzac:{{ aMain }};width:940px;max-width:100%;background:{{ frameBg }};border:1px solid #000;border-radius:14px;box-shadow:0 50px 110px -38px rgba(0,0,0,0.9);overflow:hidden">
+
+    <!-- title bar -->
+    <div style="position:relative;height:46px;display:flex;align-items:center;gap:11px;padding:0 15px;background:#1a1f25;border-bottom:1px solid #0a0d10">
+      <div style="width:27px;height:27px;border-radius:8px;flex:none;display:grid;place-items:center;background:{{ aMain }};box-shadow:0 1px 3px rgba(0,0,0,.4)"><svg width="16" height="16" viewBox="0 0 24 24" style="color:{{ chipInk }}"><use href="#wz-sparkle"></use></svg></div>
+      <span style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:11px;font-weight:600;letter-spacing:0.04em;color:#9aa7af">Wizard</span>
+      <div style="position:absolute;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:9px;pointer-events:none">
+        <span style="font-family:'Spectral','Noto Serif KR',serif;font-size:16px;font-weight:600;letter-spacing:0.03em;color:#efe7d6">Mastering Wizard</span>
+        <span style="font-size:11.5px;color:#6f7d86">FocusDAW</span>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;background:#252b32;border:1px solid #303841;border-radius:7px;padding:2px;margin-right:9px">
+        <div onClick="{{ setKo }}" style="{{ koStyle }}">한글</div>
+        <div onClick="{{ setEn }}" style="{{ enStyle }}">EN</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:22px;height:20px;border-radius:5px;display:grid;place-items:center;background:#252b32;border:1px solid #303841"><div style="width:8px;height:1.5px;background:#9aa7af"></div></div>
+        <div style="width:22px;height:20px;border-radius:5px;display:grid;place-items:center;background:#252b32;border:1px solid #303841"><div style="width:8px;height:8px;border:1.3px solid #9aa7af;border-radius:2px"></div></div>
+        <div style="width:22px;height:20px;border-radius:5px;display:grid;place-items:center;background:#252b32;border:1px solid #303841;color:#9aa7af;font-size:12px">×</div>
+      </div>
+    </div>
+
+    <!-- paper sheet -->
+    <div style="margin:16px;border-radius:16px;background:{{ paperBg }};box-shadow:0 12px 34px -14px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.6);padding:30px 40px 34px;box-sizing:border-box;min-height:560px;display:flex;flex-direction:column">
+
+      <!-- ===== QUIZ ===== -->
+      <sc-if value="{{ isQuiz }}" hint-placeholder-val="{{ true }}">
+        <!-- progress -->
+        <div style="display:flex;align-items:center;gap:14px">
+          <span style="font-family:'Spectral','Noto Serif KR',serif;font-size:15px;font-weight:600;color:{{ aMain }};white-space:nowrap">{{ progLabel }}</span>
+          <div style="flex:1;display:flex;gap:5px">
+            <sc-for list="{{ segs }}" as="s" hint-placeholder-count="7"><div style="{{ s.style }}"></div></sc-for>
+          </div>
+          <span style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:11px;font-weight:600;color:{{ pInk2 }};white-space:nowrap">{{ stepLabel }}</span>
+        </div>
+
+        <div class="wz-anim" key="{{ animKey }}" style="margin-top:26px;flex:1;display:flex;flex-direction:column">
+          <div style="font-family:'Spectral','Noto Serif KR',serif;font-size:30px;font-weight:600;color:{{ pInk }};line-height:1.2;text-wrap:pretty">{{ stepQ }}</div>
+          <div style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:14px;color:{{ pInk2 }};margin-top:9px;line-height:1.55;max-width:640px;text-wrap:pretty">{{ stepSub }}</div>
+
+          <div style="{{ gridStyle }}">
+            <sc-for list="{{ choices }}" as="c" hint-placeholder-count="4">
+              <div class="wz-card" onClick="{{ c.onPick }}" style="{{ c.style }}">
+                <!-- mini preview -->
+                <div style="{{ c.pvBoxStyle }}">
+                  <sc-if value="{{ c.isEq }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;align-items:flex-end;gap:3px;width:100%;height:100%">
+                      <sc-for list="{{ c.bars }}" as="b" hint-placeholder-count="9"><div style="{{ b.style }}"></div></sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ c.isStereo }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:relative;width:100%;height:100%;display:flex;align-items:center">
+                      <div style="{{ c.axisStyle }}"></div>
+                      <div style="{{ c.dotLStyle }}"></div>
+                      <div style="{{ c.dotRStyle }}"></div>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="min-width:0;flex:1">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <span style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:16px;font-weight:700;color:{{ pInk }}">{{ c.t }}</span>
+                    <sc-if value="{{ c.rec }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:3px;font-family:'Archivo','Noto Sans KR',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.03em;color:{{ chipInk }};background:{{ aMain }};border-radius:20px;padding:2px 9px"><svg width="10" height="10" viewBox="0 0 24 24"><use href="#wz-heart"></use></svg>{{ c.recLabel }}</span></sc-if>
+                    <sc-if value="{{ c.tip }}" hint-placeholder-val="{{ false }}">
+                      <span class="wz-tip">
+                        <span style="width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:700;background:{{ paperCtl }};color:{{ pInk2 }};cursor:help">?</span>
+                        <span class="wz-tipbox" style="background:#241f18;color:#f0e9da;font-family:'Archivo','Noto Sans KR',sans-serif;font-size:11.5px;font-weight:400;line-height:1.5;padding:9px 11px;border-radius:9px;box-shadow:0 10px 24px -8px rgba(0,0,0,0.6);text-align:left">{{ c.tip }}</span>
+                      </span>
+                    </sc-if>
+                  </div>
+                  <div style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13px;color:{{ pInk2 }};margin-top:5px;line-height:1.45;text-wrap:pretty">{{ c.d }}</div>
+                </div>
+                <div style="{{ c.tickStyle }}"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#wz-check"></use></svg></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;margin-top:26px">
+          <div onClick="{{ onBack }}" style="{{ backStyle }}">{{ backLabel }}</div>
+          <div style="flex:1"></div>
+          <div onClick="{{ onNext }}" style="{{ nextStyle }}">{{ nextLabel }}</div>
+        </div>
+      </sc-if>
+
+      <!-- ===== RESULT ===== -->
+      <sc-if value="{{ isResult }}" hint-placeholder-val="{{ false }}">
+        <div class="wz-anim" style="display:flex;align-items:center;gap:13px">
+          <div style="width:44px;height:44px;border-radius:12px;flex:none;display:grid;place-items:center;background:{{ aMain }};box-shadow:0 5px 14px -4px {{ glow }}"><svg width="24" height="24" viewBox="0 0 24 24" style="color:{{ chipInk }}"><use href="#wz-sparkle"></use></svg></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13px;font-weight:600;color:{{ pInk2 }}">{{ resultKicker }}</div>
+            <input class="wz-title" value="{{ titleVal }}" onInput="{{ onTitleInput }}" style="width:100%;margin-top:2px;border:none;background:transparent;font-size:26px;font-weight:600;color:{{ pInk }};padding:0" />
+          </div>
+        </div>
+
+        <!-- plain-language summary -->
+        <div style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:11px 22px">
+          <sc-for list="{{ plain }}" as="p" hint-placeholder-count="6">
+            <div style="display:flex;align-items:flex-start;gap:11px">
+              <div style="width:32px;height:32px;flex:none;border-radius:9px;display:grid;place-items:center;background:{{ paperCtl }};color:{{ aMain }}"><svg width="17" height="17" viewBox="0 0 24 24"><use href="#wz-{{ p.icon }}"></use></svg></div>
+              <div style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13.5px;color:{{ pInk }};line-height:1.45;padding-top:5px;text-wrap:pretty">{{ p.text }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- advanced detail toggle -->
+        <div onClick="{{ onToggleAdv }}" style="display:inline-flex;align-items:center;gap:6px;margin-top:18px;font-family:'Archivo','Noto Sans KR',sans-serif;font-size:12px;font-weight:600;color:{{ pInk2 }};cursor:pointer;user-select:none">
+          <span style="{{ caretStyle }}">▸</span>{{ advLabel }}
+        </div>
+        <sc-if value="{{ showAdv }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:11px;border-radius:12px;overflow:hidden;border:1px solid rgba(58,52,43,0.12)">
+            <sc-for list="{{ summary }}" as="s" hint-placeholder-count="7">
+              <div style="{{ s.rowStyle }}">
+                <div style="{{ s.chipStyle }}">{{ s.roman }}</div>
+                <div style="width:110px;flex:none;font-family:'Archivo','Noto Sans KR',sans-serif;font-size:12px;font-weight:600;color:{{ pInk }}">{{ s.name }}</div>
+                <div style="flex:1;display:flex;flex-wrap:wrap;gap:5px">
+                  <sc-for list="{{ s.chips }}" as="ch" hint-placeholder-count="2"><span style="{{ ch.style }}">{{ ch.t }}</span></sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- A/B transport -->
+        <div style="margin-top:18px;border-radius:14px;background:{{ panelBg }};padding:16px 17px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <span style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.06em;color:{{ aBright }}">{{ abTitle }}</span>
+            <span style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:10.5px;color:#8a8070">{{ abNote }}</span>
+          </div>
+
+          <sc-if value="{{ notLoaded }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0 10px">
+              <div onClick="{{ onLoad }}" style="display:flex;align-items:center;gap:9px;font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13px;font-weight:600;color:{{ aBright }};background:rgba(255,255,255,0.04);border:1px solid {{ aMain }};border-radius:9px;padding:11px 22px;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#wz-note"></use></svg>{{ loadLabel }}</div>
+              <div style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:12px;color:#8a8070">{{ loadHint }}</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ loaded }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <svg width="14" height="14" viewBox="0 0 24 24" style="color:{{ aBright }};flex:none"><use href="#wz-note"></use></svg>
+              <span style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13px;font-weight:500;color:{{ nInk }}">01 Sunrise Avenue.wav</span>
+              <span style="font-family:'Archivo';font-size:10.5px;color:#8a8070">48 kHz · 24-bit</span>
+            </div>
+            <div onClick="{{ onSeek }}" style="height:50px;display:flex;align-items:center;gap:2px;cursor:pointer;padding:2px 0">
+              <sc-for list="{{ wave }}" as="w" hint-placeholder-count="64"><div style="{{ w.style }}"></div></sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;margin-top:11px">
+              <div onClick="{{ onRewind }}" style="width:30px;height:28px;border-radius:7px;display:grid;place-items:center;background:#222830;border:1px solid #303841;cursor:pointer;color:#9aa7af;font-size:12px">⏮</div>
+              <div onClick="{{ onPlay }}" style="width:38px;height:32px;border-radius:8px;display:grid;place-items:center;background:{{ aMain }};cursor:pointer;color:{{ chipInk }};font-size:14px">{{ playIcon }}</div>
+              <span style="font-family:'Archivo';font-size:12px;color:#c8cdd2">{{ curTime }} <span style="color:#6f7d86">/ {{ durTime }}</span></span>
+              <div style="flex:1"></div>
+              <div style="display:flex;align-items:center;gap:11px">
+                <span style="{{ aLblStyle }}">{{ aLbl }}</span>
+                <input type="range" class="wz-xf" min="0" max="100" value="{{ xf }}" onInput="{{ onXf }}" style="width:150px;background:{{ xfTrack }}" />
+                <span style="{{ bLblStyle }}">{{ bLbl }}</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- footer -->
+        <div style="display:flex;align-items:center;gap:11px;margin-top:18px">
+          <div onClick="{{ onReset }}" style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13px;font-weight:600;color:{{ pInk2 }};border:1px solid rgba(58,52,43,0.22);border-radius:9px;padding:11px 18px;cursor:pointer">{{ resetLabel }}</div>
+          <div style="flex:1"></div>
+          <div onClick="{{ onApply }}" style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13px;font-weight:600;color:{{ aMain }};background:transparent;border:1px solid {{ aMain }};border-radius:9px;padding:11px 20px;cursor:pointer">{{ applyLabel }}</div>
+          <div onClick="{{ onSave }}" style="font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13px;font-weight:700;color:{{ chipInk }};background:{{ aBright }};border:none;border-radius:9px;padding:12px 26px;cursor:pointer;box-shadow:0 5px 14px -5px {{ glow }}">{{ saveLabel }}</div>
+        </div>
+        <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:13px;text-align:center;font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13px;font-weight:600;color:{{ aMain }}">{{ toastMsg }}</div>
+        </sc-if>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:940,&quot;height&quot;:720},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Teal&quot;,&quot;options&quot;:[&quot;Teal&quot;,&quot;Sunset&quot;,&quot;Violet&quot;,&quot;Crimson&quot;],&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.STEPS=[
+      {key:'genre',label:{ko:'장르',en:'Genre'},q:{ko:'이 곡은 어떤 스타일인가요?',en:'What style is this track?'},sub:{ko:'선택하신 장르에 맞춰 전체적인 기본 톤을 잡아 드려요. 세부 조정은 다음 질문들에서 이어집니다.',en:'We set the overall base tone to match your genre. The next questions fine-tune it.'},pv:'eq',cols:1,
+        opts:[
+          {v:'pop',icon:'mic',t:{ko:'팝 · 보컬 위주',en:'Pop · vocal-led'},d:{ko:'목소리가 또렷하게, 전체적으로 균형 있게',en:'Clear vocals, well balanced overall'},bars:[.5,.6,.7,.8,.75,.7,.65,.6,.55]},
+          {v:'dance',icon:'pulse',t:{ko:'댄스 · EDM',en:'Dance · EDM'},d:{ko:'저음이 힘 있고 시원하게 큰 음량으로',en:'Powerful bass and a big, loud sound'},bars:[.9,.95,.7,.5,.5,.55,.6,.7,.78]},
+          {v:'rock',icon:'note',t:{ko:'밴드 · 록',en:'Band · rock'},d:{ko:'악기 하나하나가 살아있고 넓게 펼쳐지게',en:'Every instrument alive, spread out wide'},bars:[.55,.6,.7,.85,.9,.8,.7,.6,.5]},
+          {v:'classic',icon:'strings',t:{ko:'클래식 · 재즈',en:'Classical · jazz'},d:{ko:'여리고 센 부분의 차이를 자연스럽게 살려서',en:'Keeps the soft-to-loud swings natural'},bars:[.5,.5,.55,.6,.6,.58,.55,.5,.45]},
+          {v:'hiphop',icon:'boom',t:{ko:'힙합 · R&B',en:'Hip-hop · R&B'},d:{ko:'묵직한 저음과 선명한 존재감으로',en:'Weighty low end with a clear presence'},bars:[.95,.9,.75,.55,.45,.4,.4,.45,.5]},
+        ]},
+      {key:'mood',label:{ko:'분위기',en:'Mood'},q:{ko:'어떤 느낌이면 좋을까요?',en:'What feeling do you want?'},sub:{ko:'곡 전체에 입혀질 색깔과 질감을 골라 주세요.',en:'Pick the overall color and texture for the track.'},pv:'eq',cols:2,
+        opts:[
+          {v:'bright',icon:'sun',t:{ko:'밝고 청량하게',en:'Bright & airy'},d:{ko:'높은 소리를 살짝 올려 시원한 공기감을 더해요',en:'Lifts the highs for a fresh, airy feel'},bars:[.4,.45,.5,.55,.6,.7,.8,.9,.95]},
+          {v:'warm',icon:'flame',t:{ko:'따뜻하고 포근하게',en:'Warm & cozy'},d:{ko:'중저음을 살려 부드럽고 풍부하게 만들어요',en:'Fills out the low-mids, soft and rich'},bars:[.9,.85,.75,.65,.55,.5,.45,.4,.35]},
+          {v:'punchy',icon:'bolt',t:{ko:'힘 있고 단단하게',en:'Bold & punchy'},d:{ko:'치고 나오는 느낌을 강조해 에너지를 더해요',en:'Emphasizes the hits for more energy'},bars:[.85,.4,.9,.4,.95,.4,.88,.4,.82]},
+          {v:'smooth',icon:'feather',t:{ko:'부드럽고 담백하게',en:'Smooth & plain'},d:{ko:'과하지 않게, 있는 그대로 자연스럽게',en:'Nothing over the top, natural as-is'},bars:[.55,.56,.55,.57,.56,.55,.56,.55,.56]},
+        ]},
+      {key:'bass',label:{ko:'저음',en:'Bass'},q:{ko:'저음은 얼마나 넣을까요?',en:'How much bass would you like?'},sub:{ko:'쿵쿵 울리는 낮은 소리의 무게감을 정해요.',en:'Sets the weight of the deep, rumbling low sounds.'},pv:'eq',cols:3,
+        opts:[
+          {v:'light',icon:'feather',t:{ko:'가볍게',en:'Light'},d:{ko:'저음을 덜어 산뜻하게',en:'Trim the lows for a lighter sound'},bars:[.35,.4,.5,.6,.65,.65,.6,.55,.5]},
+          {v:'normal',icon:'target',t:{ko:'적당히',en:'Just right'},d:{ko:'가장 무난한 기본 밸런스',en:'The safe, everyday balance'},rec:true,bars:[.6,.62,.63,.62,.6,.6,.58,.56,.55]},
+          {v:'thick',icon:'boom',t:{ko:'묵직하게',en:'Heavy'},d:{ko:'저음을 살려 꽉 찬 느낌으로',en:'Boost the lows for a full sound'},bars:[.95,.9,.8,.65,.55,.5,.48,.46,.45]},
+        ]},
+      {key:'space',label:{ko:'공간감',en:'Space'},q:{ko:'소리가 얼마나 넓게 퍼지면 좋을까요?',en:'How wide should the sound feel?'},sub:{ko:'소리가 좌우로 펼쳐지는 정도와 은은한 울림의 양이에요.',en:'How far the sound spreads left-to-right, plus gentle ambience.'},pv:'stereo',cols:3,
+        opts:[
+          {v:'dry',icon:'target',t:{ko:'또렷하게 가까이',en:'Close & direct'},d:{ko:'바로 앞에서 들리듯 선명하게',en:'As if right in front of you'},tip:{ko:'좌우로 퍼지지 않고 가운데에 모여 들려요.',en:'Sound stays centered, not spread out.'},spread:.16},
+          {v:'subtle',icon:'cloud',t:{ko:'살짝 여유롭게',en:'A little roomy'},d:{ko:'은은하게 공간이 느껴지는 정도',en:'A gentle sense of space'},rec:true,tip:{ko:'적당히 넓어 대부분의 곡에 잘 어울려요.',en:'Moderately wide — suits most tracks.'},spread:.5},
+          {v:'wide',icon:'pulse',t:{ko:'넓고 시원하게',en:'Wide & open'},d:{ko:'큰 무대처럼 좌우로 넓게',en:'Spread wide, like a big stage'},tip:{ko:'좌우로 크게 퍼져 웅장한 느낌을 줘요.',en:'Spreads far left-to-right for a grand feel.'},spread:.86},
+        ]},
+      {key:'loudness',label:{ko:'음량',en:'Loudness'},q:{ko:'얼마나 크게 들리길 원하세요?',en:'How loud should it sound?'},sub:{ko:'전체적으로 느껴지는 소리 크기예요. 궁금하면 물음표를 눌러 보세요.',en:'The overall perceived volume. Tap the ? if you are curious.'},pv:'eq',cols:3,
+        opts:[
+          {v:'dynamic',icon:'wave',t:{ko:'자연스럽게',en:'Natural'},d:{ko:'여리고 센 부분을 그대로 살려요',en:'Keeps soft and loud parts as they are'},tip:{ko:'음량을 억지로 키우지 않아 원곡의 다이나믹이 살아요 (약 -16 LUFS).',en:'Not pushed loud, so the original dynamics stay (about -16 LUFS).'},bars:[.5,.7,.4,.8,.55,.75,.45,.65,.5]},
+          {v:'balanced',icon:'target',t:{ko:'적당히 크게',en:'Balanced'},d:{ko:'대부분의 음악 서비스에 딱 맞는 크기',en:'Just right for most music services'},rec:true,tip:{ko:'스트리밍 서비스의 표준 음량이에요 (약 -14 LUFS).',en:'The standard loudness for streaming (about -14 LUFS).'},bars:[.7,.8,.72,.85,.78,.82,.74,.8,.72]},
+          {v:'loud',icon:'bolt',t:{ko:'아주 크게',en:'Very loud'},d:{ko:'어디서 들어도 시원하게 큰 소리로',en:'Big and punchy wherever it plays'},tip:{ko:'경쟁적으로 크게. 다이나믹은 다소 줄어요 (약 -9 LUFS).',en:'Competitively loud; dynamics reduce a bit (about -9 LUFS).'},bars:[.9,.95,.92,.96,.9,.94,.9,.95,.9]},
+        ]},
+      {key:'source',label:{ko:'원본 상태',en:'Source'},q:{ko:'원본 녹음 상태는 어떤가요?',en:'How clean is the original recording?'},sub:{ko:'배경 잡음이 있는지 알려 주시면 알맞게 정리해 드려요.',en:'Tell us about background noise and we will clean it up.'},pv:'eq',cols:3,
+        opts:[
+          {v:'clean',icon:'sparkle',t:{ko:'깨끗해요',en:'Clean'},d:{ko:'따로 손댈 잡음이 없어요',en:'No noise to remove'},rec:true,bars:[.45,.5,.55,.5,.52,.5,.48,.5,.46]},
+          {v:'slight',icon:'wave',t:{ko:'살짝 지직거려요',en:'A little hiss'},d:{ko:'약한 잡음을 부드럽게 줄여요',en:'Gently reduces light noise'},tip:{ko:'배경의 지직거리는 잡음(히스)을 살짝 줄여 줘요.',en:'Softly reduces background hiss.'},bars:[.5,.6,.55,.7,.6,.68,.55,.62,.5]},
+          {v:'noisy',icon:'static',t:{ko:'잡음이 많아요',en:'Quite noisy'},d:{ko:'눈에 띄는 잡음을 확실히 정리해요',en:'Clears up noticeable noise'},tip:{ko:'잡음이 뚜렷할 때 강하게 정리해요. 곡 분석에 따라 자동 조절돼요.',en:'Strong cleanup for obvious noise; auto-adjusts per track.'},bars:[.7,.85,.75,.9,.8,.88,.78,.86,.75]},
+        ]},
+      {key:'output',label:{ko:'용도',en:'Use'},q:{ko:'완성한 파일을 어디에 쓰실 건가요?',en:'Where will you use the finished file?'},sub:{ko:'쓰실 곳에 딱 맞는 형식으로 저장해 드려요.',en:'We save it in the format that fits your destination.'},pv:'eq',cols:3,
+        opts:[
+          {v:'streaming',icon:'globe',t:{ko:'스트리밍 · 유튜브',en:'Streaming · YouTube'},d:{ko:'음악·영상 플랫폼 업로드용',en:'For music and video platforms'},rec:true,tip:{ko:'WAV · 48kHz · 24-bit 로 저장돼요.',en:'Saved as WAV · 48kHz · 24-bit.'},bars:[.6,.7,.65,.72,.68,.7,.66,.7,.64]},
+          {v:'archive',icon:'disc',t:{ko:'CD · 소장용',en:'CD · archive'},d:{ko:'고음질로 오래 보관하고 싶을 때',en:'High quality to keep long-term'},tip:{ko:'FLAC · 44.1kHz · 24-bit 로 저장돼요.',en:'Saved as FLAC · 44.1kHz · 24-bit.'},bars:[.55,.62,.6,.66,.62,.64,.6,.64,.58]},
+          {v:'video',icon:'film',t:{ko:'영상 편집용',en:'Video editing'},d:{ko:'영상 편집 프로그램에 넣을 때',en:'To drop into a video editor'},tip:{ko:'WAV · 48kHz · 24-bit 로 저장돼요.',en:'Saved as WAV · 48kHz · 24-bit.'},bars:[.58,.66,.62,.68,.64,.66,.62,.66,.6]},
+        ]},
+    ];
+    this.UI={
+      rec:{ko:'추천',en:'Pick'},
+      next:{ko:'다음',en:'Next'}, seeResult:{ko:'결과 보기',en:'See result'}, back:{ko:'이전',en:'Back'},
+      progOf:{ko:(a,b)=>`질문 ${a} / ${b}`,en:(a,b)=>`Question ${a} of ${b}`},
+      resultKicker:{ko:'다 됐어요! 이렇게 다듬어 드릴게요',en:'All set — here is how we will polish it'},
+      adjShow:{ko:'고급 설정 자세히 보기',en:'Show advanced settings'}, adjHide:{ko:'고급 설정 접기',en:'Hide advanced settings'},
+      abTitle:{ko:'들어보고 비교하기 · A / B',en:'Listen & compare · A / B'},
+      abNote:{ko:'미리듣기에는 잡음 제거가 빠져 있어요',en:'Preview excludes noise removal'},
+      loadLabel:{ko:'내 음악 불러오기',en:'Load my music'},
+      loadHint:{ko:'곡을 불러오면 다듬기 전과 후를 바로 비교할 수 있어요.',en:'Load a track to compare before and after right away.'},
+      aLbl:{ko:'원본',en:'Original'}, bLbl:{ko:'다듬은 후',en:'Polished'},
+      reset:{ko:'처음부터',en:'Start over'}, apply:{ko:'바로 적용해 보기',en:'Try it now'}, save:{ko:'저장하기',en:'Save'},
+      applied:{ko:'메인 화면에 적용했어요 ✓',en:'Applied to the main desk ✓'}, saved:{ko:'세션으로 저장했어요 ✓',en:'Saved as a session ✓'},
+    };
+    this.SUM={
+      out:{streaming:{fmt:'WAV',sr:'48k',bit:'24-bit'},archive:{fmt:'FLAC',sr:'44.1k',bit:'24-bit'},video:{fmt:'WAV',sr:'48k',bit:'24-bit'}},
+    };
+    this.WAVE=Array.from({length:64},(_,i)=>{
+      const a=Math.sin(i*0.5)*0.5+0.5, b=Math.sin(i*1.7+1)*0.5+0.5, c=Math.sin(i*0.23)*0.5+0.5;
+      return 0.16+0.84*(0.4*a+0.35*b+0.25*c);
+    });
+    this.THEMES={
+      Teal:{aMain:'#16a394',aBright:'#3fd6c2',glow:'rgba(63,214,194,0.34)',page:'#0c0f12',frame:'#15191e',paperA:'#f5efe2',paperB:'#ece3d1',panel:'#201d17',cardA:'#efe6d3',cardB:'#e6dcc6',cardSelA:'#fdf9ef',cardSelB:'#f4ecda',paperCtl:'#e0d5be',pvBg:'#e4dac3',pInk:'#2a2620',pInk2:'#6f6657',nInk:'#e3dccc',chipInk:'#f6f2e8'},
+      Sunset:{aMain:'#cf7d2c',aBright:'#f2a948',glow:'rgba(242,169,72,0.36)',page:'#0d0906',frame:'#1a120b',paperA:'#f8f1e2',paperB:'#eee2ca',panel:'#231810',cardA:'#f0e5cd',cardB:'#e5d6b8',cardSelA:'#fdf8ec',cardSelB:'#f5 ead2',paperCtl:'#e5d7b9',pvBg:'#e8dabd',pInk:'#2a2620',pInk2:'#6f6657',nInk:'#e3dccc',chipInk:'#2c1804'},
+      Violet:{aMain:'#8b51c4',aBright:'#c081ec',glow:'rgba(192,129,236,0.36)',page:'#0b0a10',frame:'#16131e',paperA:'#efeaf3',paperB:'#e1dae9',panel:'#211d29',cardA:'#e3dcec',cardB:'#d6cde2',cardSelA:'#f8f4fc',cardSelB:'#ece4f4',paperCtl:'#dcd4e8',pvBg:'#ded6ea',pInk:'#2a2620',pInk2:'#6f6657',nInk:'#e3dccc',chipInk:'#f6f2f9'},
+      Crimson:{aMain:'#c23a52',aBright:'#f06a82',glow:'rgba(240,106,130,0.34)',page:'#0f0809',frame:'#1b1013',paperA:'#f7ebed',paperB:'#eddade',panel:'#231619',cardA:'#eedce0',cardB:'#e3cace',cardSelA:'#fdf2f4',cardSelB:'#f5e2e6',paperCtl:'#e6d0d4',pvBg:'#e8d2d6',pInk:'#2a2620',pInk2:'#6f6657',nInk:'#e3dccc',chipInk:'#f9edef'},
+    };
+    this.state={step:0,phase:'quiz',lang:'ko',showAdv:false,answers:{genre:'pop',mood:'warm',bass:'normal',space:'subtle',loudness:'balanced',source:'clean',output:'streaming'},
+      title:'',loaded:false,playing:false,t:0,dur:195,xf:100,toast:false};
+  }
+  componentDidMount(){
+    this._iv=setInterval(()=>{ if(this.state.playing&&this.state.loaded) this.setState(s=>({t:s.t+0.2>=s.dur?0:s.t+0.2})); },200);
+  }
+  componentWillUnmount(){clearInterval(this._iv); if(this._tt)clearTimeout(this._tt);}
+  fmt(s){const m=Math.floor(s/60),x=Math.floor(s%60);return m+':'+String(x).padStart(2,'0');}
+  pick(k,v){this.setState(st=>({answers:{...st.answers,[k]:v}}));}
+  next(){this.setState(s=> s.step<6?{step:s.step+1}:{phase:'result'});}
+  back(){this.setState(s=>{
+    if(s.phase==='result')return {phase:'quiz',step:6};
+    if(s.step>0)return {step:s.step-1};
+    return {};
+  });}
+  showToast(msg){this.setState({toast:true,toastMsg:msg}); if(this._tt)clearTimeout(this._tt); this._tt=setTimeout(()=>this.setState({toast:false}),2400);}
+  autoTitle(a,lang){
+    const en=lang==='en';
+    const g=(en?{pop:'Pop',dance:'Dance',rock:'Rock',classic:'Classical',hiphop:'Hip-hop'}:{pop:'팝',dance:'댄스',rock:'록',classic:'클래식',hiphop:'힙합'})[a.genre];
+    const m=(en?{bright:'Bright',warm:'Warm',punchy:'Punchy',smooth:'Smooth'}:{bright:'밝게',warm:'따뜻하게',punchy:'단단하게',smooth:'부드럽게'})[a.mood];
+    return `[Wizard] ${g} · ${m}`;
+  }
+  plainLines(a,lang){
+    const en=lang==='en';
+    const genre=(en?{pop:'Pop',dance:'dance',rock:'rock',classic:'classical',hiphop:'hip-hop'}:{pop:'팝',dance:'댄스',rock:'록',classic:'클래식',hiphop:'힙합'})[a.genre];
+    const L={
+      genre: en?`Tuned the base tone for a ${genre} track.`:`${genre} 곡에 맞춰 기본 톤을 잡았어요.`,
+      mood: {bright:en?'Made it bright and airy up top.':'위쪽을 밝고 청량하게 다듬었어요.',warm:en?'Warmed it up, soft and rich.':'따뜻하고 포근한 색을 입혔어요.',punchy:en?'Gave it a bold, punchy energy.':'힘 있고 단단한 에너지를 더했어요.',smooth:en?'Kept it smooth and natural.':'부드럽고 담백하게 유지했어요.'}[a.mood],
+      bass: {light:en?'Kept the bass light and clean.':'저음은 가볍고 산뜻하게 했어요.',normal:en?'Balanced the bass just right.':'저음은 적당한 밸런스로 맞췄어요.',thick:en?'Made the low end full and heavy.':'저음을 묵직하고 꽉 차게 했어요.'}[a.bass],
+      space: {dry:en?'Kept it close and direct.':'또렷하고 가깝게 들리도록 했어요.',subtle:en?'Added a gentle sense of space.':'은은한 공간감을 살짝 더했어요.',wide:en?'Opened it up nice and wide.':'좌우로 넓고 시원하게 펼쳤어요.'}[a.space],
+      loudness: {dynamic:en?'Kept the natural dynamics.':'음량을 무리하지 않고 자연스럽게 뒀어요.',balanced:en?'Set a loudness that fits streaming.':'스트리밍에 맞는 음량으로 맞췄어요.',loud:en?'Pushed it big and loud.':'어디서든 시원하게 크도록 키웠어요.'}[a.loudness],
+      source: {clean:en?'No noise cleanup needed.':'잡음은 따로 손대지 않았어요.',slight:en?'Softly reduced light background noise.':'약한 배경 잡음을 부드럽게 줄였어요.',noisy:en?'Cleared up the noticeable noise.':'눈에 띄는 잡음을 확실히 정리했어요.'}[a.source],
+      output: (()=>{const o=this.SUM.out[a.output];const dest=(en?{streaming:'streaming & video',archive:'CD / archive',video:'video editing'}:{streaming:'스트리밍·영상',archive:'CD·소장',video:'영상 편집'})[a.output];return en?`Ready to export as ${o.fmt} for ${dest}.`:`${dest}용 ${o.fmt} 파일로 내보낼 준비가 됐어요.`;})(),
+    };
+    return [
+      {icon:this.STEPS[0].opts.find(o=>o.v===a.genre).icon,text:L.genre},
+      {icon:this.STEPS[1].opts.find(o=>o.v===a.mood).icon,text:L.mood},
+      {icon:this.STEPS[2].opts.find(o=>o.v===a.bass).icon,text:L.bass},
+      {icon:this.STEPS[3].opts.find(o=>o.v===a.space).icon,text:L.space},
+      {icon:this.STEPS[4].opts.find(o=>o.v===a.loudness).icon,text:L.loudness},
+      {icon:this.STEPS[6].opts.find(o=>o.v===a.output).icon,text:L.output},
+    ];
+  }
+  buildSummary(a,lang){
+    const en=lang==='en';
+    const out=this.SUM.out[a.output];
+    const eqPreset={pop:'Pop',dance:'Dance',rock:'Classic',classic:'Classic',hiphop:'Dance'}[a.genre];
+    const moodEq=(en?{bright:'High +2.5dB',warm:'Low-mid + / High −',punchy:null,smooth:'Near flat'}:{bright:'고역 +2.5dB',warm:'저·중역 + / 고역 −',punchy:null,smooth:'거의 평탄'})[a.mood];
+    const bassEq=(en?{light:'Low −',normal:null,thick:'Low +'}:{light:'저역 −',normal:null,thick:'저역 +'})[a.bass];
+    const ratio={pop:'4:1',dance:'4:1',rock:'3:1',classic:'2:1',hiphop:'4:1'}[a.genre];
+    const moodDyn=(en?{bright:'Exciter +10',warm:null,punchy:'Transient +',smooth:'Transient −'}:{bright:'Exciter +10',warm:null,punchy:'Transient +',smooth:'Transient −'})[a.mood];
+    const width={dry:'Width 100',subtle:'Width 120',wide:'Width 150'}[a.space];
+    const reverb={dry:'Reverb 0',subtle:'Reverb 5',wide:'Reverb 12'}[a.space];
+    const loud={dynamic:['-16 LUFS','Clear'],balanced:['-14 LUFS','Punchy'],loud:['-9 LUFS','Loud · TP -1']}[a.loudness];
+    const pre=(en?{clean:'Denoise off',slight:'Denoise · Depth 2',noisy:'Denoise · Depth 3'}:{clean:'Denoise 꺼짐',slight:'Denoise · Depth 2',noisy:'Denoise · Depth 3'})[a.source];
+    return [
+      {roman:'I',name:'Input',chips:[out.fmt,out.sr,out.bit]},
+      {roman:'II',name:'Pre',chips:[pre]},
+      {roman:'III',name:'Spectral EQ',chips:[eqPreset,moodEq,bassEq].filter(Boolean)},
+      {roman:'IV',name:'Dynamics',chips:[ratio,moodDyn].filter(Boolean)},
+      {roman:'V',name:'Stereo',chips:[width,reverb,a.bass==='thick'?'Bass Mono':null].filter(Boolean)},
+      {roman:'VI',name:'Loudness',chips:loud},
+      {roman:'VII',name:'Export',chips:[out.fmt+(en?' output':' 출력')]},
+    ];
+  }
+  renderVals(){
+    const pal=this.THEMES[this.props.theme]||this.THEMES.Teal;
+    const {step,phase,answers,loaded,playing,t,dur,xf,showAdv}=this.state;
+    const lang=this.state.lang||'ko';
+    const L=(o)=>(o&&typeof o==='object'&&!Array.isArray(o)&&!('length' in o))?(o[lang]??o.ko):o;
+    const U=this.UI, ac=pal.aMain, ab=pal.aBright;
+    const stepDef=this.STEPS[step];
+    // progress
+    const segs=this.STEPS.map((s,i)=>({style:`flex:1;height:6px;border-radius:4px;transition:background .25s;background:${i<step?ac:(i===step?ac:'rgba(58,52,43,0.16)')};`+(i===step?`box-shadow:0 0 8px ${pal.glow};`:(i>step?'':''))}));
+    // choices
+    const cols=stepDef.cols, sel=answers[stepDef.key], isStereoStep=stepDef.pv==='stereo';
+    const gridStyle=`display:grid;gap:12px;margin-top:22px;grid-template-columns:repeat(${cols===1?1:Math.min(cols,3)},1fr);`;
+    const choices=stepDef.opts.map((o,i)=>{
+      const on=o.v===sel;
+      let st='position:relative;display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:14px;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,0.55);';
+      st+= on?`background:linear-gradient(180deg,${pal.cardSelA},${pal.cardSelB});border:2px solid ${ac};box-shadow:0 0 0 3px ${pal.glow},0 10px 22px -12px ${pal.glow};`
+             :`background:linear-gradient(180deg,${pal.cardA},${pal.cardB});border:2px solid transparent;`;
+      if(cols===1&&stepDef.opts.length===5&&i===4) st+='grid-column:1 / -1;';
+      const pvBoxStyle=`width:64px;height:48px;flex:none;border-radius:10px;padding:8px;box-sizing:border-box;background:${pal.pvBg};overflow:hidden;`;
+      const bars=(o.bars||[]).map(h=>{const hi=h>0.7; return {style:`flex:1;height:${(h*100).toFixed(0)}%;min-height:3px;border-radius:2px;background:${on?ac:(hi?ac:pal.pInk2)};opacity:${on?1:(hi?0.9:0.4)};`};});
+      // stereo
+      const sp=o.spread||0.5, lp=50-sp*42, rp=50+sp*42;
+      const dotBase=`position:absolute;top:50%;width:11px;height:11px;border-radius:50%;transform:translate(-50%,-50%);background:${on?ac:pal.pInk2};box-shadow:0 0 0 3px ${pal.pvBg};`;
+      return {...o,on,icon:o.icon,style:st,t:L(o.t),d:L(o.d),tip:o.tip?L(o.tip):null,rec:!!o.rec,recLabel:L(U.rec),
+        pvBoxStyle, isEq:!isStereoStep, isStereo:isStereoStep, bars,
+        axisStyle:`position:absolute;left:6px;right:6px;top:50%;height:2px;transform:translateY(-50%);border-radius:2px;background:${on?'rgba(0,0,0,0.12)':'rgba(0,0,0,0.1)'};`,
+        dotLStyle:dotBase+`left:${lp}%;`, dotRStyle:dotBase+`left:${rp}%;`,
+        tickStyle:`width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;transition:all .16s;`+(on?`background:${ac};color:${pal.chipInk};`:`background:transparent;border:2px solid ${pal.paperCtl};color:transparent;`),
+        onPick:()=>this.pick(stepDef.key,o.v)};
+    });
+    // nav
+    const canBack=!(phase==='quiz'&&step===0);
+    const backStyle=`font-family:'Archivo','Noto Sans KR',sans-serif;font-size:13px;font-weight:600;border-radius:9px;padding:11px 20px;`+
+      (canBack?`color:${pal.pInk2};border:1px solid rgba(58,52,43,0.22);cursor:pointer;`:'color:rgba(58,52,43,0.28);border:1px solid rgba(58,52,43,0.1);pointer-events:none;');
+    const nextStyle=`display:inline-flex;align-items:center;gap:7px;font-family:'Archivo','Noto Sans KR',sans-serif;font-size:14px;font-weight:700;color:${pal.chipInk};background:${ab};border:none;border-radius:10px;padding:12px 32px;cursor:pointer;box-shadow:0 6px 16px -5px ${pal.glow};`;
+    // result
+    const summary=this.buildSummary(answers,lang).map((s,i)=>({roman:s.roman,name:s.name,
+      rowStyle:`display:flex;align-items:center;gap:11px;padding:9px 12px;background:${i%2?'rgba(58,52,43,0.03)':'transparent'};`+(i<6?'border-bottom:1px solid rgba(58,52,43,0.08);':''),
+      chipStyle:`width:26px;height:26px;flex:none;border-radius:7px;display:grid;place-items:center;font-family:'Spectral',serif;font-size:12px;font-weight:600;background:${pal.paperCtl};color:${ac};`,
+      chips:s.chips.map(c=>({t:c,style:`font-family:'Archivo','Noto Sans KR',sans-serif;font-size:10.5px;font-weight:500;color:${pal.pInk};background:${pal.paperCtl};border-radius:20px;padding:3px 10px;`}))}));
+    const plain=this.plainLines(answers,lang);
+    const prog=t/dur;
+    const wave=this.WAVE.map((h,i)=>{const played=(i/this.WAVE.length)<=prog; return {style:`flex:1;height:${(h*100).toFixed(0)}%;min-height:2px;border-radius:2px;background:${played?ab:'#3a444c'};`+(played?`box-shadow:0 0 5px ${pal.glow};`:'')};});
+    const abSide=xf<50?'A':'B';
+    const titleVal=this.state.title||this.autoTitle(answers,lang);
+    return {
+      pageBg:pal.page,frameBg:pal.frame,paperBg:`linear-gradient(180deg,${pal.paperA},${pal.paperB})`,panelBg:pal.panel,paperCtl:pal.paperCtl,glow:pal.glow,
+      aMain:ac,aBright:ab,pInk:pal.pInk,pInk2:pal.pInk2,nInk:pal.nInk,chipInk:pal.chipInk,
+      isQuiz:phase==='quiz',isResult:phase==='result',
+      lang,setKo:()=>this.setState({lang:'ko'}),setEn:()=>this.setState({lang:'en'}),
+      koStyle:`font-family:'Archivo','Noto Sans KR',sans-serif;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:5px;cursor:pointer;`+(lang==='ko'?`background:${ac};color:${pal.chipInk};`:'background:transparent;color:#9aa7af;'),
+      enStyle:`font-family:'Archivo',sans-serif;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:5px;cursor:pointer;`+(lang==='en'?`background:${ac};color:${pal.chipInk};`:'background:transparent;color:#9aa7af;'),
+      segs,progLabel:U.progOf[lang](step+1,7),stepLabel:L(stepDef.label),animKey:'q'+step,
+      stepQ:L(stepDef.q),stepSub:L(stepDef.sub),gridStyle,choices,
+      onBack:()=>this.back(),onNext:()=>this.next(),backStyle,nextStyle,
+      nextLabel:step<6?L(U.next):L(U.seeResult),backLabel:L(U.back),
+      resultKicker:L(U.resultKicker),plain,
+      showAdv,onToggleAdv:()=>this.setState(s=>({showAdv:!s.showAdv})),
+      advLabel:showAdv?L(U.adjHide):L(U.adjShow),
+      caretStyle:`display:inline-block;transition:transform .16s;transform:rotate(${showAdv?90:0}deg)`,
+      summary,
+      abTitle:L(U.abTitle),abNote:L(U.abNote),loadLabel:L(U.loadLabel),loadHint:L(U.loadHint),aLbl:L(U.aLbl),bLbl:L(U.bLbl),
+      titleVal,onTitleInput:(e)=>this.setState({title:e.target.value}),
+      notLoaded:!loaded,loaded,onLoad:()=>this.setState({loaded:true,playing:true}),
+      wave,onSeek:(e)=>{const r=e.currentTarget.getBoundingClientRect();const f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));this.setState({t:f*dur});},
+      onRewind:()=>this.setState({t:0}),onPlay:()=>this.setState(s=>({playing:!s.playing})),playIcon:playing?'❚❚':'▶',
+      curTime:this.fmt(t),durTime:this.fmt(dur),
+      xf,onXf:(e)=>this.setState({xf:+e.target.value}),xfTrack:`linear-gradient(90deg,${ac} ${xf}%,#3a444c ${xf}%)`,
+      aLblStyle:`font-family:'Archivo','Noto Sans KR',sans-serif;font-size:11px;font-weight:${abSide==='A'?700:500};color:${abSide==='A'?ab:'#8a8070'};`,
+      bLblStyle:`font-family:'Archivo','Noto Sans KR',sans-serif;font-size:11px;font-weight:${abSide==='B'?700:500};color:${abSide==='B'?ab:'#8a8070'};`,
+      resetLabel:L(U.reset),applyLabel:L(U.apply),saveLabel:L(U.save),
+      onReset:()=>this.setState({phase:'quiz',step:0}),
+      onApply:()=>this.showToast(L(U.applied)),onSave:()=>this.showToast(L(U.saved)),
+      toast:this.state.toast,toastMsg:this.state.toastMsg,
+    };
+  }
+}
+</script>
+</body>
+</html>

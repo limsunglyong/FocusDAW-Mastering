@@ -49,7 +49,7 @@ export class PreviewEngine {
   private previewEnabled = false;
   // v0.2.11: Transport 패널용 — 영속 master gain(모니터 볼륨) + seek 재시작용 버퍼/콜백 참조
   private master: GainNode | null = null;
-  private volume = 1;
+  private volume = 0.5;
   // v0.6.0 (Phase 5): 리버브 IR 캐시(샘플레이트별 1회 생성)
   private reverbIR: AudioBuffer | null = null;
   private reverbIRRate = 0;

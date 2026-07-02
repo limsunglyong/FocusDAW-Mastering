@@ -25,6 +25,7 @@ export function buildSummary(a: WizardAnswers, lang: Lang): SummaryRow[] {
   const en = lang === 'en';
   const out = { streaming: { fmt: 'WAV', sr: '48k', bit: '24-bit' }, archive: { fmt: 'FLAC', sr: '44.1k', bit: '24-bit' }, video: { fmt: 'WAV', sr: '48k', bit: '24-bit' } }[a.output];
   const eqPreset = { pop: 'Pop', dance: 'Dance', rock: 'Classic', classic: 'Classic', hiphop: 'Dance' }[a.genre];
+  const eqType = a.eqMode === 'graphic' ? '9-Band EQ' : 'Min-EQ';
   const moodEq = (en
     ? { bright: 'High +2.5dB', warm: 'Low-mid + / High −', punchy: null, smooth: 'Near flat' }
     : { bright: '고역 +2.5dB', warm: '저·중역 + / 고역 −', punchy: null, smooth: '거의 평탄' })[a.mood];
@@ -45,7 +46,7 @@ export function buildSummary(a: WizardAnswers, lang: Lang): SummaryRow[] {
   return [
     { roman: 'I', name: 'Input', chips: [out.fmt, out.sr, out.bit] },
     { roman: 'II', name: 'Pre', chips: [pre] },
-    { roman: 'III', name: 'Spectral EQ', chips: clean([eqPreset, moodEq, bassEq]) },
+    { roman: 'III', name: 'Spectral EQ', chips: clean([eqType, eqPreset, moodEq, bassEq]) },
     { roman: 'IV', name: 'Dynamics', chips: clean([ratio, moodDyn]) },
     { roman: 'V', name: 'Stereo', chips: clean([width, reverb, a.bass === 'thick' ? 'Bass Mono' : null]) },
     { roman: 'VI', name: 'Loudness', chips: loud },

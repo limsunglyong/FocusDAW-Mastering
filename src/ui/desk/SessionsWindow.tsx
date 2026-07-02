@@ -51,6 +51,8 @@ export function SessionsWindow() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   const io = window.focusdaw?.sessionIO;
   const pal = THEMES[theme] || THEMES.Teal;
@@ -145,6 +147,34 @@ export function SessionsWindow() {
     await refresh();
   };
 
+  const beginRename = (session: SessionSummary) => {
+    setEditingId(session.id);
+    setEditingName(session.name);
+  };
+
+  const doRename = async () => {
+    if (!io || !editingId || busy) return;
+    const nextName = editingName.trim();
+    if (!nextName) {
+      flash('Session name cannot be empty.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await io.rename(editingId, nextName);
+      if (res.ok) {
+        setEditingId(null);
+        setEditingName('');
+        flash('Session name updated.');
+        await refresh();
+      } else {
+        flash(res.error || 'Rename failed.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const close = () => window.focusdaw?.win?.close?.();
   const previewSummary = payload ? summaryFromPayload(name, description, payload) : null;
 
@@ -170,10 +200,28 @@ export function SessionsWindow() {
         boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontFamily: 'Spectral, serif', fontSize: 14.5, fontWeight: 700, color: '#3a342c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {s.name}
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, height: 34, boxSizing: 'border-box', margin: '-11px -13px 0', padding: '0 13px', borderRadius: '9px 9px 0 0', background: `${dark}22`, borderBottom: `1px solid ${dark}33` }}>
+        {editingId === s.id ? (
+          <input
+            className="app-no-drag"
+            autoFocus
+            value={editingName}
+            onChange={(e) => setEditingName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+              if (e.key === 'Enter') void doRename();
+              if (e.key === 'Escape') {
+                setEditingId(null);
+                setEditingName('');
+              }
+            }}
+            style={{ flex: 1, minWidth: 0, padding: '3px 9px', borderRadius: 6, border: '1px solid #a8a092', background: '#f7f1e5', color: '#3a342c', fontSize: 12, outline: 'none' }}
+          />
+        ) : (
+          <span title={s.name} style={{ fontFamily: 'Spectral, serif', fontSize: 16, fontWeight: 700, color: '#3a342c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {s.name}
+          </span>
+        )}
         <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, color: '#8a8170', flex: 'none' }}>{fmtDate(s.savedAt)}</span>
       </div>
 
@@ -246,7 +294,7 @@ export function SessionsWindow() {
     color: fg,
     fontFamily: '"Segoe UI", sans-serif',
     fontSize: 11,
-    fontWeight: 700,
+    fontWeight: 400,
     cursor: busy ? 'default' : 'pointer',
     opacity: busy ? 0.6 : 1,
     outline: 'none',
@@ -291,14 +339,14 @@ export function SessionsWindow() {
         <div style={{ flex: 'none', padding: '12px 16px 10px', borderBottom: '1px solid #b3ac9e', background: '#c4bdb1' }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <Card
-                s={previewSummary}
-                action={
+              {Card({
+                s: previewSummary,
+                action: (
                   <button className="app-no-drag" style={btn(dark, theme.includes('Light') ? '#fff' : '#efe7d6', dark)} onClick={() => doSave()} disabled={busy}>
                     SAVE AS NEW
                   </button>
-                }
-              />
+                ),
+              })}
             </div>
             <div style={{ width: 248, flex: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5 }}>
               <label style={{ fontSize: 10.5, fontWeight: 700, color: '#5a5347' }}>Session name</label>
@@ -339,27 +387,40 @@ export function SessionsWindow() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 11 }}>
             {list.map((s) => (
-              <Card
-                key={s.id}
-                s={s}
-                action={
+              <div key={s.id}>
+              {Card({
+                s,
+                action: (
                   confirmDelete === s.id ? (
                     <>
-                      <button className="app-no-drag" style={btn('#f0d6d6', '#a3344b', '#d99')} onClick={() => doDelete(s.id)}>DELETE</button>
-                      <button className="app-no-drag" style={btn('transparent', '#5a5347', '#b5ae9f')} onClick={() => setConfirmDelete(null)}>Cancel</button>
+                      <button className="app-no-drag" style={{ ...btn('#f0d6d6', '#a3344b', '#d99'), padding: '2px 4px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => doDelete(s.id)}>DELETE</button>
+                      <button className="app-no-drag" style={{ ...btn('transparent', '#5a5347', '#b5ae9f'), padding: '2px 4px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => setConfirmDelete(null)}>Cancel</button>
                     </>
                   ) : (
-                    <>
-                      <button className="app-no-drag" style={btn('transparent', '#8a5347', '#cbb9b0')} onClick={() => setConfirmDelete(s.id)}>×</button>
-                      {mode === 'save' ? (
+                    mode === 'save' ? (
+                      <>
+                        <button className="app-no-drag" style={{ ...btn('transparent', '#8a5347', '#cbb9b0'), fontWeight: 700 }} onClick={() => setConfirmDelete(s.id)}>×</button>
                         <button className="app-no-drag" style={btn(`${dark}14`, dark, dark)} onClick={() => doSave(s.id, s.name)} disabled={busy}>OVERWRITE</button>
-                      ) : (
-                        <button className="app-no-drag" style={btn(dark, theme.includes('Light') ? '#fff' : '#efe7d6', dark)} onClick={() => doLoad(s.id)} disabled={busy}>LOAD</button>
-                      )}
-                    </>
+                      </>
+                    ) : (
+                      <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {editingId === s.id ? (
+                          <>
+                            <button className="app-no-drag" style={{ ...btn(`${dark}14`, dark, dark), padding: '2px 4px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => void doRename()} disabled={busy}>RENAME</button>
+                            <button className="app-no-drag" style={{ ...btn('transparent', '#5a5347', '#b5ae9f'), padding: '2px 4px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => { setEditingId(null); setEditingName(''); }}>Cancel</button>
+                          </>
+                        ) : (
+                          <button className="app-no-drag" style={{ ...btn('transparent', '#5a5347', '#b5ae9f'), padding: '2px 4px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => beginRename(s)}>EDIT</button>
+                        )}
+                        <div style={{ flex: 1 }} />
+                        <button className="app-no-drag" style={{ ...btn('transparent', '#8a5347', '#cbb9b0'), padding: '2px 4px', fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center' }} onClick={() => setConfirmDelete(s.id)}>×</button>
+                        <button className="app-no-drag" style={{ ...btn(dark, theme.includes('Light') ? '#fff' : '#efe7d6', dark), padding: '2px 4px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => doLoad(s.id)} disabled={busy}>LOAD</button>
+                      </div>
+                    )
                   )
-                }
-              />
+                ),
+              })}
+              </div>
             ))}
           </div>
         )}

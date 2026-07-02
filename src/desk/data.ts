@@ -10,7 +10,7 @@ export type ModDef = { id: ModId; short: string; name: string; icon: string; des
 export const MODS: ModDef[] = [
   { id: 'input', short: 'Input', name: 'Input', icon: 'input', desc: 'Load files, batch a folder and convert to PCM before the chain begins.', viz: 'BATCH QUEUE' },
   { id: 'pre', short: 'Pre-Proc', name: 'Pre Processing', icon: 'pre', desc: 'Clean up the source — denoise, fades and set the loudness targets.', viz: '3D SPECTRUM · TIME × FREQ × LEVEL' },
-  { id: 'spectral', short: 'EQ', name: 'Spectral EQ', icon: 'spectral', desc: 'Air and tone balance · Min-φ Equalization', viz: 'SPECTRAL ANALYSIS' },
+  { id: 'spectral', short: 'EQ', name: 'Spectral EQ', icon: 'spectral', desc: 'Air and tone balance · Min-φ & Graphical Equalizer', viz: 'SPECTRAL ANALYSIS' },
   { id: 'dynamics', short: 'Dynamics', name: 'Dynamics', icon: 'dynamics', desc: 'Multiband compression with transient shaping and exciter.', viz: 'DYNAMIC PROCESSING' },
   { id: 'stereo', short: 'Stereo', name: 'Stereo Image', icon: 'stereo', desc: 'Width, bass-mono and a touch of space.', viz: 'STEREO ENHANCEMENT' },
   { id: 'loudness', short: 'Loudness', name: 'Loudness / Limiter', icon: 'loudness', desc: 'True-peak limiting and LUFS maximization with saturation.', viz: 'LOUDNESS / LIMITER' },
@@ -135,7 +135,7 @@ export const META: MetaDef[] = [
 export type FileItem = { name: string; size: string; fmt: string; dur: string; sr: string; depth: string; ch: string; lufs: string };
 
 export const MENUS: Record<string, [string, string][]> = {
-  Project: [['New Session', '⌘N'], ['New with Wizard…', ''], ['Open', '⌘O'], ['Save Session', '⌘S'], ['__div', ''], ['Render Batch...', ''], ['__div', ''], ['Import Files...', '⌘I'], ['Import Folder', ''], ['Quit', '⌘Q']],
+  Project: [['New Session', '⌘N'], ['Open', '⌘O'], ['Save Session', '⌘S'], ['__div', ''], ['Render Batch...', ''], ['__div', ''], ['Import Files...', '⌘I'], ['Import Folder', ''], ['Quit', '⌘Q']],
   Edit: [['Undo', '⌘Z'], ['Redo', '⇧⌘Z'], ['__div', ''], ['Preference (Setup)', '⌘,']],
   Help: [['Manual', ''], ['__div', ''], ['Check for Updates...', ''], ['Release Notes', ''], ['About', '']],
 };

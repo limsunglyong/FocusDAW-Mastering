@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -392,10 +392,13 @@ ipcMain.handle('render-batch:get-theme', async () => renderBatchTheme);
 // 창 내장 A/B 청취 → sessionIO.apply/save. 세션 창처럼 비모달 자식 창.
 let wizardWindow = null;
 let wizardTheme = null;
-const WIZARD_W = 812;
-const WIZARD_H = 700;
+let wizardVolume = 0.5;
+// 첫 질문의 5개 선택지와 하단 탐색 버튼이 스크롤 없이 한 화면에 보이는 기본 크기.
+const WIZARD_W = 980;
+const WIZARD_H = 900;
 ipcMain.on('win:open-wizard', (event, opts) => {
   wizardTheme = (opts && opts.theme) || null;
+  wizardVolume = Number.isFinite(opts?.volume) ? Math.max(0, Math.min(1, opts.volume)) : 0.5;
   if (wizardWindow) {
     wizardWindow.webContents.send('win:theme-updated', wizardTheme);
     wizardWindow.focus();
@@ -441,6 +444,20 @@ ipcMain.on('win:open-wizard', (event, opts) => {
   });
 });
 ipcMain.handle('wizard:get-theme', async () => wizardTheme);
+ipcMain.handle('wizard:get-context', async () => ({ theme: wizardTheme, volume: wizardVolume }));
+ipcMain.on('wizard:fit-height', (event, requestedHeight) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win !== wizardWindow || !Number.isFinite(requestedHeight)) return;
+
+  const bounds = win.getBounds();
+  const workArea = screen.getDisplayMatching(bounds).workArea;
+  const y = Math.max(workArea.y, Math.min(bounds.y, workArea.y + workArea.height - 1));
+  const availableHeight = workArea.y + workArea.height - y;
+  const height = Math.min(availableHeight, Math.max(Math.min(620, availableHeight), Math.ceil(requestedHeight)));
+  if (Math.abs(bounds.height - height) < 2 && bounds.width === WIZARD_W) return;
+
+  win.setBounds({ x: bounds.x, y, width: WIZARD_W, height });
+});
 
 // v0.9.0: 세션(프로젝트) 창 열기. mode='save'|'load', payload=현재 직렬화 세션(저장용), theme=현재 테마.
 ipcMain.on('win:open-sessions', (event, opts) => {
@@ -646,6 +663,23 @@ ipcMain.handle('session:delete', async (_event, id) => {
     return { ok: true };
   } catch (err) {
     console.error('Failed to delete session:', err);
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+ipcMain.handle('session:rename', async (_event, id, nextName) => {
+  if (!id) return { ok: false, error: 'Missing session id.' };
+  const name = String(nextName || '').trim();
+  if (!name) return { ok: false, error: 'Session name cannot be empty.' };
+  const file = path.join(sessionsDir(), `${String(id).replace(/[^a-zA-Z0-9_-]/g, '')}.json`);
+  try {
+    if (!fs.existsSync(file)) return { ok: false, error: 'Session not found.' };
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    data.name = name;
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
+    return { ok: true };
+  } catch (err) {
+    console.error('Failed to rename session:', err);
     return { ok: false, error: String(err && err.message ? err.message : err) };
   }
 });

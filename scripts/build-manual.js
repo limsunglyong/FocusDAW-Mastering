@@ -1,0 +1,1652 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const ROOT_DIR = path.resolve(__dirname, '..');
+const REFER_DIR = path.join(ROOT_DIR, '_refer');
+const MANUAL_ASSETS_DIR = path.join(ROOT_DIR, 'assets', 'manual');
+const LOGO_PATH = path.join(ROOT_DIR, 'assets', 'logo-main2.png');
+
+console.log('Starting manual.html generation...');
+
+// 1. Base64 Image Helper
+function getBase64Image(filePath) {
+  if (!fs.existsSync(filePath)) {
+    console.warn(`Warning: File not found at ${filePath}`);
+    return '';
+  }
+  const ext = path.extname(filePath).replace('.', '');
+  const data = fs.readFileSync(filePath);
+  return `data:image/${ext};base64,${data.toString('base64')}`;
+}
+
+// 2. Load all images
+console.log('Loading and base64-encoding images...');
+const images = {
+  logo: getBase64Image(LOGO_PATH),
+  'app-overview.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'app-overview.png')),
+  'transport-panel.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'transport-panel.png')),
+  'loaded-file-info.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'loaded-file-info.png')),
+  'play-progress.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'play-progress.png')),
+  'transport-playing.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'transport-playing.png')),
+  'transport-loop.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'transport-loop.png')),
+  'bypass-toggle.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'bypass-toggle.png')),
+  'preview-toggle.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'preview-toggle.png')),
+  'input-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'input-details.png')),
+  'pre-noise-analysis.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'pre-noise-analysis.png')),
+  'pre-denoise-on.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'pre-denoise-on.png')),
+  'pre-spectrum-controls.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'pre-spectrum-controls.png')),
+  'pre-auto-settings.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'pre-auto-settings.png')),
+  'eq-overview.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-overview.png')),
+  'eq-advanced.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-advanced.png')),
+  'eq-user-preset.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-user-preset.png')),
+  'eq-preset-save.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-preset-save.png')),
+  'eq-9band-overview.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-9band-overview.png')),
+  'eq-9band-user-presets.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-9band-user-presets.png')),
+  'dynamics-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'dynamics-details.png')),
+  'stereo-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'stereo-details.png')),
+  'loudness-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'loudness-details.png')),
+  'export-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'export-details.png')),
+  'render-batch-overview.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-overview.png')),
+  'render-batch-session-picker.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-session-picker.png')),
+  'render-batch-session-loaded.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-session-loaded.png')),
+  'render-batch-add-job.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-add-job.png')),
+  'render-batch-multiple-jobs.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-multiple-jobs.png'))
+};
+
+// 3. Define Manual Data Structures
+const SECTIONS = [
+  {
+    id: 'overview',
+    title: { ko: '앱 둘러보기', en: 'App Overview' },
+    intro: {
+      ko: 'FocusDAW Mastering Desk는 여러 음원을 한 번에 불러와 같은 기준으로 다듬고 내보내는 배치 마스터링 앱입니다. 신호는 I에서 VII까지 왼쪽에서 오른쪽으로 흐릅니다.',
+      en: 'FocusDAW Mastering Desk is a batch-mastering app that imports, processes, and exports multiple tracks consistently. Audio flows from section I to VII, left to right.',
+    },
+    steps: {
+      ko: ['상단 메뉴에서 프로젝트와 환경설정을 관리합니다.', '가운데 7개 스테이지를 클릭하면 아래에 상세 조절 화면이 열립니다.', 'Preview를 켜고 재생하면 처리 전후를 들으며 조절할 수 있습니다.'],
+      en: ['Use the top menu to manage projects and preferences.', 'Select one of the seven stages to open its detailed controls below.', 'Enable Preview and play audio to compare processed and original sound.'],
+    },
+  },
+  {
+    id: 'workflow',
+    title: { ko: '기본 사용 방법', en: 'Basic Workflow' },
+    intro: {
+      ko: 'Import → Listen → Adjust → Compare → Export 순서로 작업하면 됩니다. 처음에는 작은 변화부터 적용하고 출력 음량이 지나치게 커지지 않는지 확인하세요.',
+      en: 'A reliable workflow is Import → Listen → Adjust → Compare → Export. Start with subtle changes and watch the output level.',
+    },
+    steps: {
+      ko: ['Project > Import Files 또는 Import Folder로 음원을 불러옵니다.', '큐에서 곡을 선택하고 Play로 원본을 확인합니다.', '각 섹션을 켜고 파라미터를 조절합니다. Bypass하면 해당 섹션만 건너뜁니다.', 'Preview ON/OFF로 처리음과 원음을 비교합니다.', 'VII Export에서 형식과 저장 위치를 정한 뒤 배치 출력합니다.'],
+      en: ['Import audio with Project > Import Files or Import Folder.', 'Select a track in the queue and use Play to audition it.', 'Enable stages and adjust parameters. Bypass skips only that stage.', 'Use Preview ON/OFF to compare processed and original audio.', 'Choose format and destination in VII Export, then run the batch export.'],
+    },
+  },
+  {
+    id: 'input',
+    title: { ko: 'I. Input — 입력', en: 'I. Input' },
+    intro: {
+      ko: '파일·폴더 입력, 내부 PCM 비트 깊이와 샘플레이트, 하위 폴더 검색, 정규화를 설정합니다. 큐에는 길이, 포맷, 원본 LUFS 같은 분석 정보가 표시됩니다.',
+      en: 'Controls file/folder input, internal PCM depth and sample rate, subfolder scanning, and normalization. The queue shows duration, format, and measured source LUFS.',
+    },
+    steps: {
+      ko: ['Files는 여러 파일, Folder는 폴더 단위로 불러옵니다.', 'Rate는 내부 처리 해상도입니다. 원본보다 높게 설정해도 잃어버린 고역이 복원되지는 않습니다.', 'Root는 선택 폴더만, Sub Folder는 모든 하위 폴더까지 검색합니다.', 'Normalize는 입력 피크를 안전한 기준으로 맞춰 처리 시작점을 일정하게 합니다.'],
+      en: ['Files imports selected files; Folder imports a directory.', 'Rate sets the internal processing sample rate. Raising it cannot restore frequencies missing from the source.', 'Root scans only the chosen folder; Sub Folder includes nested folders.', 'Normalize aligns input peaks to provide a consistent processing starting point.'],
+    },
+    effect: {
+      ko: '음원 효과: 음색을 꾸미기보다는 다음 단계가 안정적으로 작동하도록 입력 규격과 레벨을 정돈합니다.',
+      en: 'Audible effect: Primarily prepares format and level so later stages behave consistently, rather than coloring the sound.',
+    },
+  },
+  {
+    id: 'pre',
+    title: { ko: 'II. Pre — 전처리', en: 'II. Pre Processing' },
+    intro: {
+      ko: '본격적인 톤 조절 전에 노이즈와 곡 시작·끝을 정리합니다. 3D 스펙트로그램은 시간에 따른 주파수 에너지를 보여줍니다.',
+      en: 'Cleans noise and track boundaries before tonal processing. The 3D spectrogram shows frequency energy over time.',
+    },
+    steps: {
+      ko: ['Denoise는 조용한 구간에서 노이즈 특성을 찾아 줄입니다.', 'Noise Depth는 처리 강도, Noise Reduction은 실제 감소량입니다.', 'Fade In/Out은 시작과 끝의 클릭음이나 갑작스러운 끊김을 완화합니다.', 'Reset View로 3D 화면의 시점을 초기화할 수 있습니다.'],
+      en: ['Denoise learns the noise character from quiet passages and reduces it.', 'Noise Depth chooses processing strength; Noise Reduction controls the applied amount.', 'Fade In/Out softens clicks and abrupt starts or endings.', 'Reset View restores the 3D display camera.'],
+    },
+    effect: {
+      ko: '음원 효과: 히스·공조음 같은 일정한 바닥 노이즈가 줄고 시작과 끝이 매끄러워집니다. 과하면 고역이 물결치거나 답답해질 수 있습니다.',
+      en: 'Audible effect: Reduces steady hiss or room noise and smooths edges. Excessive reduction can create watery highs or dullness.',
+    },
+  },
+  {
+    id: 'eq',
+    title: { ko: 'III. Spectral EQ — 음색', en: 'III. Spectral EQ' },
+    intro: {
+      ko: '주파수 대역별 크기를 조절해 어둡고 밝은 정도, 저음의 무게, 중역의 선명도를 다듬습니다.',
+      en: 'Shapes brightness, bass weight, and midrange clarity by adjusting frequency bands.',
+    },
+    steps: {
+      ko: ['MIN-PHASE PARAMETRIC과 9-BAND GRAPHIC 중 원하는 방식을 선택합니다.', 'Parametric에서는 그래프의 밴드 점이나 노브로 Frequency·Gain·Q를 조절합니다.', '9-Band에서는 그래프의 9개 고정 주파수 포인트를 위아래로 드래그해 Gain을 조절하거나 전용 프리셋을 선택합니다.', '두 방식의 설정은 독립적으로 유지되므로 전환해 비교할 수 있습니다.'],
+      en: ['Choose MIN-PHASE PARAMETRIC or 9-BAND GRAPHIC.', 'In Parametric mode, drag graph nodes or adjust Frequency, Gain, and Q.', 'In 9-Band mode, drag the nine fixed-frequency graph points vertically or choose a dedicated preset.', 'Both modes retain independent settings for easy comparison.'],
+    },
+    effect: {
+      ko: '음원 효과: 탁한 저중역을 걷거나, 보컬 존재감을 높이거나, 거친 고역을 부드럽게 만들 수 있습니다.',
+      en: 'Audible effect: Can clear muddy low-mids, bring vocals forward, or soften harsh treble.',
+    },
+  },
+  {
+    id: 'dynamics',
+    title: { ko: 'IV. Dynamics — 다이내믹', en: 'IV. Dynamics' },
+    intro: {
+      ko: '큰 소리와 작은 소리의 차이를 관리하고 트랜지언트와 배음을 조절합니다.',
+      en: 'Manages the gap between loud and quiet moments and shapes transients and harmonics.',
+    },
+    steps: {
+      ko: ['Threshold보다 큰 신호가 Ratio 비율로 눌립니다.', 'Attack이 빠르면 타격음이 얌전해지고, 느리면 첫 타격이 살아납니다.', 'Release는 압축이 풀리는 속도입니다. 곡의 박자에 맞으면 자연스럽습니다.', 'Transient와 Exciter는 각각 타격감과 고조파 선명도를 보완합니다.'],
+      en: ['Signals above Threshold are reduced according to Ratio.', 'Fast Attack softens hits; slower Attack preserves the initial punch.', 'Release controls how quickly compression lets go. Matching the groove sounds natural.', 'Transient and Exciter controls restore impact and harmonic detail.'],
+    },
+    effect: {
+      ko: '음원 효과: 레벨이 안정되고 밀도가 높아집니다. 과한 압축은 숨 막히거나 펌핑하는 소리를 만듭니다.',
+      en: 'Audible effect: Produces steadier level and greater density. Too much creates a squashed or pumping sound.',
+    },
+  },
+  {
+    id: 'stereo',
+    title: { ko: 'V. Stereo — 공간', en: 'V. Stereo' },
+    intro: {
+      ko: '좌우 폭과 저역의 중심감을 다듬어 공간을 넓히거나 단단하게 만듭니다.',
+      en: 'Adjusts stereo width and low-frequency focus for a wider or more solid image.',
+    },
+    steps: {
+      ko: ['Width 100%가 원본이며 높이면 넓어지고 낮추면 중앙으로 모입니다.', 'Bass Mono는 설정 주파수 아래 저음을 중앙에 모아 재생 호환성을 높입니다.', 'Mono로 전환해 위상 상쇄로 악기나 보컬이 사라지지 않는지 확인합니다.', '스테레오 미터가 극단으로 치우치지 않는지 함께 확인하세요.'],
+      en: ['Width at 100% is unchanged; higher is wider and lower moves toward mono.', 'Bass Mono centers frequencies below its cutoff for better playback compatibility.', 'Check Mono to ensure phase cancellation does not remove vocals or instruments.', 'Watch the stereo meter for extreme imbalance.'],
+    },
+    effect: {
+      ko: '음원 효과: 코러스·패드가 넓어지고 킥·베이스는 중앙에서 단단해집니다. 과도한 확장은 모노에서 소리가 약해질 수 있습니다.',
+      en: 'Audible effect: Widens pads and choruses while anchoring kick and bass. Excessive width may sound weak in mono.',
+    },
+  },
+  {
+    id: 'loudness',
+    title: { ko: 'VI. Loudness / Limiter — 최종 음량', en: 'VI. Loudness / Limiter' },
+    intro: {
+      ko: '목표 LUFS에 맞춰 체감 음량을 올리고 순간 피크가 출력 한계를 넘지 않게 막습니다.',
+      en: 'Raises perceived loudness toward a target LUFS and prevents momentary peaks from exceeding the output ceiling.',
+    },
+    steps: {
+      ko: ['Target LUFS는 원하는 평균 체감 음량입니다. 플랫폼 권장값은 장르와 배포처에 따라 다릅니다.', 'Limiter Ceiling은 최종 피크의 상한입니다.', 'TP Limit는 샘플 사이에서 생길 수 있는 실제 재생 피크까지 고려합니다.', 'Gain Reduction이 계속 크게 움직이면 앞 단계의 압축이나 목표 음량을 다시 확인하세요.'],
+      en: ['Target LUFS sets desired average perceived loudness; suitable values depend on genre and destination.', 'Limiter Ceiling is the maximum final peak.', 'TP Limit also considers inter-sample peaks that may occur during playback.', 'If Gain Reduction stays high, revisit earlier compression or lower the loudness target.'],
+    },
+    effect: {
+      ko: '음원 효과: 더 크고 단단하게 들리며 돌발 피크가 억제됩니다. 지나치면 타격감과 깊이가 줄고 왜곡될 수 있습니다.',
+      en: 'Audible effect: Sounds louder and firmer while controlling spikes. Too much can remove punch and depth or introduce distortion.',
+    },
+  },
+  {
+    id: 'export',
+    title: { ko: 'VII. Export — 출력', en: 'VII. Export' },
+    intro: {
+      ko: '완성된 체인을 파일로 렌더링합니다. 포맷, 파일명, 저장 위치와 메타데이터를 확인하는 마지막 단계입니다.',
+      en: 'Renders the completed chain to files. This is the final check for format, naming, destination, and metadata.',
+    },
+    steps: {
+      ko: ['WAV/AIFF는 편집·보관용 무손실, FLAC은 용량을 줄인 무손실 형식입니다.', '배포처 요구에 맞춰 비트 깊이와 샘플레이트를 선택합니다.', '저장 폴더와 파일명 규칙을 확인한 뒤 Batch Export를 실행합니다.', '출력 파일을 다시 불러와 시작·끝, 음량, 왜곡 여부를 최종 확인하세요.'],
+      en: ['WAV/AIFF are lossless for editing and archive; FLAC is lossless with smaller files.', 'Choose bit depth and sample rate required by the destination.', 'Confirm destination and naming, then run Batch Export.', 'Re-import an output and verify boundaries, loudness, and distortion.'],
+    },
+    effect: {
+      ko: '음원 효과: Export 자체는 앞 단계의 소리를 파일로 고정합니다. 손실 압축이나 낮은 비트 깊이는 미세한 품질 차이를 만들 수 있습니다.',
+      en: 'Audible effect: Export commits the preceding sound to a file. Lossy compression or lower bit depth may introduce subtle changes.',
+    },
+  },
+  {
+    id: 'renderBatch',
+    title: { ko: 'Render Batch — 다중 작업 출력', en: 'Render Batch' },
+    intro: {
+      ko: '메인 프로젝트와 별도로, 여러 원본 묶음에 저장된 Session Card를 각각 지정해 한 번에 렌더링하는 독립 작업 창입니다.',
+      en: 'A separate workspace that renders multiple source groups at once, each with its own saved Session Card.',
+    },
+    steps: {
+      ko: ['+ FILE, + FOLDER 또는 드래그 앤 드롭으로 첫 작업의 원본을 추가합니다.', 'SELECT에서 해당 원본에 적용할 Session Card를 선택하고 출력 폴더를 확인합니다.', '다른 원본에 다른 설정을 적용하려면 + ADD BATCH JOB으로 작업을 추가합니다.', 'START를 누르면 모든 작업을 위에서 아래 순서로 처리하며 상단에서 전체 진행률을 확인할 수 있습니다.'],
+      en: ['Add sources to the first job with + FILE, + FOLDER, or drag and drop.', 'Choose the Session Card for those sources with SELECT and confirm the output folder.', 'Use + ADD BATCH JOB when another source group needs different settings.', 'Press START to process all jobs from top to bottom while the header shows overall progress.'],
+    },
+  },
+  {
+    id: 'tips',
+    title: { ko: '단축키와 문제 해결', en: 'Shortcuts & Troubleshooting' },
+    intro: {
+      ko: 'Space는 재생/정지, F4는 Transport 패널 열기/닫기입니다. 노브는 더블클릭하면 기본값으로 돌아갑니다.',
+      en: 'Space starts/stops playback and F4 toggles the Transport panel. Double-click a knob to restore its default.',
+    },
+    steps: {
+      ko: ['소리가 안 나면 큐 선택, 출력 장치, 시스템 음량을 확인합니다.', '재생이 끊기면 Denoise 같은 무거운 처리가 끝날 때까지 기다리고 다른 앱의 부하를 줄입니다.', '결과가 너무 크거나 찌그러지면 VI의 목표 LUFS와 Limiter 감소량을 낮춥니다.', '모든 비교는 체감 음량을 비슷하게 맞춘 상태에서 하세요. 큰 쪽이 무조건 더 좋아 들리는 착시를 줄일 수 있습니다.'],
+      en: ['If silent, check queue selection, output device, and system volume.', 'If playback stutters, wait for heavy processing such as Denoise and reduce other system load.', 'If output is too loud or distorted, lower Target LUFS and limiter reduction in section VI.', 'Level-match comparisons to avoid mistaking louder for better.'],
+    },
+  },
+];
+
+const SETTINGS = {
+  overview: [
+    { name: 'Stage card', values: 'I–VII', detail: { ko: '카드를 클릭하면 해당 처리 단계의 상세 화면이 열립니다. 카드 아래 BYPASSED/ACTIVE 상태로 적용 여부를 확인합니다.', en: 'Click a card to open that processing stage. Its BYPASSED/ACTIVE state shows whether it is applied.' } },
+    { name: 'Play / Space', values: 'Play · Pause', detail: { ko: '선택한 음원을 재생하거나 일시정지합니다. 재생 위치는 하단 진행 바로 확인합니다.', en: 'Plays or pauses the selected track. The lower progress bar shows the current position.' } },
+    { name: 'Preview', values: 'OFF / ON', detail: { ko: 'OFF는 처리 전 원음, ON은 활성화된 I~VI 체인을 통과한 처리음을 재생합니다. 같은 구간을 번갈아 들어 비교하세요.', en: 'OFF auditions the source; ON auditions the active I–VI chain. Toggle it on the same passage for a fair comparison.' } },
+    { name: 'Bypass', values: 'Per stage', detail: { ko: '각 단계 왼쪽 아래 버튼으로 해당 단계만 건너뜁니다. 설정값은 보존되므로 다시 켜면 그대로 복원됩니다.', en: 'Skips only that stage while preserving its settings, which return when re-enabled.' } },
+  ],
+  workflow: [
+    { name: 'Transport', values: 'F4', detail: { ko: 'F4 또는 상단 Transport 메뉴로 파형 패널을 엽니다. 파형을 클릭하면 해당 위치로 이동합니다.', en: 'Press F4 or use the Transport menu to open the waveform panel. Click the waveform to seek.' } },
+    { name: 'Skip', values: '−5 s / +5 s', detail: { ko: '되감기·앞감기 버튼으로 5초씩 이동합니다. 세밀한 비교는 파형 클릭을 사용하세요.', en: 'Moves backward or forward by five seconds. Click the waveform for more precise seeking.' } },
+    { name: 'A/B Loop', values: 'A · B · Loop', detail: { ko: 'A로 시작점, B로 끝점을 지정하고 Loop를 켜면 구간을 반복합니다. 짧은 구간에서 EQ나 압축 차이를 비교할 때 유용합니다.', en: 'Set start with A, end with B, then enable Loop. This is useful for comparing EQ or compression on a short passage.' } },
+    { name: 'Monitor volume', values: '0–100%', detail: { ko: '청취 전용 음량이며 Export 결과에는 반영되지 않습니다. 비교 시 원음과 처리음의 체감 음량을 비슷하게 맞추세요.', en: 'Monitoring-only level; it does not affect Export. Keep source and processed playback at similar perceived loudness.' } },
+  ],
+  input: [
+    { name: 'Source', values: 'Files / Folder', detail: { ko: 'Files는 여러 파일을 선택하고 Folder는 폴더를 한 번에 큐에 추가합니다. 파일을 창으로 끌어 놓아도 됩니다.', en: 'Files selects multiple files; Folder adds a directory to the queue. Drag-and-drop is also supported.' } },
+    { name: 'PCM', values: '16 / 24 / 32f', detail: { ko: '내부 및 출력 PCM 비트 깊이입니다. 24-bit는 일반 마스터에 권장되며 32f는 후속 편집 헤드룸을 보존합니다.', en: 'Internal/output PCM depth. 24-bit is a solid mastering default; 32f preserves headroom for later editing.' } },
+    { name: 'Rate', values: '44.1k / 48k / 96k', detail: { ko: 'Preview·DSP·Export의 내부 샘플레이트입니다. 변경 시 처리 버퍼를 다시 만들며, 업샘플링이 원본에 없던 고역을 복원하지는 않습니다.', en: 'Internal rate for Preview, DSP, and Export. Changing it rebuilds the processing buffer; upsampling cannot restore missing source detail.' } },
+    { name: 'Folder', values: 'Root / Sub Folder', detail: { ko: 'Root는 선택한 폴더의 파일만, Sub Folder는 하위 폴더까지 재귀 검색합니다.', en: 'Root scans only the selected folder; Sub Folder recursively includes nested folders.' } },
+    { name: 'Normalize', values: 'OFF / ON', detail: { ko: '처리 시작 전 입력 피크 기준을 정돈합니다. 곡별 다이내믹 자체를 같게 만드는 기능은 아닙니다.', en: 'Aligns the input peak reference before processing. It does not make every track equally dynamic.' } },
+    { name: 'LUFS badge', values: 'Measured', detail: { ko: 'NOW SELECTED의 LUFS는 원본 파일을 BS.1770 방식으로 실측한 값입니다. VI의 목표 LUFS와 구분하세요.', en: 'The NOW SELECTED LUFS badge is a BS.1770 measurement of the source, distinct from the target in section VI.' } },
+  ],
+  pre: [
+    { name: 'Denoise', values: 'OFF / ON', detail: { ko: '조용한 구간에서 노이즈 프로필을 찾아 STFT 스펙트럴 게이팅을 적용합니다. 분석·처리에 시간이 걸릴 수 있습니다.', en: 'Finds a noise profile in quiet passages and applies STFT spectral gating. Analysis and processing may take time.' } },
+    { name: 'Noise Depth', values: '1 / 2 / 3', detail: { ko: '1 Original은 가장 보수적, 2 Normal은 일반적인 정리, 3 Deep은 강한 노이즈에 사용합니다. 강할수록 인공적인 흔들림이 생길 가능성도 커집니다.', en: '1 Original is conservative, 2 Normal is general-purpose, and 3 Deep targets heavy noise. Stronger depth raises artifact risk.' } },
+    { name: 'Noise Reduction', values: '0–100% · 1%', detail: { ko: '검출한 노이즈를 실제로 줄이는 양입니다. 10~35%부터 시작해 무음부와 고역을 함께 들으며 올리세요.', en: 'Amount of detected noise actually reduced. Start around 10–35% and listen to both silence and high-frequency detail.' } },
+    { name: 'Fade In', values: '0–2000 ms · 10 ms', detail: { ko: '곡 시작의 클릭과 갑작스러운 진입을 완화합니다. 타격음이 중요한 곡은 짧게 설정하세요.', en: 'Softens clicks or abrupt starts. Keep it short when the opening transient matters.' } },
+    { name: 'Fade Out', values: '0–4000 ms · 10 ms', detail: { ko: '곡 끝을 부드럽게 감쇠합니다. 잔향이 잘리지 않도록 마지막 소리를 들으며 조절하세요.', en: 'Smoothly attenuates the ending. Adjust while listening so natural ambience is not cut off.' } },
+    { name: '3D Spectrum', values: 'Drag / Wheel / Right-drag', detail: { ko: '드래그는 회전, 휠은 확대·축소, 오른쪽 드래그는 이동입니다. Reset View로 기본 시점에 돌아갑니다.', en: 'Drag rotates, the wheel zooms, and right-drag pans. Reset View restores the default camera.' } },
+    { name: 'Recommendation', values: 'Analyze → Apply', detail: { ko: 'SNR과 Noise Floor를 분석해 Depth와 Amount를 제안합니다. Apply를 누르면 추천값이 설정에 반영됩니다.', en: 'Analyzes SNR and noise floor to suggest Depth and Amount. Apply writes the recommendation into the controls.' } },
+  ],
+  eq: [
+    { name: 'EQ mode', values: 'MIN-φ / 9-BAND', detail: { ko: 'PARAMETERS 오른쪽 위 스위치로 기존 5밴드 Min-φ Parametric EQ와 9밴드 Graphic EQ를 전환합니다. 두 모드는 각각의 설정과 프리셋을 유지합니다.', en: 'Use the switch at the upper right of PARAMETERS to choose the original five-band Min-φ Parametric EQ or the nine-band Graphic EQ. Each mode retains its own settings and presets.' } },
+    { name: 'Preset', values: 'Normal / Pop / Dance / Classic / User', detail: { ko: 'Normal은 평탄, Pop은 보컬·고역 강조, Dance는 저역과 Air 강조, Classic은 따뜻하고 부드러운 방향입니다.', en: 'Normal is flat; Pop lifts vocal/treble; Dance emphasizes lows and air; Classic is warmer and smoother.' } },
+    { name: '9-Band', values: '63 Hz–16 kHz · ±12 dB', detail: { ko: '9개의 고정 주파수 슬라이더를 위아래로 드래그하거나 해당 주파수 위치에서 마우스 휠을 돌려 1 dB 단위로 조절합니다. 그래프 배경의 레벨 미터로 대역별 신호를 확인할 수 있습니다.', en: 'Drag the nine fixed-frequency sliders vertically, or use the mouse wheel over a band for 1 dB steps. The graph background meters show the live level in each band.' } },
+    { name: '9-Band User', values: 'User 1–5', detail: { ko: 'User를 선택하면 5개의 사용자 슬롯이 나타납니다. 각 슬롯 메뉴에서 이름을 변경하고 현재 9밴드 설정을 저장하거나 다시 불러옵니다.', en: 'Selecting User reveals five user slots. Use a slot menu to rename it, save the current nine-band curve, or recall it later.' } },
+    { name: 'Graph node', values: 'Drag / Wheel', detail: { ko: '노드를 좌우로 끌면 Frequency, 위아래로 끌면 Gain이 바뀝니다. 노드 위 휠은 Bell 밴드의 Q를 0.1 단위로 조절합니다.', en: 'Drag left/right for Frequency and up/down for Gain. Wheel over a Bell node adjusts Q in 0.1 steps.' } },
+    { name: 'Band 1 · L-Shelf', values: '20–240 Hz', detail: { ko: '저역 전체의 무게를 넓게 조절합니다. Q는 0.71로 고정됩니다.', en: 'Broadly adjusts low-end weight. Q is fixed at 0.71.' } },
+    { name: 'Band 2 · Bell', values: '80–600 Hz', detail: { ko: '저음의 두께와 탁함이 주로 위치하는 대역입니다.', en: 'Targets bass body and common muddy low-mid content.' } },
+    { name: 'Band 3 · Bell', values: '300–3000 Hz', detail: { ko: '보컬·악기의 중심 존재감과 답답함을 조절합니다.', en: 'Shapes core vocal/instrument presence and boxiness.' } },
+    { name: 'Band 4 · Bell', values: '2–9 kHz', detail: { ko: '명료도, 어택, 치찰음과 거친 느낌을 조절합니다.', en: 'Controls clarity, attack, sibilance, and harshness.' } },
+    { name: 'Band 5 · H-Shelf', values: '6–20 kHz', detail: { ko: '고역의 공기감과 밝기를 넓게 조절합니다. Q는 0.71로 고정됩니다.', en: 'Broadly adjusts air and brightness. Q is fixed at 0.71.' } },
+    { name: 'Gain / Q', values: 'Gain · Bell Q', detail: { ko: 'Gain은 증감량, Q는 영향 폭입니다. Q가 높을수록 좁고 정밀합니다. User 프리셋은 이름 변경 후 현재 설정을 저장할 수 있습니다.', en: 'Gain sets boost/cut; Q sets bandwidth. Higher Q is narrower. Rename and save the User preset to retain current settings.' } },
+  ],
+  dynamics: [
+    { name: 'Low / Mid / High', values: '−18.0–0.0 dB · 0.1 dB', detail: { ko: '각 대역의 컴프레서 Threshold 성격 값입니다. 더 낮을수록 해당 대역이 더 많이 압축됩니다. 크로스오버는 200 Hz와 2 kHz로 고정입니다.', en: 'Threshold-like values for each band. Lower settings apply more compression. Crossovers are fixed at 200 Hz and 2 kHz.' } },
+    { name: 'Ratio', values: '2:1 / 4:1 / 8:1', detail: { ko: 'Threshold를 넘는 신호를 누르는 비율입니다. 2:1은 자연스럽고 8:1은 강하게 제어합니다.', en: 'Compression ratio above threshold. 2:1 is gentle; 8:1 is firm control.' } },
+    { name: 'Transient', values: '−50–+50% · 1%', detail: { ko: '양수는 어택을 살려 펀치와 스냅을 강조하고, 음수는 타격을 부드럽게 만듭니다.', en: 'Positive values preserve attack for punch and snap; negative values soften impacts.' } },
+    { name: 'Exciter', values: '0–100% · 1%', detail: { ko: '3.5 kHz 이상 고역에 배음을 병렬로 더해 선명도를 높입니다. 과하면 거칠고 피곤하게 들립니다.', en: 'Adds parallel harmonics above 3.5 kHz for clarity. Excessive settings sound harsh and fatiguing.' } },
+    { name: 'Gain Reduction', values: 'Low / Mid / High', detail: { ko: '왼쪽 막대로 대역별 압축량을 확인합니다. 한 대역만 계속 크게 줄어들면 Threshold를 완화하세요.', en: 'The left meters show reduction per band. Ease the threshold if one band remains heavily reduced.' } },
+  ],
+  stereo: [
+    { name: 'Width', values: '0–200% · 1%', detail: { ko: '100%는 원본, 0%는 Side가 없는 모노, 200%는 Side를 두 배로 확장합니다.', en: '100% is original, 0% removes Side for mono, and 200% doubles Side width.' } },
+    { name: 'Reverb', values: '0–30% · 1%', detail: { ko: '고정된 공간 잔향을 병렬로 더하는 Send 양입니다. 원본의 깊이가 흐려지지 않도록 소량부터 사용하세요.', en: 'Send amount into a fixed ambience reverb. Start subtly to avoid blurring depth.' } },
+    { name: 'Delay', values: '0–30% · 1%', detail: { ko: '약 220 ms 딜레이와 피드백을 병렬로 더합니다. 리듬과 공간감을 만들지만 과하면 선명도가 떨어집니다.', en: 'Adds a parallel delay of about 220 ms with feedback. It adds rhythm and space but can reduce clarity.' } },
+    { name: 'Bass Mono / Bass', values: '60–300 Hz · 5 Hz', detail: { ko: 'ON이면 설정 주파수 아래의 Side 성분을 제거해 저음을 중앙에 모읍니다.', en: 'When ON, removes Side content below the cutoff to center the bass.' } },
+    { name: 'Mono Master', values: 'OFF / ON', detail: { ko: '전 대역을 (L+R)/2로 합친 실제 모노 마스터입니다. ON 상태는 Export에도 반영됩니다.', en: 'Creates a true full-band (L+R)/2 mono master. The ON state is also applied to Export.' } },
+    { name: 'Correlation', values: '−1 … +1', detail: { ko: '+1에 가까울수록 모노 호환성이 좋습니다. 0 미만 RISK가 반복되면 Width·공간 효과를 줄여 확인하세요.', en: 'Values near +1 are mono-compatible. If RISK below 0 persists, reduce Width or spatial effects.' } },
+  ],
+  loudness: [
+    { name: 'True Peak', values: '−3.0–0.0 dB · 0.1 dB', detail: { ko: '최종 출력 천장입니다. −1.0 dBTP는 스트리밍용으로 여유가 있는 출발점입니다.', en: 'Final output ceiling. −1.0 dBTP is a practical starting point with streaming headroom.' } },
+    { name: 'LUFS', values: '−24–−6 LUFS · 1 LU', detail: { ko: '목표 Integrated Loudness입니다. 값을 높일수록 make-up gain and 리미팅이 증가합니다. 원본 LUFS 표시와는 별개입니다.', en: 'Target integrated loudness. Higher targets increase make-up gain and limiting. This differs from the measured source LUFS.' } },
+    { name: 'Saturate', values: '0–100% · 1%', detail: { ko: '리미터 앞에서 부드러운 배음을 더해 밀도와 따뜻함을 만듭니다. THD 상태가 HOT이면 줄이는 편이 안전합니다.', en: 'Adds soft harmonics before limiting for density and warmth. Reduce it when THD status reaches HOT.' } },
+    { name: 'Limiter', values: 'Clear / Punchy / Loud', detail: { ko: '릴리즈 캐릭터입니다. Clear는 0.18 s로 투명하게, Punchy는 0.12 s, Loud는 0.08 s로 빠르고 밀도 높게 동작합니다.', en: 'Release character: Clear is transparent at 0.18 s, Punchy uses 0.12 s, and Loud is fast/dense at 0.08 s.' } },
+    { name: 'TP Limit', values: 'OFF / ON', detail: { ko: '2 ms 룩어헤드 리미터를 켜 피크가 천장을 넘기 전에 미리 줄입니다. 최종 출력에서는 ON을 권장합니다.', en: 'Enables the 2 ms lookahead limiter, reducing peaks before they cross the ceiling. Recommended for final output.' } },
+  ],
+  export: [
+    { name: 'Album title', values: 'Text', detail: { ko: '앨범 또는 프로젝트 이름입니다. 비워 두면 Untitled Master가 표시됩니다.', en: 'Album or project name. Untitled Master is shown when empty.' } },
+    { name: 'Artist / Composer', values: 'Text', detail: { ko: '아티스트·작곡가 메타데이터입니다.', en: 'Artist or composer metadata.' } },
+    { name: 'Year / Genre', values: 'Text', detail: { ko: '발매 연도와 장르 태그입니다.', en: 'Release year and genre tags.' } },
+    { name: 'Album Artwork', values: 'Drop image', detail: { ko: '아트워크 영역에 이미지를 끌어 놓아 출력 파일에 포함할 표지를 지정합니다.', en: 'Drop an image onto the artwork area to select cover art for output files.' } },
+    { name: 'WAV', values: 'PCM', detail: { ko: '편집·보관에 적합한 무손실 PCM입니다. Input의 Rate와 PCM 비트 깊이를 따릅니다.', en: 'Lossless PCM for editing and archive. Uses the Input Rate and PCM depth.' } },
+    { name: 'MP3 320', values: '320 kbps', detail: { ko: '용량이 작고 배포가 편리한 손실 압축 형식입니다.', en: 'Lossy 320 kbps format for smaller, convenient distribution files.' } },
+    { name: 'FLAC', values: 'Lossless', detail: { ko: 'WAV보다 용량을 줄이면서 PCM 품질을 보존하는 무손실 형식입니다.', en: 'Lossless compression that preserves PCM quality with smaller files than WAV.' } },
+  ],
+  renderBatch: [
+    { name: 'Render Batch', values: 'Multiple jobs', detail: { ko: '상단 Render Batch를 열면 여러 작업을 만들 수 있습니다. 각 작업은 원본 파일·폴더, Session Card, 출력 폴더를 독립적으로 가집니다.', en: 'Open Render Batch from the top bar to create multiple jobs. Each job has independent source files/folders, a Session Card, and an output folder.' } },
+    { name: 'Original Sources', values: '+ FILE / + FOLDER / Drop', detail: { ko: '파일 또는 폴더를 여러 번 추가하거나 드래그 앤 드롭해 한 작업에 누적합니다. ×는 개별 파일 삭제, 제목 옆 ×는 해당 작업의 원본 전체 삭제입니다.', en: 'Add files or folders repeatedly, or drag and drop them into one job. Use × to remove one file, or the × beside the heading to clear all sources in that job.' } },
+    { name: 'Session Card', values: 'SELECT / CHANGE', detail: { ko: '저장된 Session Card를 선택하면 해당 카드의 EQ 종류, 프리셋, 활성 이펙트와 출력 형식이 작업에 적용됩니다.', en: 'Choose a saved Session Card to apply its EQ type, preset, enabled effects, and output format to that job.' } },
+    { name: 'Add Batch Job', values: '+ ADD BATCH JOB', detail: { ko: '서로 다른 원본 묶음에 다른 Session Card를 적용하려면 작업을 추가합니다. START는 모든 작업을 위에서 아래 순서로 처리합니다.', en: 'Add another job when different source groups need different Session Cards. START processes every job from top to bottom.' } },
+  ],
+};
+
+const MEDIA = {
+  overview: [
+    { src: 'app-overview.png', caption: { ko: '전체 앱 화면 — 상단 메뉴, Transport, 7단계 체인, 상세 화면과 하단 상태 표시', en: 'Full app — top menu, Transport, seven-stage chain, detail pane, and status footer' } },
+  ],
+  workflow: [
+    { src: 'transport-panel.png', caption: { ko: 'F4로 연 Transport 파형 패널', en: 'Transport waveform panel opened with F4' } },
+    { src: 'loaded-file-info.png', caption: { ko: '파일 로드 후 큐와 선택 파일 분석 정보', en: 'Queue and selected-file analysis after loading audio' } },
+    { src: 'play-progress.png', caption: { ko: '재생 중 하단 진행 바와 현재 시간', en: 'Lower progress bar and current time during playback' } },
+    { src: 'transport-playing.png', caption: { ko: 'Transport 패널 재생 상태와 재생 헤드', en: 'Transport playback state and playhead' } },
+    { src: 'transport-loop.png', caption: { ko: 'A/B 시작·끝 지점을 이용한 구간 반복', en: 'A/B loop using start and end markers' } },
+    { src: 'bypass-toggle.png', caption: { ko: '섹션별 Bypass ON/OFF 비교', en: 'Per-section Bypass ON/OFF comparison' } },
+    { src: 'preview-toggle.png', caption: { ko: '원음과 전체 처리음을 비교하는 Preview ON/OFF', en: 'Preview ON/OFF for source versus processed comparison' } },
+  ],
+  input: [{ src: 'input-details.png', caption: { ko: 'Input 상세 화면 — 큐, 입력 규격, 배치 정보와 선택 파일 메타데이터', en: 'Input detail — queue, input format, batch information, and selected-file metadata' } }],
+  pre: [
+    { src: 'pre-noise-analysis.png', caption: { ko: 'Pre Processing 상세 화면과 노이즈 분석 결과', en: 'Pre Processing detail and noise analysis result' } },
+    { src: 'pre-denoise-on.png', caption: { ko: 'Denoise를 켰을 때의 분석·처리 상태', en: 'Analysis and processing state with Denoise enabled' } },
+    { src: 'pre-spectrum-controls.png', caption: { ko: '3D 스펙트럼 회전·확대·이동 조작 안내', en: '3D spectrum rotate, zoom, and pan controls' } },
+    { src: 'pre-auto-settings.png', caption: { ko: '노이즈 분석 후 추천 Depth·Amount 적용', en: 'Applying recommended Depth and Amount after analysis' } },
+  ],
+  eq: [
+    { src: 'eq-overview.png', caption: { ko: 'Spectral EQ 그래프와 프리셋 선택', en: 'Spectral EQ graph and preset selection' } },
+    { src: 'eq-advanced.png', caption: { ko: 'Advanced — 5개 밴드의 Frequency·Gain·Q', en: 'Advanced — Frequency, Gain, and Q for five bands' } },
+    { src: 'eq-user-preset.png', caption: { ko: 'User 프리셋 선택', en: 'Selecting the User preset' } },
+    { src: 'eq-preset-save.png', caption: { ko: 'User 프리셋 이름 변경과 현재 설정 저장', en: 'Renaming and saving current settings to a User preset' } },
+    { src: 'eq-9band-overview.png', caption: { ko: '9-Band EQ 기본 화면 — 9개 고정 주파수와 모드 전환 스위치', en: '9-Band EQ overview — nine fixed frequencies and the mode switch' } },
+    { src: 'eq-9band-user-presets.png', caption: { ko: '9-Band Pop 프리셋 곡선과 User 1–5 사용자 프리셋', en: '9-Band Pop curve and the User 1–5 preset slots' } },
+  ],
+  dynamics: [{ src: 'dynamics-details.png', caption: { ko: 'Dynamics — 3밴드 Gain Reduction, Ratio, Transient와 Exciter', en: 'Dynamics — three-band gain reduction, Ratio, Transient, and Exciter' } }],
+  stereo: [{ src: 'stereo-details.png', caption: { ko: 'Stereo — Width·공간 효과·Bass Mono와 Correlation', en: 'Stereo — Width, spatial effects, Bass Mono, and Correlation' } }],
+  loudness: [{ src: 'loudness-details.png', caption: { ko: 'Loudness / Limiter — 목표 LUFS, True Peak, Saturation과 Limiter', en: 'Loudness / Limiter — target LUFS, True Peak, Saturation, and Limiter' } }],
+  export: [
+    { src: 'export-details.png', caption: { ko: 'Export — 메타데이터, 아트워크, 저장 위치와 출력 포맷', en: 'Export — metadata, artwork, destination, and output format' } },
+  ],
+  renderBatch: [
+    { src: 'render-batch-overview.png', caption: { ko: 'Render Batch 기본 화면 — 원본, Session Card, 출력으로 구성된 첫 작업', en: 'Render Batch overview — the first source, Session Card, and output job' } },
+    { src: 'render-batch-session-picker.png', caption: { ko: '저장된 Session Card 목록에서 작업에 적용할 설정 선택', en: 'Selecting the settings to apply from saved Session Cards' } },
+    { src: 'render-batch-session-loaded.png', caption: { ko: '원본 파일과 Session Card가 준비되어 START가 활성화된 작업', en: 'A job ready to start with source files and a loaded Session Card' } },
+    { src: 'render-batch-add-job.png', caption: { ko: '다른 Session Card를 적용하기 위한 두 번째 Batch Job 추가', en: 'Adding a second Batch Job for a different Session Card' } },
+    { src: 'render-batch-multiple-jobs.png', caption: { ko: '서로 다른 원본 묶음과 Session Card를 지정한 다중 작업 목록', en: 'Multiple jobs with different source groups and Session Cards' } },
+  ],
+};
+
+// 4. Generate HTML Content
+console.log('Generating HTML template...');
+
+// Themes definition
+const THEME_TEAL_DARK = `
+  --t-aMain: #16a394;
+  --t-aBright: #3fd6c2;
+  --t-aGlow: #baf6ec;
+  --t-aInk: #0c2b27;
+  --t-eqA: rgba(22,163,148,0.38);
+  --t-eqB: rgba(22,163,148,0);
+  --t-glow: rgba(63,214,194,0.3);
+  --t-ell: rgba(22,163,148,0.16);
+  --t-deskA: #1c2128;
+  --t-deskB: #11151a;
+  --t-gA: rgba(232,180,90,0.2);
+  --t-gB: rgba(232,180,90,0.03);
+  --t-page: #0c0f12;
+  --t-frame: #15191e;
+  --t-paperA: #f3ecdd;
+  --t-paperB: #e9e0cd;
+  --t-panel: #2a2620;
+  --t-panelDark: #1c1a15;
+  --t-paperCtl: #ddd2bb;
+  --t-paperInput: #f7f1e5;
+  --t-notch: #efe7d6;
+  --t-cardA: #e7ddca;
+  --t-cardB: #d9cfb8;
+  --t-cardSelA: #fbf6ea;
+  --t-cardSelB: #efe6d3;
+  --t-pInk: #2a2620;
+  --t-pInk2: #6f6657;
+  --t-pNum: #3a342b;
+  --t-pSeg: #5a5347;
+  --t-nInk: #e3dccc;
+  --t-nInk2: #9a8f7a;
+`;
+
+const THEME_TEAL_LIGHT = `
+  --t-aMain: #0f8a7d;
+  --t-aBright: #13a596;
+  --t-aGlow: #6fd9cb;
+  --t-aInk: #eafbf7;
+  --t-eqA: rgba(15,138,125,0.34);
+  --t-eqB: rgba(15,138,125,0);
+  --t-glow: rgba(15,138,125,0.3);
+  --t-ell: rgba(15,138,125,0.18);
+  --t-deskA: #dde2e6;
+  --t-deskB: #c8d0d6;
+  --t-gA: rgba(15,138,125,0.12);
+  --t-gB: rgba(15,138,125,0.02);
+  --t-page: #eef1f3;
+  --t-frame: #e6eaed;
+  --t-paperA: #26221b;
+  --t-paperB: #1c1914;
+  --t-panel: #efe7d6;
+  --t-panelDark: #e0d6c0;
+  --t-paperCtl: #39342a;
+  --t-paperInput: #2e2a22;
+  --t-notch: #26221b;
+  --t-cardA: #2a261e;
+  --t-cardB: #201c15;
+  --t-cardSelA: #322c22;
+  --t-cardSelB: #272219;
+  --t-pInk: #f2ede1;
+  --t-pInk2: #b3a890;
+  --t-pNum: #7d7361;
+  --t-pSeg: #d8cdb6;
+  --t-nInk: #2a2620;
+  --t-nInk2: #6f6657;
+`;
+
+const html = `<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FocusDAW Mastering Desk Manual</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;600;700&family=Spectral:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Theme definitions */
+    :root {
+      --mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    
+    html[data-theme="dark"] {
+      ${THEME_TEAL_DARK}
+    }
+    
+    html[data-theme="light"] {
+      ${THEME_TEAL_LIGHT}
+    }
+    
+    /* Global Styles */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--t-page);
+      color: var(--t-pInk);
+      font-family: 'Archivo', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+    
+    button, input {
+      font-family: inherit;
+    }
+    
+    /* Header Styles */
+    header {
+      height: 60px;
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 24px;
+      background: var(--t-paperB);
+      border-bottom: 1px solid var(--t-ell);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      z-index: 10;
+    }
+    
+    .header-logo {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+    }
+    
+    .header-title {
+      font-family: 'Spectral', serif;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: .02em;
+      color: var(--t-pInk);
+    }
+    
+    .header-badge {
+      padding: 2px 8px;
+      border: 1px solid var(--t-ell);
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--t-aBright);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .search-box {
+      margin: 0 auto;
+      width: 380px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border: 1px solid var(--t-ell);
+      border-radius: 20px;
+      background: var(--t-paperInput);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    .search-box:focus-within {
+      border-color: var(--t-aMain);
+      box-shadow: 0 0 0 2px var(--t-glow);
+    }
+    
+    .search-icon {
+      color: var(--t-pInk2);
+      font-size: 14px;
+    }
+    
+    .search-input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--t-pInk);
+      font-size: 13px;
+    }
+    
+    .search-input::placeholder {
+      color: var(--t-pInk2);
+      opacity: 0.7;
+    }
+    
+    .search-counter {
+      font-size: 11px;
+      color: var(--t-pInk2);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    
+    .search-nav-btn {
+      border: 0;
+      background: transparent;
+      color: var(--t-pInk2);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    
+    .search-nav-btn:hover {
+      background: var(--t-paperCtl);
+      color: var(--t-pInk);
+    }
+    
+    .toggle-group {
+      display: flex;
+      padding: 2px;
+      border: 1px solid var(--t-ell);
+      border-radius: 8px;
+      background: var(--t-paperInput);
+    }
+    
+    .toggle-btn {
+      border: 0;
+      border-radius: 6px;
+      padding: 6px 12px;
+      background: transparent;
+      color: var(--t-pInk2);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .toggle-btn.active {
+      background: var(--t-aMain);
+      color: var(--t-aInk);
+    }
+    
+    .theme-toggle-btn {
+      background: transparent;
+      border: 1px solid var(--t-ell);
+      color: var(--t-pInk);
+      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+    
+    .theme-toggle-btn:hover {
+      background: var(--t-paperInput);
+      border-color: var(--t-aMain);
+    }
+    
+    /* Layout Container */
+    .container {
+      min-height: 0;
+      flex: 1;
+      display: flex;
+    }
+    
+    /* Sidebar Navigation */
+    nav {
+      width: 250px;
+      flex: none;
+      padding: 24px 16px;
+      overflow-y: auto;
+      background: var(--t-paperB);
+      border-right: 1px solid var(--t-ell);
+    }
+    
+    .nav-header {
+      padding: 0 12px 12px;
+      color: var(--t-pInk2);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--t-ell);
+      margin-bottom: 16px;
+    }
+    
+    .nav-item {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: transparent;
+      color: var(--t-pInk);
+      text-align: left;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+    }
+    
+    .nav-item:hover {
+      background: var(--t-paperInput);
+    }
+    
+    .nav-item.active {
+      border-color: var(--t-aMain);
+      background: var(--t-aMain);
+      color: var(--t-aInk);
+      font-weight: 600;
+      box-shadow: 0 2px 6px var(--t-glow);
+    }
+    
+    /* Main Content Area */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px clamp(24px, 5vw, 64px) 80px;
+      background: radial-gradient(circle at 80% 0%, var(--t-paperA) 0, var(--t-paperB) 115%);
+      scroll-behavior: smooth;
+    }
+    
+    .content-wrapper {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    
+    /* Signal Flow Component */
+    .signal-flow {
+      padding: 24px 28px;
+      border-radius: 14px;
+      background: var(--t-cardSelA);
+      border: 1px solid var(--t-ell);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    
+    .flow-title {
+      margin-bottom: 16px;
+      color: var(--t-pInk2);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    
+    .flow-node {
+      flex: 1;
+      min-width: 72px;
+      padding: 12px 6px;
+      text-align: center;
+      border-radius: 8px;
+      background: var(--t-paperCtl);
+      color: var(--t-pInk);
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    
+    .flow-node.highlight {
+      background: var(--t-aMain);
+      color: var(--t-aInk);
+      box-shadow: 0 3px 8px var(--t-glow);
+    }
+    
+    .flow-node b {
+      display: block;
+      color: var(--t-aBright);
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    
+    .flow-node.highlight b {
+      color: var(--t-aInk);
+    }
+    
+    .flow-arrow {
+      color: var(--t-aMain);
+      font-weight: bold;
+      font-size: 18px;
+    }
+    
+    /* Article / Sections */
+    article {
+      scroll-margin-top: 24px;
+      padding: 32px 36px;
+      background: var(--t-cardSelA);
+      border: 1px solid var(--t-ell);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px -15px rgba(0,0,0,0.15);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    article:hover {
+      box-shadow: 0 14px 40px -18px rgba(0,0,0,0.22);
+    }
+    
+    h2 {
+      margin: 0;
+      font-family: 'Spectral', serif;
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--t-pInk);
+    }
+    
+    .divider {
+      height: 1px;
+      margin: 16px 0 20px;
+      background: var(--t-ell);
+    }
+    
+    .intro-text {
+      margin: 0;
+      color: var(--t-pInk);
+      font-size: 14.5px;
+      line-height: 1.8;
+      font-weight: 400;
+    }
+    
+    ul.steps-list {
+      margin: 18px 0 0;
+      padding-left: 24px;
+      color: var(--t-pInk2);
+      font-size: 13.5px;
+      line-height: 1.8;
+    }
+    
+    ul.steps-list li {
+      margin-bottom: 6px;
+    }
+    
+    /* Specific Table Styling */
+    .table-container {
+      margin: 20px 0;
+      overflow: hidden;
+      border: 1px solid var(--t-ell);
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .table-title {
+      margin-bottom: 10px;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--t-pInk);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      color: var(--t-pInk);
+      background: var(--t-cardA);
+    }
+    
+    th {
+      background: var(--t-paperCtl);
+      border-bottom: 1px solid var(--t-ell);
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 700;
+    }
+    
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--t-ell);
+    }
+    
+    tr:last-child td {
+      border-bottom: none;
+    }
+    
+    tr.odd {
+      background: var(--t-cardSelA);
+    }
+    
+    tr.even {
+      background: var(--t-cardA);
+    }
+    
+    /* Guide Cards */
+    .guide-card {
+      border: 1px solid var(--t-ell);
+      border-radius: 10px;
+      padding: 16px 20px;
+      background: var(--t-cardA);
+      color: var(--t-pInk);
+      margin: 16px 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .guide-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--t-aMain);
+    }
+    
+    .guide-card-content {
+      font-size: 12.5px;
+      line-height: 1.7;
+    }
+    
+    .guide-row {
+      margin-bottom: 8px;
+    }
+    .guide-row:last-child {
+      margin-bottom: 0;
+    }
+    
+    /* Effect Card */
+    .effect-card {
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-left: 3px solid var(--t-aMain);
+      border-radius: 0 8px 8px 0;
+      background: var(--t-cardA);
+      color: var(--t-pInk);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    
+    /* Settings Grid */
+    .settings-section-title {
+      margin: 24px 0 12px;
+      font-family: 'Spectral', serif;
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--t-pInk);
+    }
+    
+    .settings-grid {
+      overflow: hidden;
+      border: 1px solid var(--t-ell);
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .settings-row {
+      display: grid;
+      grid-template-columns: minmax(130px, 1fr) minmax(140px, 1fr) 3fr;
+      gap: 16px;
+      padding: 12px 16px;
+      align-items: start;
+      font-size: 12.5px;
+      line-height: 1.6;
+      border-top: 1px solid var(--t-ell);
+    }
+    
+    .settings-row:first-child {
+      border-top: none;
+    }
+    
+    .settings-row.even {
+      background: var(--t-cardA);
+    }
+    
+    .settings-row.odd {
+      background: var(--t-cardSelA);
+    }
+    
+    .settings-row strong {
+      color: var(--t-pInk);
+      font-weight: 600;
+    }
+    
+    .settings-row .value {
+      color: var(--t-aMain);
+      font-weight: 700;
+    }
+    
+    .settings-row .desc {
+      color: var(--t-pInk2);
+    }
+    
+    /* Media/Images Layout */
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    
+    .media-grid.single {
+      grid-template-columns: 1fr;
+    }
+    
+    figure {
+      margin: 0;
+      padding: 10px;
+      border: 1px solid var(--t-ell);
+      border-radius: 10px;
+      background: var(--t-cardA);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      transition: transform 0.2s;
+    }
+    
+    figure:hover {
+      transform: translateY(-2px);
+    }
+    
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      background: var(--t-panelDark);
+    }
+    
+    figcaption {
+      padding: 10px 6px 2px;
+      color: var(--t-pInk2);
+      font-size: 11.5px;
+      line-height: 1.5;
+      text-align: center;
+      font-weight: 500;
+    }
+    
+    /* Search highlighting */
+    mark {
+      background: var(--t-aBright);
+      color: var(--t-aInk);
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+    
+    mark.current {
+      background: #ff5a5a;
+      color: #ffffff;
+      box-shadow: 0 0 0 2px #ff5a5a;
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--t-paperCtl);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--t-pInk2);
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <img class="header-logo" src="${images.logo}" alt="FocusDAW Logo">
+    <div class="header-title">FocusDAW Mastering Manual</div>
+    <div class="header-badge">Station Edition</div>
+    
+    <!-- Search Bar -->
+    <div class="search-box">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="searchInput" class="search-input" placeholder="매뉴얼 검색" />
+      <span id="searchCounter" class="search-counter">0/0</span>
+      <button id="searchPrev" class="search-nav-btn" title="이전 매치">‹</button>
+      <button id="searchNext" class="search-nav-btn" title="다음 매치">›</button>
+    </div>
+    
+    <!-- Language Toggle -->
+    <div class="toggle-group">
+      <button id="langKo" class="toggle-btn active">한글</button>
+      <button id="langEn" class="toggle-btn">English</button>
+    </div>
+    
+    <!-- Theme Toggle -->
+    <button id="themeToggle" class="theme-toggle-btn" title="테마 변경">☼</button>
+  </header>
+
+  <!-- Layout Container -->
+  <div class="container">
+    <!-- Sidebar -->
+    <nav>
+      <div id="tocTitle" class="nav-header">목차</div>
+      <div id="navList">
+        <!-- Navigation items will be dynamically generated -->
+      </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main id="mainContent">
+      <div class="content-wrapper">
+        <!-- Signal Flow Section -->
+        <section class="signal-flow">
+          <div id="signalFlowTitle" class="flow-title">신호 흐름</div>
+          <div id="signalFlowSteps" class="flow-steps">
+            <!-- Flow steps generated dynamically -->
+          </div>
+        </section>
+        
+        <!-- Articles / Sections -->
+        <div id="articlesList">
+          <!-- Articles generated dynamically -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Injected Data
+    const SECTIONS = ${JSON.stringify(SECTIONS, null, 2)};
+    const SETTINGS = ${JSON.stringify(SETTINGS, null, 2)};
+    const MEDIA_META = ${JSON.stringify(MEDIA, null, 2)};
+    const IMAGES = ${JSON.stringify(images, null, 2)};
+    
+    // Application State
+    let currentLang = 'ko';
+    let activeSectionId = 'overview';
+    let searchQuery = '';
+    let searchMatches = [];
+    let currentMatchIndex = -1;
+    
+    // DOM Elements
+    const navList = document.getElementById('navList');
+    const articlesList = document.getElementById('articlesList');
+    const signalFlowSteps = document.getElementById('signalFlowSteps');
+    const searchInput = document.getElementById('searchInput');
+    const searchCounter = document.getElementById('searchCounter');
+    const searchPrev = document.getElementById('searchPrev');
+    const searchNext = document.getElementById('searchNext');
+    const langKo = document.getElementById('langKo');
+    const langEn = document.getElementById('langEn');
+    const themeToggle = document.getElementById('themeToggle');
+    const htmlEl = document.documentElement;
+    const mainEl = document.getElementById('mainContent');
+    const tocTitle = document.getElementById('tocTitle');
+    const signalFlowTitle = document.getElementById('signalFlowTitle');
+    
+    // 1. Theme Toggle Handler
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = htmlEl.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      htmlEl.setAttribute('data-theme', newTheme);
+      themeToggle.textContent = newTheme === 'dark' ? '☼' : '☾';
+      themeToggle.title = newLangText(
+        newTheme === 'dark' ? '라이트 모드로 변경' : '다크 모드로 변경',
+        newTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'
+      );
+    });
+    
+    function newLangText(ko, en) {
+      return currentLang === 'ko' ? ko : en;
+    }
+    
+    // 2. Language Change Handler
+    function setLanguage(lang) {
+      currentLang = lang;
+      
+      // Update toggle buttons active class
+      if (lang === 'ko') {
+        langKo.classList.add('active');
+        langEn.classList.remove('active');
+        searchInput.placeholder = '매뉴얼 검색';
+        tocTitle.textContent = '목차';
+        signalFlowTitle.textContent = '신호 흐름';
+      } else {
+        langKo.classList.remove('active');
+        langEn.classList.add('active');
+        searchInput.placeholder = 'Search manual';
+        tocTitle.textContent = 'CHAPTERS';
+        signalFlowTitle.textContent = 'SIGNAL FLOW';
+      }
+      
+      // Re-render UI content
+      renderTOC();
+      renderSignalFlow();
+      renderArticles();
+      
+      // Perform search again if there is a query
+      if (searchQuery.trim()) {
+        performSearch(searchQuery);
+      } else {
+        clearSearch();
+      }
+    }
+    
+    langKo.addEventListener('click', () => setLanguage('ko'));
+    langEn.addEventListener('click', () => setLanguage('en'));
+    
+    // 3. Render Table of Contents
+    function renderTOC() {
+      navList.innerHTML = '';
+      SECTIONS.forEach((section, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'nav-item' + (activeSectionId === section.id ? ' active' : '');
+        btn.innerHTML = \`\${index + 1}. \${section.title[currentLang]}\`;
+        btn.addEventListener('click', () => {
+          scrollToSection(section.id);
+        });
+        navList.appendChild(btn);
+      });
+    }
+    
+    // 4. Render Signal Flow Diagram
+    function renderSignalFlow() {
+      signalFlowSteps.innerHTML = '';
+      const labels = currentLang === 'ko'
+        ? ['입력', '전처리', 'EQ', '다이내믹', '스테레오', '음량', '출력']
+        : ['Input', 'Pre', 'EQ', 'Dynamics', 'Stereo', 'Loudness', 'Export'];
+      const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+      const sectionIds = ['input', 'pre', 'eq', 'dynamics', 'stereo', 'loudness', 'export'];
+      
+      labels.forEach((label, i) => {
+        const node = document.createElement('div');
+        node.className = 'flow-node' + (activeSectionId === sectionIds[i] ? ' highlight' : '');
+        node.style.cursor = 'pointer';
+        node.innerHTML = \`<b>\${romanNumerals[i]}</b>\${label}\`;
+        node.addEventListener('click', () => scrollToSection(sectionIds[i]));
+        signalFlowSteps.appendChild(node);
+        
+        if (i < 6) {
+          const arrow = document.createElement('span');
+          arrow.className = 'flow-arrow';
+          arrow.textContent = '›';
+          signalFlowSteps.appendChild(arrow);
+        }
+      });
+    }
+    
+    // 5. Scroll to Section
+    function scrollToSection(id) {
+      activeSectionId = id;
+      const el = document.getElementById('sec-' + id);
+      if (el) {
+        // Update TOC Active State
+        document.querySelectorAll('.nav-item').forEach((item, index) => {
+          if (SECTIONS[index].id === id) {
+            item.classList.add('active');
+          } else {
+            item.classList.remove('active');
+          }
+        });
+        
+        // Update Signal Flow Highlight
+        const sectionIds = ['input', 'pre', 'eq', 'dynamics', 'stereo', 'loudness', 'export'];
+        document.querySelectorAll('.flow-node').forEach((node, index) => {
+          if (sectionIds[index] === id) {
+            node.classList.add('highlight');
+          } else {
+            node.classList.remove('highlight');
+          }
+        });
+        
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    
+    // 6. Highlight Search Query Helper
+    function highlightQuery(text, query) {
+      const q = query.trim();
+      if (!q) return text;
+      
+      const escaped = q.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&');
+      const parts = text.split(new RegExp(\`(\${escaped})\`, 'gi'));
+      
+      return parts.map((part, i) => {
+        if (part.toLowerCase() === q.toLowerCase()) {
+          // Temporarily put mark with placeholder so we can extract it or style it
+          return \`<mark class="search-highlight">\${part}</mark>\`;
+        }
+        return part;
+      }).join('');
+    }
+    
+    // 7. Render Articles / Sections
+    function renderArticles() {
+      articlesList.innerHTML = '';
+      
+      SECTIONS.forEach((section) => {
+        const art = document.createElement('article');
+        art.id = 'sec-' + section.id;
+        art.addEventListener('mouseenter', () => {
+          // Sync navigation highlights on hover (without scrolling)
+          activeSectionId = section.id;
+          
+          // Update TOC Active State
+          document.querySelectorAll('.nav-item').forEach((item, index) => {
+            if (SECTIONS[index].id === section.id) {
+              item.classList.add('active');
+            } else {
+              item.classList.remove('active');
+            }
+          });
+          
+          // Update Signal Flow Highlight
+          const sectionIds = ['input', 'pre', 'eq', 'dynamics', 'stereo', 'loudness', 'export'];
+          document.querySelectorAll('.flow-node').forEach((node, index) => {
+            if (sectionIds[index] === section.id) {
+              node.classList.add('highlight');
+            } else {
+              node.classList.remove('highlight');
+            }
+          });
+        });
+        
+        // Title & Intro
+        const titleHtml = highlightQuery(section.title[currentLang], searchQuery);
+        const introHtml = highlightQuery(section.intro[currentLang], searchQuery);
+        
+        let htmlContent = \`
+          <h2>\${titleHtml}</h2>
+          <div class="divider"></div>
+          <p class="intro-text">\${introHtml}</p>
+        \`;
+        
+        // Steps list
+        if (section.steps && section.steps[currentLang]) {
+          htmlContent += '<ul class="steps-list">';
+          section.steps[currentLang].forEach((step) => {
+            const stepHtml = highlightQuery(step, searchQuery);
+            htmlContent += \`<li>\${stepHtml}</li>\`;
+          });
+          htmlContent += '</ul>';
+        }
+        
+        // Extra Tables for pre (Denoise), loudness, and tips
+        if (section.id === 'pre') {
+          const tblTitle = currentLang === 'ko' ? '■ 지능형 Denoise 추천 기준표' : '■ Intelligent Denoise Recommendation Table';
+          const headerFields = currentLang === 'ko' 
+            ? ['SNR 범위', '판정 상태', '추천 Depth', '추천 노브량 (Amount)']
+            : ['SNR Range', 'Status', 'Recommended Depth', 'Recommended Amount'];
+            
+          const snrRows = [
+            { snrKo: '100 dB 이상', snrEn: '100 dB or more', status: 'Very Clean', depth: 'Original (1)', amount: '5%', color: '#4ea5ff' },
+            { snrKo: '90 ~ 100 dB', snrEn: '90 to 100 dB', status: 'Clean', depth: 'Original (1)', amount: '10%', color: '#4ea5ff' },
+            { snrKo: '80 ~ 90 dB', snrEn: '80 to 90 dB', status: 'Light Clean', depth: 'Original (1)', amount: '25%', color: '#46d36e' },
+            { snrKo: '60 ~ 80 dB', snrEn: '60 to 80 dB', status: 'Moderate Noise', depth: 'Normal (2)', amount: '10%', color: '#a2db34' },
+            { snrKo: '40 ~ 60 dB', snrEn: '40 to 60 dB', status: 'Heavy Noise', depth: 'Normal (2)', amount: '30%', color: '#ff983d' },
+            { snrKo: '40 dB 미만', snrEn: 'Less than 40 dB', status: 'Extreme Noise', depth: 'Deep (3)', amount: '50%', color: '#ff5a5a' }
+          ];
+          
+          htmlContent += \`
+            <div style="margin-top: 20px;">
+              <div class="table-title">\${tblTitle}</div>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>\${headerFields[0]}</th>
+                      <th>\${headerFields[1]}</th>
+                      <th>\${headerFields[2]}</th>
+                      <th>\${headerFields[3]}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+          \`;
+          
+          snrRows.forEach((row, idx) => {
+            const rowClass = idx % 2 === 0 ? 'even' : 'odd';
+            const snrVal = currentLang === 'ko' ? row.snrKo : row.snrEn;
+            htmlContent += \`
+              <tr class="\${rowClass}">
+                <td>\${snrVal}</td>
+                <td style="color: \${row.color}; font-weight: 700;">\${row.status}</td>
+                <td>\${row.depth}</td>
+                <td>\${row.amount}</td>
+              </tr>
+            \`;
+          });
+          
+          htmlContent += \`
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          \`;
+        }
+        
+        if (section.id === 'loudness') {
+          htmlContent += '<div style="margin-top: 20px; display: flex; flex-direction: column; gap: 16px;">';
+          
+          // Saturate Card
+          const satTitle = currentLang === 'ko' ? '■ Saturate (포화/새츄레이션) 가이드' : '■ Saturate Guide';
+          const satContent = currentLang === 'ko' ? \`
+            <div class="guide-row"><strong>개념:</strong> 리미터 도달 전에 진공관이나 테이프처럼 부드러운 배음(Harmonics) 왜곡을 더해 소리를 더 단단하고 따뜻하게 만들어 줍니다.</div>
+            <div class="guide-row"><strong style="color: #46d36e">장점 (Pros):</strong> 피크 레벨을 물리적으로 손상시키지 않으면서 청감상 음량(perceived volume)을 효과적으로 키우고, 차가운 디지털 음원에 아날로그 특유의 따뜻한 질감과 음악적 색채를 부여합니다.</div>
+            <div class="guide-row"><strong style="color: #ff5a5a">단점 (Cons):</strong> 과도하게 설정할 경우 고음역대가 답답해지거나 저음역대에서 찌그러짐(디지털 클릭/클립성 왜곡)이 들릴 수 있으며, 다이내믹 레인지 및 트랜지언트(타격감)가 일부 손실될 수 있습니다.</div>
+            <div class="guide-row"><strong>팁 (Tip):</strong> 레벨 메타 옆의 THD 판정이 HOT(붉은색)에 자주 머무른다면 노브 양을 낮추는 것이 바람직합니다.</div>
+          \` : \`
+            <div class="guide-row"><strong>Concept:</strong> Adds soft harmonic saturation (like tubes or tape) before the limiter, enhancing overall density and warmth.</div>
+            <div class="guide-row"><strong style="color: #46d36e">Pros:</strong> Effectively increases perceived loudness without causing harsh digital clipping, and infuses clinical digital tracks with pleasant analog warmth and character.</div>
+            <div class="guide-row"><strong style="color: #ff5a5a">Cons:</strong> Excessive amounts can degrade treble clarity, cause mud or crackling in the low end, and mask the original transient punch and depth.</div>
+            <div class="guide-row"><strong>Tip:</strong> If the THD status panel frequently lights up as HOT (red), it is safer to decrease the Saturate level.</div>
+          \`;
+          
+          htmlContent += \`
+            <div class="guide-card">
+              <div class="guide-card-title">\${satTitle}</div>
+              <div class="guide-card-content">\${satContent}</div>
+            </div>
+          \`;
+          
+          // LUFS Card
+          const lufsTitle = currentLang === 'ko' ? '■ LUFS (체감 음량 표준) 가이드' : '■ LUFS (Loudness Units Full Scale) Guide';
+          const lufsContent = currentLang === 'ko' ? \`
+            <div class="guide-row"><strong>개념:</strong> 인간이 실제로 느끼는 주파수대역별 감도(K-weighting)를 모사하여 측정하는 국제 표준(ITU-R BS.1770) Integrated Loudness 단위입니다.</div>
+            <div class="guide-row"><strong>필요성:</strong> 과거 오직 피크 레벨만 깎아내며 전체 볼륨을 비정상적으로 키우던 음압 경쟁(Loudness War)을 지양하고, 다른 음원들과 일관된 볼륨 밸런스를 맞추기 위해 사용됩니다.</div>
+            <div class="guide-row"><strong>방송과 음원의 차이:</strong> TV/라디오 등 방송 규격은 대개 매우 엄격한 <strong>-24 LUFS</strong> 기준을 강제 고수하는 반면, 일반 음악 스트리밍 및 상업 음원은 보통 <strong>-14 LUFS ~ -9 LUFS</strong> 범위로 더 높게 마스터링합니다.</div>
+            <div class="guide-row">
+              <strong>주요 플랫폼별 권장 타겟 레벨:</strong>
+              <ul style="margin: 4px 0 0; padding-left: 18px;">
+                <li><strong>YouTube / Spotify:</strong> 약 <strong>-14 LUFS</strong> (이 레벨보다 크게 만들 경우 플랫폼 내에서 강제로 볼륨을 낮춰 서비스합니다.)</li>
+                <li><strong>Apple Music:</strong> 약 <strong>-16 LUFS</strong></li>
+                <li><strong>상업 음반 (Pop/CD/Club):</strong> <strong>-9 LUFS ~ -8 LUFS</strong> 수준으로 강하게 마스터링하기도 하나, 스트리밍 시 노멀라이제이션으로 인해 볼륨이 크게 깎이고 다이내믹이 찌그러질 위험을 감안하여 목적에 맞는 타겟을 설정해야 합니다.</li>
+              </ul>
+            </div>
+          \` : \`
+            <div class="guide-row"><strong>Concept:</strong> An international standard unit (ITU-R BS.1770) for measuring integrated perceived loudness, incorporating frequency weighting (K-weighting) based on human hearing.</div>
+            <div class="guide-row"><strong>Why it matters:</strong> Prevents the "Loudness War" where producers squashed all dynamics just to maximize peak levels, ensuring a more consistent listener experience across tracks.</div>
+            <div class="guide-row"><strong>Broadcast vs. Music:</strong> TV and radio standards strictly enforce a quiet <strong>-24 LUFS</strong> limit, whereas modern commercial music is mastered much louder, typically ranging from <strong>-14 LUFS to -9 LUFS</strong>.</div>
+            <div class="guide-row">
+              <strong>Platform Normalization Targets:</strong>
+              <ul style="margin: 4px 0 0; padding-left: 18px;">
+                <li><strong>YouTube / Spotify:</strong> ~<strong>-14 LUFS</strong> (Tracks exceeding this level will have their volume automatically attenuated by the player.)</li>
+                <li><strong>Apple Music:</strong> ~<strong>-16 LUFS</strong></li>
+                <li><strong>Commercial Masters (Pop/Club):</strong> Often finalized at <strong>-9 LUFS to -8 LUFS</strong> for raw delivery. Note that platforms will turn these down, which may make them sound flatter than dynamic mixes.</li>
+              </ul>
+            </div>
+          \`;
+          
+          htmlContent += \`
+            <div class="guide-card">
+              <div class="guide-card-title">\${lufsTitle}</div>
+              <div class="guide-card-content">\${lufsContent}</div>
+            </div>
+          \`;
+          
+          htmlContent += '</div>';
+        }
+        
+        if (section.id === 'tips') {
+          const tblTitle = currentLang === 'ko' ? '■ 단축키 및 조작 목록' : '■ Shortcut & Control List';
+          const headerFields = currentLang === 'ko' 
+            ? ['기능 / 조작', '단축키 / 입력 방법']
+            : ['Action / Control', 'Shortcut / Input'];
+            
+          const shortcutRows = [
+            { actionKo: '재생 / 일시정지', actionEn: 'Play / Pause', keyKo: 'Space', keyEn: 'Space' },
+            { actionKo: 'Transport 패널 토글', actionEn: 'Toggle Transport Panel', keyKo: 'F4', keyEn: 'F4' },
+            { actionKo: '실행 취소 (Undo)', actionEn: 'Undo', keyKo: 'Ctrl + Z', keyEn: 'Ctrl + Z' },
+            { actionKo: '다시 실행 (Redo)', actionEn: 'Redo', keyKo: 'Ctrl + Y  또는  Ctrl + Shift + Z', keyEn: 'Ctrl + Y  or  Ctrl + Shift + Z' },
+            { actionKo: '노브 기본값 복원', actionEn: 'Reset Knob to Default', keyKo: '마우스 더블 클릭', keyEn: 'Double-Click' }
+          ];
+          
+          htmlContent += \`
+            <div style="margin-top: 20px;">
+              <div class="table-title">\${tblTitle}</div>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 40%;">\${headerFields[0]}</th>
+                      <th>\${headerFields[1]}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+          \`;
+          
+          shortcutRows.forEach((row, idx) => {
+            const rowClass = idx % 2 === 0 ? 'even' : 'odd';
+            const actionText = currentLang === 'ko' ? row.actionKo : row.actionEn;
+            const keyText = currentLang === 'ko' ? row.keyKo : row.keyEn;
+            htmlContent += \`
+              <tr class="\${rowClass}">
+                <td style="font-weight: 600;">\${actionText}</td>
+                <td style="font-family: var(--mono); color: var(--t-aMain); font-weight: 700;">\${keyText}</td>
+              </tr>
+            \`;
+          });
+          
+          htmlContent += \`
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          \`;
+        }
+        
+        // Effect Card
+        if (section.effect && section.effect[currentLang]) {
+          const effectHtml = highlightQuery(section.effect[currentLang], searchQuery);
+          htmlContent += \`
+            <div class="effect-card">
+              \${effectHtml}
+            </div>
+          \`;
+        }
+        
+        // Settings Grid
+        const settings = SETTINGS[section.id];
+        if (settings && settings.length > 0) {
+          const sectionTitle = currentLang === 'ko' ? '설정값과 조작 방법' : 'Settings and controls';
+          htmlContent += \`<div class="settings-section-title">\${sectionTitle}</div>\`;
+          htmlContent += '<div class="settings-grid">';
+          
+          settings.forEach((set, index) => {
+            const rowClass = index % 2 === 0 ? 'even' : 'odd';
+            const nameHtml = highlightQuery(set.name, searchQuery);
+            const valuesHtml = highlightQuery(set.values, searchQuery);
+            const detailHtml = highlightQuery(set.detail[currentLang], searchQuery);
+            
+            htmlContent += \`
+              <div class="settings-row \${rowClass}">
+                <strong>\${nameHtml}</strong>
+                <span class="value">\${valuesHtml}</span>
+                <span class="desc">\${detailHtml}</span>
+              </div>
+            \`;
+          });
+          
+          htmlContent += '</div>';
+        }
+        
+        // Media Gallery
+        const media = MEDIA_META[section.id];
+        if (media && media.length > 0) {
+          const gridClass = media.length === 1 ? 'media-grid single' : 'media-grid';
+          htmlContent += \`<div class="\${gridClass}">\`;
+          
+          media.forEach((med) => {
+            const b64Data = IMAGES[med.src] || '';
+            const captionHtml = highlightQuery(med.caption[currentLang], searchQuery);
+            htmlContent += \`
+              <figure>
+                <img src="\${b64Data}" alt="\${med.caption[currentLang]}">
+                <figcaption>\${captionHtml}</figcaption>
+              </figure>
+            \`;
+          });
+          
+          htmlContent += '</div>';
+        }
+        
+        art.innerHTML = htmlContent;
+        articlesList.appendChild(art);
+      });
+      
+      // Update highlights and find all matches if search query is present
+      if (searchQuery.trim()) {
+        updateSearchMatches();
+      }
+    }
+    
+    // 8. Search Functionality
+    function performSearch(query) {
+      searchQuery = query;
+      currentMatchIndex = -1;
+      searchMatches = [];
+      
+      // Re-render articles to apply mark wrappers
+      renderArticles();
+    }
+    
+    function updateSearchMatches() {
+      // Find all DOM elements of class 'search-highlight'
+      const highlights = document.querySelectorAll('.search-highlight');
+      searchMatches = Array.from(highlights);
+      
+      if (searchMatches.length > 0) {
+        currentMatchIndex = 0;
+        selectMatch(0);
+      } else {
+        searchCounter.textContent = '0/0';
+      }
+    }
+    
+    function selectMatch(index) {
+      if (searchMatches.length === 0) return;
+      
+      // Remove current class from all matches
+      searchMatches.forEach(el => el.classList.remove('current'));
+      
+      // Add current class to active match
+      const activeEl = searchMatches[index];
+      activeEl.classList.add('current');
+      
+      // Update counter
+      searchCounter.textContent = \`\${index + 1}/\${searchMatches.length}\`;
+      
+      // Find parent article ID
+      let parent = activeEl.parentElement;
+      while (parent && !parent.id.startsWith('sec-')) {
+        parent = parent.parentElement;
+      }
+      
+      if (parent) {
+        const secId = parent.id.replace('sec-', '');
+        activeSectionId = secId;
+        
+        // Sync nav styles
+        document.querySelectorAll('.nav-item').forEach((item, idx) => {
+          if (SECTIONS[idx].id === secId) {
+            item.classList.add('active');
+          } else {
+            item.classList.remove('active');
+          }
+        });
+        
+        const sectionIds = ['input', 'pre', 'eq', 'dynamics', 'stereo', 'loudness', 'export'];
+        document.querySelectorAll('.flow-node').forEach((node, idx) => {
+          if (sectionIds[idx] === secId) {
+            node.classList.add('highlight');
+          } else {
+            node.classList.remove('highlight');
+          }
+        });
+      }
+      
+      // Scroll match into view
+      activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    function clearSearch() {
+      searchQuery = '';
+      currentMatchIndex = -1;
+      searchMatches = [];
+      searchCounter.textContent = '0/0';
+      renderArticles();
+    }
+    
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value;
+      if (q.trim()) {
+        performSearch(q);
+      } else {
+        clearSearch();
+      }
+    });
+    
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (searchMatches.length > 0) {
+          const delta = e.shiftKey ? -1 : 1;
+          currentMatchIndex = (currentMatchIndex + delta + searchMatches.length) % searchMatches.length;
+          selectMatch(currentMatchIndex);
+        }
+      }
+    });
+    
+    searchPrev.addEventListener('click', () => {
+      if (searchMatches.length > 0) {
+        currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+        selectMatch(currentMatchIndex);
+      }
+    });
+    
+    searchNext.addEventListener('click', () => {
+      if (searchMatches.length > 0) {
+        currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+        selectMatch(currentMatchIndex);
+      }
+    });
+    
+    // Init
+    setLanguage('ko');
+  </script>
+</body>
+</html>`;
+
+// Write the output file
+if (!fs.existsSync(REFER_DIR)) {
+  fs.mkdirSync(REFER_DIR, { recursive: true });
+}
+
+const OUT_PATH = path.join(REFER_DIR, 'manual.html');
+fs.writeFileSync(OUT_PATH, html, 'utf-8');
+console.log(`Success! Manual written to ${OUT_PATH}`);

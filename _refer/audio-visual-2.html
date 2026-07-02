@@ -1,0 +1,2482 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PaceKeeper Audio Visualization Gallery</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0d10;
+      --panel: #15171d;
+      --line: rgba(255, 255, 255, 0.09);
+      --txt: #eef1f7;
+      --dim: #8f96a8;
+      --danger: #ff4d5e;
+      --blue: #5b8cff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      height: 100vh;
+      overflow: hidden;
+      font-family: Inter, system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 18% 4%, rgba(45, 212, 191, 0.12), transparent 30%),
+        radial-gradient(circle at 88% 8%, rgba(91, 140, 255, 0.11), transparent 28%),
+        var(--bg);
+      color: var(--txt);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Header ─────────────────────────────────────── */
+    header {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: 24px;
+      align-items: center;
+      background: color-mix(in srgb, var(--panel) 92%, black);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 18px 24px;
+      box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+    }
+
+    h1 {
+      font-size: clamp(18px, 2vw, 28px);
+      font-weight: 800;
+      line-height: 1.08;
+    }
+
+    .brand p {
+      margin-top: 6px;
+      color: var(--dim);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      min-width: min(540px, 100%);
+    }
+
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .file-label, button {
+      min-height: 38px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 14px;
+      font: 700 12px/1 Inter, system-ui, sans-serif;
+      color: white;
+      cursor: pointer;
+      transition: transform 0.14s ease, filter 0.14s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    button:hover, .file-label:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    button:active, .file-label:active { transform: translateY(0); }
+
+    .file-label { background: #242833; border: 1px solid var(--line); }
+    .btn-primary { background: var(--danger); box-shadow: 0 8px 24px rgba(255, 77, 94, 0.22); }
+    .btn-secondary { background: var(--blue); box-shadow: 0 8px 24px rgba(91, 140, 255, 0.22); }
+    .btn-ghost { background: #252934; border: 1px solid var(--line); color: var(--txt); }
+    input[type="file"] { display: none; }
+
+    .color-picker {
+      display: flex;
+      gap: 6px;
+      min-height: 38px;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.24);
+      padding: 6px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+    }
+
+    .swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+
+    .swatch:hover { transform: scale(1.12); }
+
+    .swatch.active {
+      border-color: white;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.42);
+    }
+
+    .swatch-custom {
+      background: conic-gradient(red 0deg, #ff0 60deg, lime 120deg, cyan 180deg, blue 240deg, magenta 300deg, red 360deg);
+      overflow: hidden;
+      position: relative;
+      padding: 0;
+      cursor: pointer;
+    }
+    .swatch-custom::after {
+      content: "+";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: rgba(255,255,255,0.85);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+      pointer-events: none;
+    }
+    .swatch-custom.active::after { content: ""; }
+    .swatch-custom input[type="color"] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      border: none;
+      padding: 0;
+    }
+
+    .status {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      color: var(--dim);
+      font-size: 11px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+    }
+
+    .badge {
+      color: var(--txt);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      white-space: nowrap;
+    }
+
+    .now-playing {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 320px;
+    }
+
+    audio {
+      width: 100%;
+      height: 36px;
+      filter: invert(1) hue-rotate(180deg);
+      opacity: 0.82;
+    }
+
+    /* ── Main 2-column layout ────────────────────────── */
+    main {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 16px;
+    }
+
+    /* ── Left: Visualizer panel ──────────────────────── */
+    .vis-panel {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card {
+      background: color-mix(in srgb, var(--panel) 94%, black);
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .stage-card {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .card-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: start;
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .card-desc {
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--dim);
+      line-height: 1.4;
+    }
+
+    .card-code {
+      color: var(--dim);
+      font-size: 10px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      white-space: nowrap;
+    }
+
+    .variant-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      flex-shrink: 0;
+    }
+
+    .variant-btn {
+      min-height: 30px;
+      border-radius: 6px;
+      padding: 0 10px;
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid transparent;
+      color: var(--dim);
+      font-size: 11px;
+      box-shadow: none;
+    }
+
+    .variant-btn.active {
+      color: var(--txt);
+      border-color: color-mix(in srgb, var(--variant-color, #2dd4bf) 60%, white);
+      background: color-mix(in srgb, var(--variant-color, #2dd4bf) 16%, rgba(255, 255, 255, 0.055));
+    }
+
+    .canvas-wrap {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      background: #05060a;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ── Right: Effects sidebar ──────────────────────── */
+    .effects-sidebar {
+      display: flex;
+      flex-direction: column;
+      background: color-mix(in srgb, var(--panel) 94%, black);
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .sidebar-header {
+      flex-shrink: 0;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .sidebar-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--txt);
+    }
+
+    .sidebar-count {
+      font-size: 10px;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--dim);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+    }
+
+    .effect-list {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .effect-list::-webkit-scrollbar { width: 3px; }
+    .effect-list::-webkit-scrollbar-track { background: transparent; }
+    .effect-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 2px;
+    }
+
+    .effect-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--line);
+      border-left: 3px solid transparent;
+      color: var(--txt);
+      cursor: pointer;
+      transition: background 0.1s, border-left-color 0.15s;
+      min-height: 0;
+      font-family: Inter, system-ui, sans-serif;
+    }
+
+    .effect-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+      filter: none;
+      transform: none;
+    }
+
+    .effect-item.active {
+      background: color-mix(in srgb, var(--effect-color, #2dd4bf) 10%, transparent);
+      border-left-color: var(--effect-color, #2dd4bf);
+    }
+
+    .effect-num {
+      font-size: 9px;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--dim);
+      width: 18px;
+      text-align: right;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .effect-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px currentColor;
+    }
+
+    .effect-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .effect-info b {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--txt);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+
+    .effect-info span {
+      display: block;
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+
+    /* ── Responsive ──────────────────────────────────── */
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr 260px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      body { height: auto; overflow: auto; padding: 14px; }
+      header { grid-template-columns: 1fr; }
+      .toolbar-row, .status { justify-content: flex-start; }
+      .toolbar { min-width: 0; }
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+      }
+      .effects-sidebar {
+        max-height: 320px;
+      }
+      .canvas-wrap {
+        aspect-ratio: 16 / 9;
+        flex: none;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .file-label, button { width: 100%; }
+      .color-picker { width: 100%; justify-content: center; }
+      .status { flex-direction: column; }
+      .now-playing { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── TOP: Controls ───────────────────────────────── -->
+  <header>
+    <div class="brand">
+      <h1>Audio Visualization Gallery</h1>
+      <p>35 audio visualization effects — select an effect from the list on the right.</p>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar-row">
+        <label class="file-label" for="audio-file">Choose Audio File</label>
+        <input id="audio-file" type="file" accept="audio/*">
+        <button class="btn-primary" id="btn-demo">Demo Start</button>
+        <button class="btn-secondary" id="btn-mic">Use Live Mic</button>
+        <button class="btn-ghost" id="btn-stop">Stop</button>
+      </div>
+      <div class="toolbar-row">
+        <div class="color-picker" aria-label="Visualizer color">
+          <div class="swatch active" style="background:#2dd4bf;" data-color="#2dd4bf" title="Mint"></div>
+          <div class="swatch" style="background:#ff4d5e;" data-color="#ff4d5e" title="Red"></div>
+          <div class="swatch" style="background:#a78bfa;" data-color="#a78bfa" title="Violet"></div>
+          <div class="swatch" style="background:#ffb020;" data-color="#ffb020" title="Amber"></div>
+          <div class="swatch" style="background:#5b8cff;" data-color="#5b8cff" title="Blue"></div>
+          <div class="swatch" style="background:#ffffff;" data-color="#ffffff" title="White"></div>
+          <label class="swatch swatch-custom" id="custom-swatch" title="Custom RGB Color">
+            <input type="color" id="custom-color-input" value="#2dd4bf">
+          </label>
+        </div>
+      </div>
+      <div class="status">
+        <span class="badge" id="effects-badge">Effects: 25</span>
+        <span class="badge now-playing" id="source-status">Source: Idle</span>
+      </div>
+      <audio id="audio-player" controls></audio>
+    </div>
+  </header>
+
+  <!-- ── BOTTOM: 2-column layout ─────────────────────── -->
+  <main>
+
+    <!-- LEFT: Visualizer canvas -->
+    <div class="vis-panel">
+      <article class="card stage-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title" id="active-title">1. Bars</div>
+            <div class="card-desc" id="active-desc">Neon spectrum bars with reflection</div>
+          </div>
+          <div class="card-code" id="active-code">bars</div>
+        </div>
+        <div class="variant-bar" id="variant-menu" aria-label="Visualizer variants"></div>
+        <div class="canvas-wrap">
+          <canvas id="visual-canvas"></canvas>
+        </div>
+      </article>
+    </div>
+
+    <!-- RIGHT: Effect selection list -->
+    <aside class="effects-sidebar">
+      <div class="sidebar-header">
+        <span class="sidebar-title">Effects</span>
+        <span class="sidebar-count" id="effects-badge-sidebar">25</span>
+      </div>
+      <div class="effect-list" id="effect-menu" aria-label="Visualizer effect menu"></div>
+    </aside>
+
+  </main>
+
+  <script>
+    const FFT_SIZE = 256;
+    const EFFECTS = [
+      { id: "bars",         label: "1. Bars",            color: "#2dd4bf", desc: "Neon spectrum bars with reflection" },
+      { id: "mirror",       label: "2. Mirror",          color: "#5b8cff", desc: "Symmetric capsule equalizer" },
+      { id: "ribbon",       label: "3. Ribbon",          color: "#a78bfa", desc: "Layered flowing audio ribbons" },
+      { id: "blocks",       label: "4. Block Grid",      color: "#ff4d5e", desc: "Beat-reactive tile mosaic" },
+      { id: "dots",         label: "5. Dots",            color: "#ffb020", desc: "Spectrum matrix grid" },
+      { id: "radial",       label: "6. Radial Bars",     color: "#38bdf8", desc: "Circular frequency spikes" },
+      { id: "orbit",        label: "7. Orbit Rings",     color: "#f472b6", desc: "Rotating bass-reactive satellites" },
+      { id: "particles",    label: "8. Particles",       color: "#34d399", desc: "Beat-reactive particle burst" },
+      { id: "glitch",       label: "9. Glitch Scan",     color: "#facc15", desc: "Horizontal scanline distortion" },
+      { id: "honeycomb",    label: "10. Honeycomb",      color: "#fb7185", desc: "Hex cell frequency lattice" },
+      { id: "level",        label: "11. Level Meter",    color: "#22c55e", desc: "Fast RMS style level strips" },
+      { id: "spectrumLine", label: "12. Spectrum Line",  color: "#f59e0b", desc: "Thin skyline frequency trace" },
+      { id: "vinyl",        label: "13. Vinyl Pulse",    color: "#06b6d4", desc: "Record grooves reacting to bass" },
+      { id: "rain",         label: "14. Meteor Rain",    color: "#c084fc", desc: "Falling streaks driven by highs" },
+      { id: "peak",         label: "15. Peak Hold",      color: "#ef4444", desc: "Stacked meters with peak memory" },
+      { id: "retroVU",      label: "16. Retro VU",       color: "#fb923c", desc: "Classic dual needle VU indicators" },
+      { id: "plasmaTube",   label: "17. Plasma Tube",    color: "#ec4899", desc: "Glowing gas discharge columns" },
+      { id: "haloLED",      label: "18. Halo LED",       color: "#a855f7", desc: "Rotating circular LED dial rings" },
+      { id: "iso3D",        label: "19. Iso 3D Grid",    color: "#3b82f6", desc: "3D perspective block columns" },
+      { id: "auraWave",     label: "20. Aura Shockwave", color: "#14b8a6", desc: "Concentric circular ripples" },
+      { id: "waterfall",    label: "21. Spectral Flow",  color: "#10b981", desc: "Cascading waterfall spectrum history" },
+      { id: "laserScanner", label: "22. Laser Scan",     color: "#f43f5e", desc: "High-speed oscillating laser beams" },
+      { id: "fluidSphere",  label: "23. Fluid Blob",     color: "#6366f1", desc: "Organic liquid blob morphing" },
+      { id: "waveTunnel",   label: "24. Wave Tunnel",    color: "#06b6d4", desc: "Endless perspective tunnels" },
+      { id: "barcodeMeter", label: "25. Cyber Barcode",  color: "#84cc16", desc: "Dense code strips reacting to highs" },
+      { id: "dnaHelix",     label: "26. DNA Helix",       color: "#00d9ff", desc: "Rotating double helix frequency strands" },
+      { id: "aurora",       label: "27. Aurora",           color: "#4ade80", desc: "Northern lights curtain waves" },
+      { id: "kaleidoscope", label: "28. Kaleidoscope",     color: "#e879f9", desc: "Symmetrical mandala frequency bloom" },
+      { id: "starWarp",     label: "29. Star Warp",        color: "#fbbf24", desc: "Hyperspace starfield warp tunnel" },
+      { id: "magnetField",  label: "30. Magnet Field",     color: "#60a5fa", desc: "Magnetic flux lines and poles" },
+      { id: "voronoi",      label: "31. Voronoi",          color: "#f472b6", desc: "Crystal cell reactive lattice" },
+      { id: "oscilloscope", label: "32. Oscilloscope",     color: "#22d3a8", desc: "CRT phosphor waveform display" },
+      { id: "neuralNet",    label: "33. Neural Net",       color: "#a78bfa", desc: "Pulsing AI neural network graph" },
+      { id: "galaxySpiral", label: "34. Galaxy Spiral",    color: "#fb923c", desc: "Rotating galactic arms with star particles" },
+      { id: "inkDrop",      label: "35. Ink Drop",         color: "#38bdf8", desc: "Expanding ink ripple circles" },
+    ];
+
+    const VARIANTS = {
+      bars:         ["Reflection", "Center Split", "Dense"],
+      mirror:       ["Capsules", "Needles", "Wide"],
+      ribbon:       ["Liquid", "Twin Flow", "Wire"],
+      blocks:       ["Mosaic", "Pulse Wall", "Sparse"],
+      dots:         ["Matrix", "Orbit Dots", "Fine Grid"],
+      radial:       ["Spikes", "Halo", "Compass"],
+      orbit:        ["Satellites", "Nested", "Comets"],
+      particles:    ["Burst", "Swarm", "Spark"],
+      glitch:       ["Scanline", "Offset", "Blocks"],
+      honeycomb:    ["Hex Outline", "Filled Cells", "Mini Cells"],
+      level:        ["Band Meter", "Stereo Bars", "Segment LED"],
+      spectrumLine: ["Skyline", "Twin Trace", "Needle Line"],
+      vinyl:        ["Grooves", "Turntable", "Radar"],
+      rain:         ["Meteor", "Vertical Rain", "Sparks"],
+      peak:         ["Classic Bars", "LED Stack", "Horizontal"],
+      retroVU:      ["Stereo VU", "Quad VU", "Minimalist"],
+      plasmaTube:   ["Liquid Neon", "Electric Arc", "Glow Segment"],
+      haloLED:      ["Single Dial", "Nested RGB", "Clockwork"],
+      iso3D:        ["Block Grid", "Glass Towers", "City Skyline"],
+      auraWave:     ["Pulse Ripple", "Neon Core", "Solar Flare"],
+      waterfall:    ["Heatmap Flow", "Glitch Matrix", "Cyberpunk Grid"],
+      laserScanner: ["Horizontal Scan", "Crosshair", "Radial Laser"],
+      fluidSphere:  ["Molten Lava", "Mercury Drop", "Energy Orb"],
+      waveTunnel:   ["Tunnel Portal", "Hex Tunnel", "Vector Wireframe"],
+      barcodeMeter: ["Scan Code", "Vertical Matrix", "Pulse Scanner"],
+      dnaHelix:     ["Classic Helix", "Fast Twist", "Neon Rungs"],
+      aurora:       ["Northern Lights", "Plasma Curtain", "Solar Wind"],
+      kaleidoscope: ["6-fold", "8-fold", "12-fold"],
+      starWarp:     ["Warp Drive", "Starfield", "Nebula Dust"],
+      magnetField:  ["Bipolar", "Radial Flux", "Solar Plasma"],
+      voronoi:      ["Crystal Cells", "Bubble Bath", "Mosaic"],
+      oscilloscope: ["CRT Mono", "XY Lissajous", "Dual Trace"],
+      neuralNet:    ["Deep Network", "Sparse Web", "Brain Pulse"],
+      galaxySpiral: ["Twin Arms", "Chromatic", "Nebula Cloud"],
+      inkDrop:      ["Ink Pool", "Scatter Drop", "Neon Ripple"],
+    };
+
+    const effectMenu   = document.getElementById("effect-menu");
+    const variantMenu  = document.getElementById("variant-menu");
+    const activeTitle  = document.getElementById("active-title");
+    const activeDesc   = document.getElementById("active-desc");
+    const activeCode   = document.getElementById("active-code");
+    const visualCanvas = document.getElementById("visual-canvas");
+    const visualCtx    = visualCanvas.getContext("2d");
+    const audioPlayer  = document.getElementById("audio-player");
+    const sourceStatus = document.getElementById("source-status");
+    const btnDemo      = document.getElementById("btn-demo");
+    const btnMic       = document.getElementById("btn-mic");
+    const btnStop      = document.getElementById("btn-stop");
+
+    let currentColor    = "#2dd4bf";
+    let audioContext    = null;
+    let analyser        = null;
+    let audioSource     = null;
+    let micSource       = null;
+    let micStream       = null;
+    let demoTimer       = null;
+    let isDemoPlaying   = false;
+    let isMicActive     = false;
+    let currentEffectId = EFFECTS[0].id;
+    let currentVariant  = VARIANTS[currentEffectId][0];
+    let freqData        = new Uint8Array(FFT_SIZE / 2);
+
+    const smoothBuffer = {
+      bars:        new Float32Array(96),
+      mirror:      new Float32Array(64),
+      ribbon1:     new Float32Array(32),
+      ribbon2:     new Float32Array(32),
+      matrix:      new Float32Array(48),
+      radial:      new Float32Array(96),
+      blocks:      new Float32Array(128),
+      honeycomb:   new Float32Array(128),
+      spectrumLine:new Float32Array(96),
+      rain:        new Float32Array(70),
+      level:       0,
+      vinyl:       0,
+      peak:        new Float32Array(32),
+      peakHold:    new Float32Array(32),
+      bass:        0,
+      glitch:      0,
+      particles: Array.from({ length: 90 }, (_, i) => ({
+        angle:  (i / 90) * Math.PI * 2,
+        radius: 26 + (i % 18) * 7,
+        speed:  0.45 + (i % 11) * 0.08,
+        size:   1.4 + (i % 5) * 0.5,
+      })),
+      rainDrops: Array.from({ length: 70 }, (_, i) => ({
+        x:     (i * 73) % 1000 / 1000,
+        y:     (i * 191) % 1000 / 1000,
+        len:   16 + (i % 8) * 6,
+        speed: 0.006 + (i % 9) * 0.0016,
+      })),
+      retroVU: {
+        left:  { val: 0, vel: 0 },
+        right: { val: 0, vel: 0 },
+        low:   { val: 0, vel: 0 },
+        mid:   { val: 0, vel: 0 },
+        high:  { val: 0, vel: 0 },
+        rms:   { val: 0, vel: 0 },
+      },
+      plasmaTube:       new Float32Array(32),
+      haloLED:          new Float32Array(64),
+      haloPeaks:        new Float32Array(64),
+      iso3D:            new Float32Array(64),
+      auraWaves:        Array.from({ length: 12 }, () => ({ radius: 0, alpha: 0, width: 2, speed: 2.5, colorShift: 0 })),
+      waterfallHistory: Array.from({ length: 100 }, () => new Float32Array(64)),
+      laserScanner:     new Float32Array(16),
+      fluidSphere:      new Float32Array(36),
+      waveTunnel:       new Float32Array(40),
+      barcodeMeter:     new Float32Array(60),
+      dnaHelix:         new Float32Array(64),
+      aurora:           new Float32Array(32),
+      kaleidoscope:     new Float32Array(64),
+      starWarp:         [],
+      magnetField:      new Float32Array(32),
+      voronoiCells:     Array.from({ length: 20 }, (_, i) => ({
+        px: (i * 0.137 + 0.05) % 1,
+        py: (i * 0.231 + 0.08) % 1,
+        vx: ((i % 5) - 2) * 0.00045,
+        vy: ((i % 3) - 1) * 0.00045,
+        val: 0,
+      })),
+      oscilloscope:     new Float32Array(128),
+      neuralActivity:   new Float32Array(32),
+      galaxySpiral:     new Float32Array(48),
+      inkDrops:         Array.from({ length: 10 }, () => ({ x: 0, y: 0, radius: 0, alpha: 0, speed: 2, width: 2, color: null })),
+    };
+
+    visualCanvas.width  = 1280;
+    visualCanvas.height = 720;
+    document.getElementById("effects-badge").textContent         = `Effects: ${EFFECTS.length}`;
+    document.getElementById("effects-badge-sidebar").textContent = EFFECTS.length;
+
+    /* ── Build sidebar effect list ─────────────────── */
+    effectMenu.innerHTML = EFFECTS.map((effect, idx) => `
+      <button class="effect-item ${effect.id === currentEffectId ? "active" : ""}"
+              data-effect="${effect.id}"
+              style="--effect-color:${effect.color};">
+        <span class="effect-num">${idx + 1}</span>
+        <span class="effect-dot" style="background:${effect.color}; color:${effect.color};"></span>
+        <div class="effect-info">
+          <b>${effect.label.replace(/^\d+\.\s*/, "")}</b>
+          <span>${effect.desc}</span>
+        </div>
+      </button>
+    `).join("");
+
+    effectMenu.querySelectorAll(".effect-item").forEach((btn) => {
+      btn.addEventListener("click", () => setActiveEffect(btn.dataset.effect));
+    });
+
+    function setActiveEffect(effectId) {
+      const effect = EFFECTS.find((e) => e.id === effectId) || EFFECTS[0];
+      currentEffectId = effect.id;
+      currentVariant  = VARIANTS[effect.id][0];
+      activeTitle.textContent = effect.label;
+      activeTitle.style.color = effect.color;
+      activeDesc.textContent  = effect.desc;
+      activeCode.textContent  = effect.id;
+      effectMenu.querySelectorAll(".effect-item").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.effect === effect.id);
+      });
+      /* scroll active item into view */
+      const activeBtn = effectMenu.querySelector(".effect-item.active");
+      if (activeBtn) activeBtn.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      visualCtx.fillStyle = "#05060a";
+      visualCtx.fillRect(0, 0, visualCanvas.width, visualCanvas.height);
+      renderVariantMenu(effect);
+    }
+
+    function renderVariantMenu(effect) {
+      variantMenu.style.setProperty("--variant-color", effect.color);
+      variantMenu.innerHTML = VARIANTS[effect.id].map((v) => `
+        <button class="variant-btn ${v === currentVariant ? "active" : ""}" data-variant="${v}">${v}</button>
+      `).join("");
+      variantMenu.querySelectorAll(".variant-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          currentVariant = btn.dataset.variant;
+          variantMenu.querySelectorAll(".variant-btn").forEach((b) =>
+            b.classList.toggle("active", b.dataset.variant === currentVariant)
+          );
+        });
+      });
+    }
+
+    setActiveEffect(currentEffectId);
+
+    /* ── Color swatches ────────────────────────────── */
+    const customSwatch = document.getElementById("custom-swatch");
+    const customInput  = document.getElementById("custom-color-input");
+
+    document.querySelectorAll(".swatch:not(.swatch-custom)").forEach((sw) => {
+      sw.addEventListener("click", (e) => {
+        document.querySelectorAll(".swatch").forEach((s) => s.classList.remove("active"));
+        customSwatch.style.background = "conic-gradient(red 0deg,#ff0 60deg,lime 120deg,cyan 180deg,blue 240deg,magenta 300deg,red 360deg)";
+        e.currentTarget.classList.add("active");
+        currentColor = e.currentTarget.dataset.color;
+      });
+    });
+
+    customInput.addEventListener("input", (e) => {
+      document.querySelectorAll(".swatch").forEach((s) => s.classList.remove("active"));
+      customSwatch.classList.add("active");
+      customSwatch.style.background = e.target.value;
+      currentColor = e.target.value;
+    });
+
+    /* ── Audio file input ──────────────────────────── */
+    document.getElementById("audio-file").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      stopDemo(); stopMic(); initAudio(); connectAudioElement();
+      audioPlayer.src = URL.createObjectURL(file);
+      audioPlayer.play();
+      sourceStatus.textContent = `Source: ${file.name}`;
+    });
+
+    /* ── Demo ──────────────────────────────────────── */
+    btnDemo.addEventListener("click", () => {
+      if (isDemoPlaying) { stopDemo(); sourceStatus.textContent = "Source: Idle"; return; }
+      stopMic();
+      audioPlayer.pause();
+      audioPlayer.removeAttribute("src");
+      audioPlayer.load();
+      isDemoPlaying = true;
+      btnDemo.textContent = "Stop Demo";
+      sourceStatus.textContent = "Source: Demo Noise";
+      simulateNoise();
+    });
+
+    /* ── Mic ───────────────────────────────────────── */
+    btnMic.addEventListener("click", async () => {
+      if (isMicActive) { stopMic(); sourceStatus.textContent = "Source: Idle"; return; }
+      try {
+        stopDemo(); initAudio(); audioPlayer.pause();
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micSource = audioContext.createMediaStreamSource(micStream);
+        micSource.connect(analyser);
+        isMicActive = true;
+        btnMic.textContent = "Stop Microphone";
+        sourceStatus.textContent = "Source: Live Mic";
+      } catch {
+        alert("Microphone permission was denied or no microphone was found.");
+      }
+    });
+
+    /* ── Stop ──────────────────────────────────────── */
+    btnStop.addEventListener("click", () => {
+      stopDemo(); stopMic(); audioPlayer.pause();
+      freqData.fill(0);
+      sourceStatus.textContent = "Source: Idle";
+    });
+
+    function initAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = FFT_SIZE;
+        analyser.smoothingTimeConstant = 0.75;
+      }
+      if (audioContext.state === "suspended") audioContext.resume();
+    }
+
+    function connectAudioElement() {
+      if (!audioSource) {
+        audioSource = audioContext.createMediaElementSource(audioPlayer);
+        audioSource.connect(analyser);
+        analyser.connect(audioContext.destination);
+      }
+    }
+
+    function stopDemo() {
+      isDemoPlaying = false;
+      btnDemo.textContent = "Demo Start";
+      if (demoTimer) { clearTimeout(demoTimer); demoTimer = null; }
+    }
+
+    function stopMic() {
+      isMicActive = false;
+      btnMic.textContent = "Use Live Mic";
+      if (micSource) { micSource.disconnect(); micSource = null; }
+      if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; }
+    }
+
+    function simulateNoise() {
+      if (!isDemoPlaying) return;
+      const n = freqData.length;
+      const t = performance.now() * 0.003;
+      for (let i = 0; i < n; i++) {
+        const base      = Math.sin(i * 0.1 - t * 2) * 0.4 + 0.6;
+        const kick      = i < 5 ? Math.max(0, Math.sin(t * 4.5)) * 0.72 : 0;
+        const snare     = i > 18 && i < 44 ? Math.max(0, Math.sin(t * 9.5 + 1.8)) * 0.25 : 0;
+        const highNoise = Math.random() * 0.25 * (i / n);
+        freqData[i] = Math.min(1, base + kick + snare + highNoise) * 230;
+      }
+      demoTimer = setTimeout(simulateNoise, 1000 / 60);
+    }
+
+    /* ── Render loop ───────────────────────────────── */
+    function renderLoop() {
+      requestAnimationFrame(renderLoop);
+      if (!isDemoPlaying && isMicActive && analyser) {
+        analyser.getByteFrequencyData(freqData);
+      } else if (!isDemoPlaying && !audioPlayer.paused && analyser) {
+        analyser.getByteFrequencyData(freqData);
+      } else if (!isDemoPlaying) {
+        for (let i = 0; i < freqData.length; i++) freqData[i] *= 0.86;
+      }
+      visualCtx.clearRect(0, 0, visualCanvas.width, visualCanvas.height);
+      visualCtx.fillStyle = "#05060a";
+      visualCtx.fillRect(0, 0, visualCanvas.width, visualCanvas.height);
+      drawEngine(visualCtx, visualCanvas.width, visualCanvas.height, freqData, currentEffectId, currentColor, currentVariant);
+    }
+
+    /* ── Helpers ───────────────────────────────────── */
+    function getAvg(data, from, to) {
+      let sum = 0;
+      const start = Math.max(0, from);
+      const end   = Math.min(data.length, to);
+      for (let i = start; i < end; i++) sum += data[i];
+      return end > start ? sum / (end - start) / 255 : 0;
+    }
+
+    function drawCurve(ctx, points) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const mx = (points[i].x + points[i + 1].x) / 2;
+        const my = (points[i].y + points[i + 1].y) / 2;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
+      }
+      ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+    }
+
+    /* ── Draw engine (all 25 effects) ─────────────── */
+    function drawEngine(ctx, W, H, data, style, color, variant) {
+      ctx.save();
+      const cx     = W * 0.5;
+      const cy     = H * 0.5;
+      const n      = data.length;
+      const fieldW = W * 0.85;
+      const x0     = cx - fieldW / 2;
+      const maxH   = H * 0.35;
+      const sb     = smoothBuffer;
+      const bass   = getAvg(data, 0, 7);
+      const mids   = getAvg(data, 10, 44);
+      const highs  = getAvg(data, 48, 110);
+      const t      = performance.now() * 0.001;
+      const variantIndex = Math.max(0, (VARIANTS[style] || ["Default"]).indexOf(variant));
+
+      if (style === "bars") {
+        const bars = variantIndex === 2 ? 84 : 48;
+        const bw   = fieldW / bars;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = color;
+        ctx.fillStyle = color;
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < bars; i++) {
+          const rawVal = data[Math.floor((i / bars) * n)] / 255;
+          sb.bars[i] += (rawVal - sb.bars[i]) * (rawVal > sb.bars[i] ? 0.45 : 0.15);
+          const h = Math.max(4, sb.bars[i] * maxH * (variantIndex === 2 ? 0.8 : 1));
+          const x = x0 + i * bw;
+          const y = variantIndex === 1 ? cy : H * 0.75;
+          ctx.beginPath();
+          ctx.roundRect(x, y - h, bw * 0.68, variantIndex === 1 ? h * 2 : h, variantIndex === 1 ? bw * 0.28 : [6, 6, 0, 0]);
+          ctx.fill();
+          if (variantIndex === 0) {
+            ctx.save();
+            ctx.globalAlpha = 0.22;
+            ctx.beginPath();
+            ctx.roundRect(x, y + 3, bw * 0.68, h * 0.35, [0, 0, 6, 6]);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      } else if (style === "mirror") {
+        const bars = variantIndex === 1 ? 64 : 42;
+        const bw   = fieldW / bars;
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = color;
+        ctx.fillStyle = color;
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < bars; i++) {
+          const rawVal = data[Math.floor((i / bars) * n)] / 255;
+          sb.mirror[i] += (rawVal - sb.mirror[i]) * (rawVal > sb.mirror[i] ? 0.42 : 0.15);
+          const h = Math.max(4, sb.mirror[i] * maxH * (variantIndex === 2 ? 0.82 : 0.6));
+          const x = x0 + i * bw;
+          ctx.beginPath();
+          ctx.roundRect(x, cy - h, bw * (variantIndex === 1 ? 0.25 : 0.65), h * 2, bw * 0.32);
+          ctx.fill();
+        }
+      } else if (style === "ribbon") {
+        const pts    = variantIndex === 2 ? 30 : 18;
+        const points1 = [], points2 = [];
+        const drawY  = H * 0.65;
+        for (let i = 0; i <= pts; i++) {
+          const rawVal = data[Math.floor((i / pts) * n)] / 255;
+          sb.ribbon1[i] += (rawVal - sb.ribbon1[i]) * 0.16;
+          sb.ribbon2[i] += (rawVal - sb.ribbon2[i]) * 0.08;
+          const drift = Math.sin(t * (variantIndex === 1 ? 3.4 : 2) + i * 0.65) * (variantIndex === 2 ? 9 : 20);
+          points1.push({ x: x0 + (i / pts) * fieldW, y: drawY - sb.ribbon1[i] * maxH + drift });
+          points2.push({ x: x0 + (i / pts) * fieldW, y: drawY - sb.ribbon2[i] * maxH * 0.75 - drift * 0.65 });
+        }
+        const grad = ctx.createLinearGradient(x0, drawY - maxH, x0, drawY);
+        grad.addColorStop(0, color);
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.globalAlpha = variantIndex === 2 ? 0.08 : 0.25;
+        drawCurve(ctx, points2);
+        ctx.lineTo(x0 + fieldW, drawY);
+        ctx.lineTo(x0, drawY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = variantIndex === 2 ? 2 : 5;
+        ctx.shadowBlur  = 20;
+        ctx.shadowColor = color;
+        drawCurve(ctx, points1);
+        ctx.stroke();
+        if (variantIndex === 1) {
+          ctx.globalAlpha = 0.55;
+          ctx.lineWidth   = 3;
+          drawCurve(ctx, points2);
+          ctx.stroke();
+        }
+      } else if (style === "blocks") {
+        const cols = variantIndex === 2 ? 22 : 16;
+        const rows = variantIndex === 1 ? 7 : 5;
+        const gap  = 8;
+        const cellW = (fieldW - gap * (cols - 1)) / cols;
+        const cellH = H * 0.11;
+        const top   = H * 0.22;
+        ctx.globalCompositeOperation = "lighter";
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const idx    = y * cols + x;
+            const rawVal = data[Math.floor((x / cols) * n)] / 255;
+            sb.blocks[idx] += (rawVal - sb.blocks[idx]) * 0.18;
+            const pulse = sb.blocks[idx] * (1 - y * 0.09);
+            ctx.fillStyle  = color;
+            ctx.globalAlpha = 0.08 + pulse * 0.86;
+            ctx.shadowBlur  = pulse * 18;
+            ctx.shadowColor = color;
+            ctx.beginPath();
+            ctx.roundRect(x0 + x * (cellW + gap), top + y * (cellH + gap), cellW, Math.max(8, cellH * (0.35 + pulse * 0.8)), 6);
+            ctx.fill();
+          }
+        }
+      } else if (style === "dots") {
+        const cols  = variantIndex === 2 ? 48 : 32;
+        const rows  = variantIndex === 2 ? 11 : 8;
+        const cw    = fieldW / cols;
+        const rh    = (maxH * 1.1) / rows;
+        const drawY = H * 0.8;
+        for (let x = 0; x < cols; x++) {
+          const rawVal = data[Math.floor((x / cols) * n)] / 255;
+          sb.matrix[x] += (rawVal - sb.matrix[x]) * 0.18;
+          const activeRows = Math.floor(sb.matrix[x] * rows);
+          for (let y = 0; y < rows; y++) {
+            if (y <= activeRows) {
+              ctx.fillStyle   = color;
+              ctx.shadowBlur  = 10;
+              ctx.shadowColor = color;
+              ctx.globalAlpha = 1 - (y / rows) * 0.4;
+            } else {
+              ctx.fillStyle   = "rgba(255,255,255,0.035)";
+              ctx.shadowBlur  = 0;
+              ctx.globalAlpha = 1;
+            }
+            ctx.beginPath();
+            const px = variantIndex === 1
+              ? cx + Math.cos((x / cols) * Math.PI * 2) * (H * 0.12 + y * rh * 0.9)
+              : x0 + x * cw + cw / 2;
+            const py = variantIndex === 1
+              ? cy + Math.sin((x / cols) * Math.PI * 2) * (H * 0.12 + y * rh * 0.9)
+              : drawY - y * rh;
+            ctx.arc(px, py, cw * (variantIndex === 2 ? 0.2 : 0.32), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      } else if (style === "radial") {
+        const bars = variantIndex === 2 ? 64 : 96;
+        const base = H * (variantIndex === 1 ? 0.23 : 0.17);
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = color;
+        ctx.shadowBlur  = 16;
+        ctx.shadowColor = color;
+        ctx.lineCap     = "round";
+        for (let i = 0; i < bars; i++) {
+          const rawVal = data[Math.floor((i / bars) * n)] / 255;
+          sb.radial[i] += (rawVal - sb.radial[i]) * 0.2;
+          const ang = (i / bars) * Math.PI * 2 + t * 0.18;
+          const len = 10 + sb.radial[i] * H * (variantIndex === 1 ? 0.06 : 0.16);
+          ctx.globalAlpha = 0.32 + sb.radial[i] * 0.68;
+          ctx.lineWidth   = variantIndex === 2 ? 4 : 2 + sb.radial[i] * 3;
+          ctx.beginPath();
+          const inner = variantIndex === 1 ? base - len * 0.5 : base;
+          ctx.moveTo(cx + Math.cos(ang) * inner, cy + Math.sin(ang) * inner);
+          ctx.lineTo(cx + Math.cos(ang) * (base + len), cy + Math.sin(ang) * (base + len));
+          ctx.stroke();
+        }
+      } else if (style === "orbit") {
+        const rings = variantIndex === 1 ? 7 : 4;
+        sb.bass += (bass - sb.bass) * 0.16;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = color;
+        ctx.fillStyle   = color;
+        ctx.shadowBlur  = 18;
+        ctx.shadowColor = color;
+        for (let r = 0; r < rings; r++) {
+          const radius = H * (0.12 + r * 0.075) + sb.bass * 34;
+          ctx.globalAlpha = 0.18 + r * 0.12;
+          ctx.lineWidth   = 2;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, radius * 1.34, radius * 0.72, r * 0.34, 0, Math.PI * 2);
+          ctx.stroke();
+          for (let i = 0; i < (variantIndex === 2 ? 8 : 5); i++) {
+            const idx = (r * 13 + i * 9) % n;
+            const val = data[idx] / 255;
+            const a   = t * (0.55 + r * 0.18) + i * Math.PI * 0.4 + r;
+            const x   = cx + Math.cos(a) * radius * 1.34;
+            const y   = cy + Math.sin(a) * radius * 0.72;
+            ctx.globalAlpha = 0.35 + val * 0.65;
+            ctx.beginPath();
+            ctx.arc(x, y, 5 + val * (variantIndex === 2 ? 7 : 14), 0, Math.PI * 2);
+            ctx.fill();
+            if (variantIndex === 2) {
+              ctx.globalAlpha = 0.18 + val * 0.25;
+              ctx.beginPath();
+              ctx.moveTo(x, y);
+              ctx.lineTo(x - Math.cos(a) * 44, y - Math.sin(a) * 44);
+              ctx.stroke();
+            }
+          }
+        }
+      } else if (style === "particles") {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle   = color;
+        ctx.shadowBlur  = 16;
+        ctx.shadowColor = color;
+        sb.particles.forEach((p, i) => {
+          const band  = data[i % n] / 255;
+          const pulse = variantIndex === 1 ? 0.75 + mids * 1.1 : 1 + bass * 1.7 + band * 0.85;
+          p.radius += p.speed * (variantIndex === 2 ? 0.9 + highs : 0.25 + bass);
+          if (p.radius > W * 0.42) p.radius = 24 + (i % 12) * 2;
+          const wobble = Math.sin(t * (variantIndex === 1 ? 4.8 : 1.2 + p.speed) + i) * (variantIndex === 1 ? 0.72 : 0.18);
+          const x = cx + Math.cos(p.angle + wobble) * p.radius * pulse;
+          const y = cy + Math.sin(p.angle + wobble) * p.radius * pulse;
+          ctx.globalAlpha = Math.max(0.08, 1 - p.radius / (W * 0.45));
+          ctx.beginPath();
+          ctx.arc(x, y, p.size + band * (variantIndex === 2 ? 1.4 : 3.5), 0, Math.PI * 2);
+          ctx.fill();
+        });
+      } else if (style === "glitch") {
+        sb.glitch += (Math.min(1, bass * 0.8 + highs * 1.1) - sb.glitch) * 0.2;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle   = color;
+        ctx.shadowBlur  = 12;
+        ctx.shadowColor = color;
+        const lines = variantIndex === 2 ? 18 : 34;
+        for (let i = 0; i < lines; i++) {
+          const y   = H * 0.16 + (i / lines) * H * 0.68;
+          const val = data[Math.floor((i / lines) * n)] / 255;
+          const shift = Math.sin(t * 9 + i * 1.7) * fieldW * (variantIndex === 1 ? 0.18 : 0.08) * sb.glitch;
+          const len   = fieldW * (0.12 + val * 0.78);
+          ctx.globalAlpha = 0.08 + val * 0.8;
+          ctx.fillRect(x0 + shift, y, variantIndex === 2 ? len * 0.28 : len, variantIndex === 2 ? 18 + val * 24 : 4 + val * 8);
+          if (val > 0.55 && variantIndex !== 2) ctx.fillRect(x0 + fieldW - len + shift * 0.5, y + 10, len * 0.42, 2);
+        }
+      } else if (style === "honeycomb") {
+        const hexR = variantIndex === 2 ? 18 : 28;
+        const dx   = hexR * 1.75;
+        const dy   = hexR * 1.5;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = color;
+        ctx.shadowBlur  = 10;
+        ctx.shadowColor = color;
+        let cell = 0;
+        for (let row = 0; row < 8; row++) {
+          for (let col = 0; col < 13; col++) {
+            const x = x0 + col * dx + (row % 2) * dx * 0.5;
+            const y = H * 0.18 + row * dy;
+            if (x > x0 + fieldW || y > H * 0.88) continue;
+            const rawVal = data[Math.floor((col / 13) * n)] / 255;
+            sb.honeycomb[cell] += (rawVal - sb.honeycomb[cell]) * 0.18;
+            const val = sb.honeycomb[cell];
+            ctx.globalAlpha = 0.08 + val * 0.78;
+            ctx.lineWidth   = 1 + val * 4;
+            ctx.beginPath();
+            for (let k = 0; k < 6; k++) {
+              const a  = Math.PI / 6 + k * Math.PI / 3;
+              const px = x + Math.cos(a) * hexR * (0.72 + val * 0.28);
+              const py = y + Math.sin(a) * hexR * (0.72 + val * 0.28);
+              if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            if (variantIndex === 1) { ctx.fillStyle = color; ctx.fill(); } else ctx.stroke();
+            cell++;
+          }
+        }
+      } else if (style === "level") {
+        const level = Math.min(1, bass * 1.25 + mids * 0.65 + highs * 0.25);
+        sb.level += (level - sb.level) * (level > sb.level ? 0.35 : 0.1);
+        const meters = variantIndex === 1
+          ? [{ label: "L", value: Math.min(1, bass * 0.9 + mids * 0.6) }, { label: "R", value: Math.min(1, bass * 0.75 + highs * 0.85) }]
+          : [{ label: "LOW", value: bass }, { label: "MID", value: mids }, { label: "HIGH", value: highs }, { label: "RMS", value: sb.level }];
+        const rowH   = variantIndex === 1 ? H * 0.2 : H * 0.13;
+        const startY = variantIndex === 1 ? H * 0.38 : H * 0.26;
+        ctx.font      = "700 24px JetBrains Mono, monospace";
+        ctx.textBaseline = "middle";
+        meters.forEach((meter, i) => {
+          const y     = startY + i * rowH;
+          const value = Math.min(1, meter.value);
+          ctx.fillStyle = "rgba(255,255,255,0.055)";
+          ctx.fillRect(x0 + 95, y - 18, fieldW - 130, 36);
+          const grad = ctx.createLinearGradient(x0 + 95, 0, x0 + fieldW - 35, 0);
+          grad.addColorStop(0, "#22c55e");
+          grad.addColorStop(0.7, "#facc15");
+          grad.addColorStop(1, "#ef4444");
+          ctx.fillStyle  = grad;
+          ctx.shadowBlur = 14;
+          ctx.shadowColor = color;
+          if (variantIndex === 2) {
+            const segs = 34;
+            const sw   = (fieldW - 130) / segs - 4;
+            for (let s = 0; s < segs * value; s++) ctx.fillRect(x0 + 95 + s * ((fieldW - 130) / segs), y - 18, sw, 36);
+          } else {
+            ctx.fillRect(x0 + 95, y - 18, (fieldW - 130) * value, 36);
+          }
+          ctx.shadowBlur  = 0;
+          ctx.fillStyle   = "rgba(255,255,255,0.82)";
+          ctx.fillText(meter.label, x0, y);
+        });
+      } else if (style === "spectrumLine") {
+        const pts    = variantIndex === 2 ? 64 : 96;
+        const baseY  = H * 0.72;
+        const points = [];
+        for (let i = 0; i < pts; i++) {
+          const rawVal = data[Math.floor((i / pts) * n)] / 255;
+          sb.spectrumLine[i] += (rawVal - sb.spectrumLine[i]) * 0.2;
+          points.push({ x: x0 + (i / (pts - 1)) * fieldW, y: baseY - sb.spectrumLine[i] * H * (variantIndex === 2 ? 0.34 : 0.46) });
+        }
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = color;
+        ctx.shadowBlur  = 18;
+        ctx.shadowColor = color;
+        ctx.lineWidth   = 3;
+        if (variantIndex === 2) {
+          points.forEach((p) => {
+            ctx.beginPath();
+            ctx.moveTo(p.x, baseY);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+          });
+        } else {
+          drawCurve(ctx, points);
+          ctx.stroke();
+        }
+        if (variantIndex === 1) {
+          ctx.globalAlpha = 0.55;
+          ctx.beginPath();
+          points.forEach((p, i) => {
+            const y = H - p.y;
+            if (i === 0) ctx.moveTo(p.x, y); else ctx.lineTo(p.x, y);
+          });
+          ctx.stroke();
+        }
+        if (variantIndex === 2) { ctx.restore(); return; }
+        ctx.lineTo(x0 + fieldW, baseY);
+        ctx.lineTo(x0, baseY);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(0, H * 0.25, 0, baseY);
+        grad.addColorStop(0, color);
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle   = grad;
+        ctx.globalAlpha = 0.18;
+        ctx.fill();
+      } else if (style === "vinyl") {
+        sb.vinyl += (bass - sb.vinyl) * 0.16;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = color;
+        ctx.shadowBlur  = 16;
+        ctx.shadowColor = color;
+        for (let i = 0; i < (variantIndex === 2 ? 28 : 18); i++) {
+          const r   = H * (0.07 + i * 0.018) + sb.vinyl * 24;
+          const val = data[Math.floor((i / 18) * n)] / 255;
+          ctx.globalAlpha = 0.12 + val * 0.55;
+          ctx.lineWidth   = 1 + val * 3;
+          ctx.beginPath();
+          if (variantIndex === 2) {
+            ctx.arc(cx, cy, r, -Math.PI * 0.35, Math.PI * 0.35);
+          } else {
+            ctx.arc(cx, cy, r, t * (0.5 + i * 0.02), Math.PI * 2 + t * (0.5 + i * 0.02));
+          }
+          ctx.stroke();
+        }
+        if (variantIndex === 1) {
+          ctx.fillStyle   = "rgba(255,255,255,0.04)";
+          ctx.beginPath();
+          ctx.arc(cx, cy, H * 0.24 + sb.vinyl * 22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle   = color;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 18 + sb.vinyl * 18, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (style === "rain") {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = color;
+        ctx.shadowBlur  = 18;
+        ctx.shadowColor = color;
+        ctx.lineCap     = "round";
+        sb.rainDrops.forEach((drop, i) => {
+          const val = data[(i * 3) % n] / 255;
+          drop.y += drop.speed * (variantIndex === 2 ? 2.6 + highs * 3.4 : 0.75 + highs * 2.2 + val);
+          if (drop.y > 1.08) {
+            drop.y = -0.08;
+            drop.x = (drop.x + 0.381 + bass * 0.07) % 1;
+          }
+          const x  = x0 + drop.x * fieldW;
+          const y  = drop.y * H;
+          ctx.globalAlpha = 0.12 + val * 0.75;
+          ctx.lineWidth   = 1.5 + val * 5;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          const dx = variantIndex === 1 ? 0 : -18 - val * 32;
+          const dy = variantIndex === 2 ? 8 + val * 16 : drop.len + val * 44;
+          ctx.lineTo(x + dx, y + dy);
+          ctx.stroke();
+        });
+      } else if (style === "peak") {
+        const cols  = 28;
+        const bw    = fieldW / cols;
+        const baseY = H * 0.78;
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < cols; i++) {
+          const rawVal = data[Math.floor((i / cols) * n)] / 255;
+          sb.peak[i]     += (rawVal - sb.peak[i]) * (rawVal > sb.peak[i] ? 0.5 : 0.12);
+          sb.peakHold[i]  = Math.max(sb.peakHold[i] - 0.006, sb.peak[i]);
+          const h     = sb.peak[i] * H * 0.48;
+          const peakY = baseY - sb.peakHold[i] * H * 0.48;
+          const x     = x0 + i * bw;
+          ctx.fillStyle   = color;
+          ctx.shadowBlur  = 14;
+          ctx.shadowColor = color;
+          ctx.globalAlpha = 0.82;
+          if (variantIndex === 2) {
+            const y = H * 0.22 + i * (H * 0.56 / cols);
+            ctx.fillRect(x0, y, fieldW * sb.peak[i], H * 0.56 / cols * 0.52);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(x0 + fieldW * sb.peakHold[i], y, 6, H * 0.56 / cols * 0.52);
+            continue;
+          }
+          if (variantIndex === 1) {
+            const segs = 14;
+            const sh   = h / segs - 3;
+            for (let s = 0; s < segs * sb.peak[i]; s++) ctx.fillRect(x, baseY - s * (h / segs) - sh, bw * 0.55, sh);
+          } else {
+            ctx.fillRect(x, baseY - h, bw * 0.55, h);
+          }
+          ctx.fillStyle   = "#ffffff";
+          ctx.globalAlpha = 0.9;
+          ctx.fillRect(x, peakY, bw * 0.55, 5);
+        }
+      } else if (style === "retroVU") {
+        ctx.globalCompositeOperation = "source-over";
+        const drawDial = (gx, gy, gWidth, gHeight, valueKey, title) => {
+          const meter = sb.retroVU[valueKey];
+          let rawSignal = 0;
+          if      (valueKey === "left")  rawSignal = Math.min(1.0, bass * 0.9 + mids * 0.5);
+          else if (valueKey === "right") rawSignal = Math.min(1.0, mids * 0.4 + highs * 0.9);
+          else if (valueKey === "low")   rawSignal = Math.min(1.0, bass * 1.2);
+          else if (valueKey === "mid")   rawSignal = Math.min(1.0, mids * 1.1);
+          else if (valueKey === "high")  rawSignal = Math.min(1.0, highs * 1.3);
+          else                           rawSignal = Math.min(1.0, (bass + mids + highs) / 3 * 1.2);
+          const diff = rawSignal - meter.val;
+          meter.vel += diff * 0.16;
+          meter.vel *= 0.72;
+          meter.val  = Math.max(0, Math.min(1.1, meter.val + meter.vel));
+          ctx.save();
+          ctx.translate(gx, gy);
+          const dialGrad = ctx.createRadialGradient(0, gHeight * 0.65, 10, 0, gHeight * 0.65, gWidth);
+          dialGrad.addColorStop(0, "#fefaf0");
+          dialGrad.addColorStop(0.85, "#fdf4e3");
+          dialGrad.addColorStop(1, "#f2e4c9");
+          ctx.fillStyle = dialGrad;
+          ctx.beginPath();
+          ctx.roundRect(-gWidth / 2, -gHeight / 2, gWidth, gHeight, 10);
+          ctx.fill();
+          ctx.strokeStyle = "#4b3d2a";
+          ctx.lineWidth   = 3.5;
+          ctx.stroke();
+          const arcRadius  = gHeight * 0.72;
+          const arcY       = gHeight * 0.55;
+          const startAngle = -Math.PI * 0.72;
+          const endAngle   = -Math.PI * 0.28;
+          ctx.strokeStyle = "rgba(0,0,0,0.12)";
+          ctx.lineWidth   = 6;
+          ctx.beginPath();
+          ctx.arc(0, arcY, arcRadius, startAngle, endAngle);
+          ctx.stroke();
+          ctx.strokeStyle = "#ef4444";
+          ctx.lineWidth   = 6;
+          ctx.beginPath();
+          ctx.arc(0, arcY, arcRadius, startAngle + (endAngle - startAngle) * 0.72, endAngle);
+          ctx.stroke();
+          ctx.strokeStyle  = "#1e293b";
+          ctx.lineWidth    = 1.5;
+          const totalTicks = 16;
+          for (let s = 0; s <= totalTicks; s++) {
+            const ratio = s / totalTicks;
+            const angle = startAngle + ratio * (endAngle - startAngle);
+            const isRed = ratio >= 0.72;
+            ctx.strokeStyle = isRed ? "#ef4444" : "#1e293b";
+            ctx.lineWidth   = ratio % 0.25 === 0 ? 2.5 : 1.2;
+            const len = ratio % 0.25 === 0 ? 10 : 5;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(angle) * (arcRadius - len), arcY + Math.sin(angle) * (arcRadius - len));
+            ctx.lineTo(Math.cos(angle) * arcRadius, arcY + Math.sin(angle) * arcRadius);
+            ctx.stroke();
+          }
+          ctx.fillStyle = "#1e293b";
+          ctx.font      = "bold 10px JetBrains Mono, monospace";
+          ctx.textAlign = "center";
+          ctx.fillText("-20", Math.cos(startAngle) * (arcRadius - 18), arcY + Math.sin(startAngle) * (arcRadius - 18) + 3);
+          ctx.fillText("0",   Math.cos(startAngle + (endAngle - startAngle) * 0.72) * (arcRadius - 18), arcY + Math.sin(startAngle + (endAngle - startAngle) * 0.72) * (arcRadius - 18) + 3);
+          ctx.fillStyle = "#ef4444";
+          ctx.fillText("+3",  Math.cos(endAngle) * (arcRadius - 18), arcY + Math.sin(endAngle) * (arcRadius - 18) + 3);
+          ctx.fillStyle = "#78350f";
+          ctx.font      = "bold 13px Inter, sans-serif";
+          ctx.fillText(title, 0, -gHeight * 0.16);
+          ctx.fillStyle = "rgba(0,0,0,0.36)";
+          ctx.font      = "bold 8px JetBrains Mono, monospace";
+          ctx.fillText("ANALOG LEVEL", 0, gHeight * 0.12);
+          const needleAngle = startAngle + meter.val * (endAngle - startAngle);
+          ctx.strokeStyle = "#171717";
+          ctx.lineWidth   = 3;
+          ctx.lineCap     = "round";
+          ctx.beginPath();
+          ctx.moveTo(0, arcY);
+          ctx.lineTo(Math.cos(needleAngle) * (arcRadius - 3), arcY + Math.sin(needleAngle) * (arcRadius - 3));
+          ctx.stroke();
+          const capGrad = ctx.createRadialGradient(-1.5, arcY - 1.5, 2, 0, arcY, 12);
+          capGrad.addColorStop(0, "#57534e");
+          capGrad.addColorStop(1, "#1c1917");
+          ctx.fillStyle   = capGrad;
+          ctx.beginPath();
+          ctx.arc(0, arcY, 13, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#1c1917";
+          ctx.lineWidth   = 1;
+          ctx.stroke();
+          const glareGrad = ctx.createLinearGradient(-gWidth/2, -gHeight/2, gWidth/2, gHeight/2);
+          glareGrad.addColorStop(0, "rgba(255,255,255,0.22)");
+          glareGrad.addColorStop(0.3, "rgba(255,255,255,0.05)");
+          glareGrad.addColorStop(0.31, "rgba(255,255,255,0)");
+          glareGrad.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.fillStyle = glareGrad;
+          ctx.beginPath();
+          ctx.roundRect(-gWidth / 2, -gHeight / 2, gWidth, gHeight, 10);
+          ctx.fill();
+          ctx.restore();
+        };
+        if (variantIndex === 0) {
+          const w = fieldW * 0.46, h = H * 0.42;
+          drawDial(cx - w / 2 - 12, cy, w, h, "left",  "CH A / LEFT");
+          drawDial(cx + w / 2 + 12, cy, w, h, "right", "CH B / RIGHT");
+        } else if (variantIndex === 1) {
+          const w = fieldW * 0.22, h = H * 0.32;
+          drawDial(cx - w * 1.55 - 12, cy, w, h, "low",  "BASS / L");
+          drawDial(cx - w * 0.52 - 4,  cy, w, h, "mid",  "MIDS / M");
+          drawDial(cx + w * 0.52 + 4,  cy, w, h, "high", "HIGH / H");
+          drawDial(cx + w * 1.55 + 12, cy, w, h, "rms",  "TOTAL RMS");
+        } else {
+          const w = fieldW * 0.65, h = H * 0.54;
+          drawDial(cx, cy, w, h, "rms", "MASTER OUTPUT");
+        }
+      } else if (style === "plasmaTube") {
+        const tubes   = 10;
+        const spacing = fieldW / tubes;
+        const tubeW   = spacing * 0.52;
+        const tubeH   = H * 0.62;
+        const tubeY   = cy - tubeH / 2;
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < tubes; i++) {
+          const rawVal = data[Math.floor((i / tubes) * n)] / 255;
+          sb.plasmaTube[i] += (rawVal - sb.plasmaTube[i]) * 0.22;
+          const val = sb.plasmaTube[i];
+          const x   = x0 + i * spacing + (spacing - tubeW) / 2;
+          ctx.strokeStyle = "rgba(255,255,255,0.08)";
+          ctx.lineWidth   = 1.8;
+          ctx.fillStyle   = "rgba(0,0,0,0.35)";
+          ctx.beginPath();
+          ctx.roundRect(x, tubeY, tubeW, tubeH, tubeW * 0.5);
+          ctx.fill();
+          ctx.stroke();
+          if (variantIndex === 0) {
+            const fillH = val * (tubeH - 12);
+            if (fillH > 2) {
+              const liquidGrad = ctx.createLinearGradient(x, tubeY + tubeH, x, tubeY + tubeH - fillH);
+              liquidGrad.addColorStop(0, "rgba(255,255,255,0.02)");
+              liquidGrad.addColorStop(0.6, color);
+              liquidGrad.addColorStop(1, "#ffffff");
+              ctx.save();
+              ctx.shadowBlur  = 20;
+              ctx.shadowColor = color;
+              ctx.fillStyle   = liquidGrad;
+              ctx.beginPath();
+              ctx.roundRect(x + 3.5, tubeY + tubeH - fillH - 4, tubeW - 7, fillH + 4, (tubeW - 7) * 0.5);
+              ctx.fill();
+              ctx.restore();
+            }
+          } else if (variantIndex === 1) {
+            const arcTop    = tubeY + tubeH - val * (tubeH - 24) - 12;
+            const arcBottom = tubeY + tubeH - 12;
+            ctx.save();
+            ctx.shadowBlur  = 15;
+            ctx.shadowColor = color;
+            ctx.strokeStyle = color;
+            ctx.lineWidth   = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(x + tubeW / 2, arcBottom);
+            let currentY   = arcBottom;
+            const segments = 10;
+            const segHeight = (arcBottom - arcTop) / segments;
+            for (let s = 1; s < segments; s++) {
+              currentY -= segHeight;
+              const jitterX = (Math.random() - 0.5) * tubeW * 0.42 * (val + 0.12);
+              ctx.lineTo(x + tubeW / 2 + jitterX, currentY);
+            }
+            ctx.lineTo(x + tubeW / 2, arcTop);
+            ctx.stroke();
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(x + tubeW / 2, arcTop, 3.5 + val * 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          } else {
+            const totalSegs = 9;
+            const segSpace  = (tubeH - 14) / totalSegs;
+            const segH      = segSpace * 0.76;
+            const activeSegs = Math.floor(val * totalSegs);
+            for (let s = 0; s < totalSegs; s++) {
+              const sy = tubeY + tubeH - 8 - s * segSpace - segH;
+              const isActive = s <= activeSegs;
+              ctx.save();
+              if (isActive) {
+                ctx.fillStyle   = color;
+                ctx.shadowBlur  = 12;
+                ctx.shadowColor = color;
+                ctx.globalAlpha = 1.0 - (s / totalSegs) * 0.3;
+              } else {
+                ctx.fillStyle   = "rgba(255,255,255,0.03)";
+                ctx.shadowBlur  = 0;
+                ctx.globalAlpha = 0.4;
+              }
+              ctx.beginPath();
+              ctx.roundRect(x + 3.5, sy, tubeW - 7, segH, 3.5);
+              ctx.fill();
+              ctx.restore();
+            }
+          }
+        }
+      } else if (style === "haloLED") {
+        ctx.globalCompositeOperation = "lighter";
+        const drawRing = (rx, ry, radius, dataVal, peakValKey, rotationSpeed, ringColor) => {
+          const segments  = 56;
+          const angleStep = (Math.PI * 2) / segments;
+          let peak = sb.haloPeaks[peakValKey] || 0;
+          peak = Math.max(dataVal, peak - 0.005);
+          sb.haloPeaks[peakValKey] = peak;
+          const maxSeg  = Math.floor(dataVal * segments);
+          const peakSeg = Math.min(segments - 1, Math.floor(peak * segments));
+          ctx.save();
+          ctx.translate(rx, ry);
+          ctx.rotate(t * rotationSpeed);
+          for (let i = 0; i < segments; i++) {
+            const ang     = i * angleStep - Math.PI / 2;
+            const isActive = i <= maxSeg;
+            const isPeak   = i === peakSeg;
+            ctx.beginPath();
+            if (isPeak) {
+              ctx.fillStyle   = "#ffffff";
+              ctx.shadowBlur  = 16;
+              ctx.shadowColor = "#ffffff";
+              ctx.arc(Math.cos(ang) * radius, Math.sin(ang) * radius, radius * 0.038 + 2, 0, Math.PI * 2);
+              ctx.fill();
+            } else if (isActive) {
+              ctx.fillStyle   = ringColor;
+              ctx.shadowBlur  = 10;
+              ctx.shadowColor = ringColor;
+              ctx.arc(Math.cos(ang) * radius, Math.sin(ang) * radius, radius * 0.024 + 1.0, 0, Math.PI * 2);
+              ctx.fill();
+            } else {
+              ctx.fillStyle   = "rgba(255,255,255,0.02)";
+              ctx.shadowBlur  = 0;
+              ctx.arc(Math.cos(ang) * radius, Math.sin(ang) * radius, radius * 0.016, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          ctx.restore();
+        };
+        if (variantIndex === 0) {
+          const r = H * 0.3 * (1.0 + bass * 0.1);
+          drawRing(cx, cy, r, mids, 0, 0.2, color);
+        } else if (variantIndex === 1) {
+          drawRing(cx, cy, H * 0.32 * (1.0 + bass * 0.12), bass,  0, 0.08,  "#f43f5e");
+          drawRing(cx, cy, H * 0.22,                        mids,  1, -0.16, "#14b8a6");
+          drawRing(cx, cy, H * 0.13,                        highs, 2, 0.3,   "#3b82f6");
+        } else {
+          drawRing(cx, cy, H * 0.28, mids,  0, 0.15,  color);
+          drawRing(cx, cy, H * 0.20, highs, 1, -0.28, "#ffffff");
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(-t * 0.4);
+          ctx.strokeStyle = color;
+          ctx.lineWidth   = 2.5;
+          ctx.shadowBlur  = 8;
+          ctx.shadowColor = color;
+          ctx.beginPath();
+          ctx.arc(0, 0, 28 + bass * 14, 0, Math.PI * 2);
+          ctx.stroke();
+          for (let s = 0; s < 6; s++) {
+            const sa = (s / 6) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(sa) * (28 + bass * 14), Math.sin(sa) * (28 + bass * 14));
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      } else if (style === "iso3D") {
+        ctx.globalCompositeOperation = "source-over";
+        const grid       = 7;
+        const size       = 32;
+        const spacing    = 8;
+        const cosAngle   = 0.866;
+        const sinAngle   = 0.5;
+        const baseCenterY = cy + H * 0.12;
+        for (let depth = 0; depth <= 2 * (grid - 1); depth++) {
+          for (let r = 0; r < grid; r++) {
+            const c = depth - r;
+            if (c < 0 || c >= grid) continue;
+            const idx     = r * grid + c;
+            const bandIdx = Math.floor((idx / (grid * grid)) * n);
+            const rawVal  = data[bandIdx] / 255;
+            sb.iso3D[idx] += (rawVal - sb.iso3D[idx]) * 0.18;
+            const amplitude = sb.iso3D[idx];
+            let colHeight   = amplitude * H * 0.42;
+            if (colHeight < 6) colHeight = 6;
+            const isoX = cx + (c - r) * (size + spacing) * cosAngle;
+            const isoY = baseCenterY + (c + r) * (size + spacing) * sinAngle - colHeight;
+            ctx.save();
+            ctx.translate(isoX, isoY);
+            const topColor   = color;
+            const leftColor  = "color-mix(in srgb, " + color + " 30%, #0c0d10)";
+            const rightColor = "color-mix(in srgb, " + color + " 60%, #0c0d10)";
+            ctx.globalAlpha = variantIndex === 1 ? 0.42 : 0.86;
+            ctx.fillStyle   = leftColor;
+            ctx.beginPath();
+            ctx.moveTo(0, colHeight);
+            ctx.lineTo(-size * cosAngle, colHeight - size * sinAngle);
+            ctx.lineTo(-size * cosAngle, -size * sinAngle);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = rightColor;
+            ctx.beginPath();
+            ctx.moveTo(0, colHeight);
+            ctx.lineTo(size * cosAngle, colHeight - size * sinAngle);
+            ctx.lineTo(size * cosAngle, -size * sinAngle);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = topColor;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-size * cosAngle, -size * sinAngle);
+            ctx.lineTo(0, -size * sinAngle * 2);
+            ctx.lineTo(size * cosAngle, -size * sinAngle);
+            ctx.closePath();
+            ctx.fill();
+            if (variantIndex !== 1) {
+              ctx.shadowBlur  = 6;
+              ctx.shadowColor = color;
+              ctx.strokeStyle = "#ffffff";
+              ctx.lineWidth   = 1.2;
+              ctx.beginPath();
+              ctx.moveTo(0, 0);
+              ctx.lineTo(-size * cosAngle, -size * sinAngle);
+              ctx.lineTo(0, -size * sinAngle * 2);
+              ctx.lineTo(size * cosAngle, -size * sinAngle);
+              ctx.closePath();
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
+        }
+      } else if (style === "auraWave") {
+        ctx.globalCompositeOperation = "lighter";
+        if (bass > 0.62 && Math.random() < 0.18) {
+          const oldest = sb.auraWaves.reduce((acc, cur) => (cur.alpha <= 0 ? cur : acc), sb.auraWaves[0]);
+          oldest.radius     = 10;
+          oldest.alpha      = 1.0;
+          oldest.width      = 1.2 + bass * 3.5;
+          oldest.speed      = 2.0 + bass * 4.5;
+          oldest.colorShift = Math.random() * 360;
+        }
+        sb.auraWaves.forEach((wave) => {
+          if (wave.alpha <= 0) return;
+          wave.radius += wave.speed;
+          wave.alpha  -= 0.015;
+          ctx.save();
+          ctx.globalAlpha = wave.alpha;
+          ctx.lineWidth   = wave.width;
+          ctx.shadowBlur  = 12;
+          let waveColor = variantIndex === 1 ? "hsl(" + wave.colorShift + ",85%,60%)" : color;
+          ctx.strokeStyle = waveColor;
+          ctx.shadowColor = waveColor;
+          ctx.beginPath();
+          if (variantIndex === 2) {
+            const numPoints = 96;
+            for (let i = 0; i <= numPoints; i++) {
+              const a          = (i / numPoints) * Math.PI * 2;
+              const distortion = Math.sin(a * 8 + t * 12) * 10 * bass;
+              const r          = wave.radius + distortion;
+              const px = cx + Math.cos(a) * r * 1.34;
+              const py = cy + Math.sin(a) * r * 0.74;
+              if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+          } else {
+            ctx.ellipse(cx, cy, wave.radius * 1.34, wave.radius * 0.74, 0, 0, Math.PI * 2);
+          }
+          ctx.stroke();
+          ctx.restore();
+        });
+        const coreRad = H * 0.12 + bass * 25;
+        const sunGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, coreRad);
+        sunGrad.addColorStop(0, "#ffffff");
+        sunGrad.addColorStop(0.35, color);
+        sunGrad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = sunGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, coreRad, 0, Math.PI * 2);
+        ctx.fill();
+        if (variantIndex === 1) {
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth   = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, coreRad * 0.58, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (style === "waterfall") {
+        ctx.globalCompositeOperation = "source-over";
+        const hist = sb.waterfallHistory;
+        hist.pop();
+        const cols = 64;
+        const currentFrame = new Float32Array(cols);
+        for (let i = 0; i < cols; i++) currentFrame[i] = data[Math.floor((i / cols) * n)] / 255;
+        hist.unshift(currentFrame);
+        const rows  = hist.length;
+        const cellW = fieldW / cols;
+        const startY = cy - H * 0.25;
+        const viewH  = H * 0.52;
+        const cellH  = viewH / rows;
+        if (variantIndex === 0) {
+          for (let r = 0; r < rows; r++) {
+            const frame = hist[r];
+            const y     = startY + r * cellH;
+            const alpha = 1.0 - (r / rows);
+            for (let c = 0; c < cols; c++) {
+              const val = frame[c];
+              if (val < 0.05) continue;
+              let fillStyle;
+              if (val > 0.8)       fillStyle = "#ffffff";
+              else if (val > 0.45) fillStyle = "#f97316";
+              else if (val > 0.2)  fillStyle = color;
+              else                 fillStyle = "color-mix(in srgb, " + color + " 40%, #0c0d10)";
+              ctx.fillStyle   = fillStyle;
+              ctx.globalAlpha = val * alpha * 0.85;
+              ctx.fillRect(x0 + c * cellW, y, cellW + 0.5, cellH + 0.5);
+            }
+          }
+          ctx.globalAlpha = 1;
+        } else if (variantIndex === 1) {
+          ctx.font      = "bold 9px monospace";
+          ctx.textAlign = "center";
+          for (let r = 0; r < rows; r += 4) {
+            const frame = hist[r];
+            const y     = startY + r * cellH;
+            const alpha = 1.0 - (r / rows);
+            for (let c = 0; c < cols; c += 2) {
+              const val = frame[c];
+              if (val < 0.2) continue;
+              const char = String.fromCharCode(48 + Math.floor(Math.random() * 40));
+              ctx.fillStyle   = color;
+              ctx.globalAlpha = val * alpha * 0.9;
+              ctx.fillText(char, x0 + c * cellW + cellW / 2, y);
+            }
+          }
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.strokeStyle = color;
+          ctx.shadowBlur  = 5;
+          ctx.shadowColor = color;
+          ctx.lineWidth   = 1;
+          for (let r = rows - 1; r >= 0; r -= 3) {
+            const frame    = hist[r];
+            const y        = startY + r * cellH;
+            const progress = r / rows;
+            const alpha    = (1.0 - progress) * 0.72;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            for (let c = 0; c < cols; c++) {
+              const val = frame[c];
+              const h   = val * H * 0.16;
+              const px  = x0 + c * cellW;
+              const py  = y - h;
+              if (c === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            ctx.restore();
+          }
+          ctx.shadowBlur = 0;
+        }
+      } else if (style === "laserScanner") {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = color;
+        ctx.shadowBlur  = 18;
+        ctx.shadowColor = color;
+        if (variantIndex === 0) {
+          const sweepY = cy + Math.sin(t * 1.6) * H * 0.26;
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(x0, sweepY);
+          ctx.lineTo(x0 + fieldW, sweepY);
+          ctx.stroke();
+          ctx.lineWidth   = 1.0;
+          ctx.globalAlpha = 0.35;
+          const laserCount = 20;
+          const laserStep  = fieldW / laserCount;
+          for (let i = 0; i <= laserCount; i++) {
+            const val = data[Math.floor((i / laserCount) * n)] / 255;
+            const lx  = x0 + i * laserStep;
+            ctx.beginPath();
+            ctx.moveTo(lx, sweepY);
+            ctx.lineTo(lx, sweepY + val * H * 0.28);
+            ctx.stroke();
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(lx, sweepY + val * H * 0.28, 2.5 + val * 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1.0;
+        } else if (variantIndex === 1) {
+          const targetRad = 20 + bass * 30;
+          ctx.lineWidth   = 2;
+          ctx.strokeStyle = color;
+          ctx.beginPath();
+          ctx.arc(cx, cy, targetRad, 0, Math.PI * 2);
+          ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(cx - targetRad - 6, cy); ctx.lineTo(cx - targetRad + 3, cy);
+          ctx.moveTo(cx + targetRad + 6, cy); ctx.lineTo(cx + targetRad - 3, cy);
+          ctx.moveTo(cx, cy - targetRad - 6); ctx.lineTo(cx, cy - targetRad + 3);
+          ctx.moveTo(cx, cy + targetRad + 6); ctx.lineTo(cx, cy + targetRad - 3);
+          ctx.stroke();
+          const beamOffset = mids * 40;
+          ctx.lineWidth   = 1.2;
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(x0, H * 0.16); ctx.lineTo(cx - targetRad - beamOffset, cy);
+          ctx.moveTo(x0 + fieldW, H * 0.16); ctx.lineTo(cx + targetRad + beamOffset, cy);
+          ctx.moveTo(x0, H * 0.84); ctx.lineTo(cx - targetRad - beamOffset, cy);
+          ctx.moveTo(x0 + fieldW, H * 0.84); ctx.lineTo(cx + targetRad + beamOffset, cy);
+          ctx.stroke();
+          ctx.fillStyle   = color;
+          ctx.font        = "10px JetBrains Mono, monospace";
+          ctx.fillText("LASER_SCAN: LOCK // BASS=" + bass.toFixed(2), x0, H * 0.12);
+          ctx.fillText("FOCUS_X=" + cx + " FOCUS_Y=" + cy, x0 + fieldW - 160, H * 0.12);
+          ctx.globalAlpha = 1.0;
+        } else {
+          const angle = t * 1.2;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(angle) * H * 0.32, cy + Math.sin(angle) * H * 0.32);
+          ctx.stroke();
+          ctx.strokeStyle = color;
+          ctx.lineWidth   = 1.0;
+          ctx.globalAlpha = 0.15;
+          ctx.beginPath();
+          ctx.arc(cx, cy, H * 0.14, 0, Math.PI * 2);
+          ctx.arc(cx, cy, H * 0.23, 0, Math.PI * 2);
+          ctx.arc(cx, cy, H * 0.32, 0, Math.PI * 2);
+          ctx.stroke();
+          const trails = 16;
+          for (let s = 0; s < trails; s++) {
+            const sa      = angle - s * 0.05;
+            const intensity = 1.0 - s / trails;
+            const rawVal  = data[Math.floor((s / trails) * n)] / 255;
+            const r       = H * (0.05 + rawVal * 0.28);
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = intensity * 0.35;
+            ctx.lineWidth   = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(sa) * r, cy + Math.sin(sa) * r);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1.0;
+        }
+      } else if (style === "fluidSphere") {
+        ctx.globalCompositeOperation = "lighter";
+        const points      = 36;
+        const baseRadius  = H * (variantIndex === 2 ? 0.18 : 0.21);
+        const maxExpansion = H * 0.12;
+        const ptCoords    = [];
+        for (let i = 0; i < points; i++) {
+          const ang     = (i / points) * Math.PI * 2;
+          const bandVal = data[Math.floor((i / points) * n)] / 255;
+          sb.fluidSphere[i] += (bandVal - sb.fluidSphere[i]) * 0.2;
+          const val    = sb.fluidSphere[i];
+          const wobble = Math.sin(t * 4.2 + i * 0.5) * 10 * (bass + 0.15);
+          const r      = baseRadius + val * maxExpansion + wobble;
+          ptCoords.push({ x: cx + Math.cos(ang) * r, y: cy + Math.sin(ang) * r });
+        }
+        ctx.save();
+        ctx.shadowBlur  = 20;
+        ctx.shadowColor = color;
+        const gradX    = cx - baseRadius * 0.2;
+        const gradY    = cy - baseRadius * 0.2;
+        const blobGrad = ctx.createRadialGradient(gradX, gradY, 10, cx, cy, baseRadius * 1.4);
+        if (variantIndex === 0) {
+          blobGrad.addColorStop(0, "#fef08a");
+          blobGrad.addColorStop(0.35, "#f97316");
+          blobGrad.addColorStop(0.8, color);
+          blobGrad.addColorStop(1, "#0c0d10");
+        } else if (variantIndex === 1) {
+          blobGrad.addColorStop(0, "#ffffff");
+          blobGrad.addColorStop(0.2, "#e2e8f0");
+          blobGrad.addColorStop(0.65, "#94a3b8");
+          blobGrad.addColorStop(1, "#1e293b");
+        } else {
+          blobGrad.addColorStop(0, "#ffffff");
+          blobGrad.addColorStop(0.3, "#818cf8");
+          blobGrad.addColorStop(0.75, color);
+          blobGrad.addColorStop(1, "#1e1b4b");
+        }
+        ctx.fillStyle = blobGrad;
+        drawCurve(ctx, ptCoords);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth   = 2.0;
+        ctx.stroke();
+        if (variantIndex === 1 || variantIndex === 2) {
+          ctx.fillStyle  = color;
+          ctx.shadowBlur = 8;
+          for (let d = 0; d < 6; d++) {
+            const da   = t * 1.0 + d * (Math.PI / 3);
+            const dist = baseRadius * 1.4 + Math.sin(t + d) * 14 + bass * 20;
+            const dx   = cx + Math.cos(da) * dist;
+            const dy   = cy + Math.sin(da) * dist;
+            const ds   = 3.5 + (data[(d * 6) % n] / 255) * 7;
+            ctx.beginPath();
+            ctx.arc(dx, dy, ds, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      } else if (style === "waveTunnel") {
+        ctx.globalCompositeOperation = "lighter";
+        const rings = 10;
+        const phase = (t * 0.6) % 1.0;
+        ctx.strokeStyle = color;
+        ctx.shadowBlur  = 12;
+        ctx.shadowColor = color;
+        for (let r = 0; r < rings; r++) {
+          const ringProgress = (r + phase) / rings;
+          const ringScale    = Math.pow(ringProgress, 2.0);
+          const maxR         = H * 0.6;
+          const radius       = ringScale * maxR;
+          if (radius < 4) continue;
+          let ringAlpha = ringProgress < 0.2 ? ringProgress * 5 : 1.0;
+          if (ringProgress > 0.72) ringAlpha = (1.0 - ringProgress) / 0.28;
+          ctx.save();
+          ctx.globalAlpha = ringAlpha * 0.68;
+          ctx.lineWidth   = 1.0 + ringProgress * 3.0;
+          const vertices = variantIndex === 1 ? 6 : (variantIndex === 2 ? 4 : 20);
+          const pts      = [];
+          for (let v = 0; v <= vertices; v++) {
+            const ang      = (v / vertices) * Math.PI * 2 + (variantIndex === 1 ? -t * 0.1 : t * 0.12);
+            const dataVal  = data[Math.floor((v / vertices) * n)] / 255;
+            const displacement = dataVal * 28 * bass * ringProgress;
+            const dist     = radius + displacement;
+            pts.push({ x: cx + Math.cos(ang) * dist * 1.34, y: cy + Math.sin(ang) * dist * 0.76 });
+          }
+          ctx.beginPath();
+          pts.forEach((p, idx) => { if (idx === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
+        }
+      } else if (style === "barcodeMeter") {
+        ctx.globalCompositeOperation = "lighter";
+        const numLines = 48;
+        const colW     = fieldW / numLines;
+        const startY   = cy - H * 0.24;
+        const barH     = H * 0.48;
+        const scanPos  = startY + (Math.sin(t * 2.0) * 0.5 + 0.5) * barH;
+        for (let i = 0; i < numLines; i++) {
+          const rawVal  = data[Math.floor((i / numLines) * n)] / 255;
+          sb.barcodeMeter[i] += (rawVal - sb.barcodeMeter[i]) * 0.2;
+          const val     = sb.barcodeMeter[i];
+          const stripeW = colW * (i % 3 === 0 ? 0.35 : (i % 2 === 0 ? 0.65 : 0.85));
+          const x       = x0 + i * colW + (colW - stripeW) / 2;
+          ctx.fillStyle   = color;
+          ctx.globalAlpha = 0.05;
+          ctx.fillRect(x, startY, stripeW, barH);
+          if (variantIndex === 0) {
+            const currentH = val * barH;
+            ctx.globalAlpha = 0.15 + val * 0.75;
+            ctx.fillRect(x, startY + (barH - currentH) / 2, stripeW, currentH);
+          } else if (variantIndex === 1) {
+            ctx.globalAlpha = 0.08 + val * 0.86;
+            ctx.fillRect(x, startY, stripeW, barH);
+          } else {
+            const pulseH = val * barH * 0.5;
+            ctx.globalAlpha = 0.18 + val * 0.8;
+            ctx.fillRect(x, cy - pulseH, stripeW, pulseH * 2);
+          }
+          if (scanPos >= startY && scanPos <= startY + barH) {
+            ctx.save();
+            ctx.shadowBlur  = 8;
+            ctx.shadowColor = "#ef4444";
+            ctx.fillStyle   = "#ef4444";
+            ctx.globalAlpha = 0.6 + val * 0.4;
+            ctx.fillRect(x, scanPos - 1.5, stripeW, 3);
+            ctx.restore();
+          }
+        }
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth   = 1.8;
+        ctx.shadowBlur  = 12;
+        ctx.shadowColor = "#ef4444";
+        ctx.beginPath();
+        ctx.moveTo(x0, scanPos);
+        ctx.lineTo(x0 + fieldW, scanPos);
+        ctx.stroke();
+        ctx.shadowBlur  = 0;
+        ctx.fillStyle   = color;
+        ctx.font        = "9px JetBrains Mono, monospace";
+        ctx.globalAlpha = 0.7;
+        ctx.fillText("SYS_DECODE: ACTIVE", x0, startY - 12);
+        ctx.fillText("BPM_LOCK: OK", x0 + fieldW - 80, startY - 12);
+        ctx.globalAlpha = 1.0;
+
+      /* ── 26. DNA Helix ─────────────────────────────── */
+      } else if (style === "dnaHelix") {
+        const segments = 64;
+        const helixH   = H * 0.72;
+        const helixY0  = cy - helixH * 0.5;
+        const spread   = W * (variantIndex === 1 ? 0.09 : 0.07);
+        const twistSpd = variantIndex === 1 ? 1.8 : (variantIndex === 2 ? 0.6 : 1.2);
+        ctx.globalCompositeOperation = "lighter";
+        ctx.shadowBlur  = 14;
+        ctx.shadowColor = color;
+        for (let i = 0; i < segments; i++) {
+          const rv = data[Math.floor((i / segments) * n)] / 255;
+          sb.dnaHelix[i] += (rv - sb.dnaHelix[i]) * 0.18;
+        }
+        for (let strand = 0; strand < 2; strand++) {
+          const off = strand * Math.PI;
+          const pts = [];
+          for (let i = 0; i <= segments; i++) {
+            const frac = i / segments;
+            const val  = sb.dnaHelix[Math.min(i, segments - 1)];
+            const y    = helixY0 + frac * helixH;
+            const ph   = frac * Math.PI * 5 + t * twistSpd + off;
+            pts.push({ x: cx + Math.cos(ph) * spread * (1 + val * 0.5), y });
+          }
+          ctx.strokeStyle = (variantIndex === 2 && strand === 1) ? "#ffffff" : color;
+          ctx.lineWidth   = variantIndex === 2 ? 1.5 : 3;
+          ctx.globalAlpha = 0.9;
+          drawCurve(ctx, pts);
+          ctx.stroke();
+        }
+        const rungCount = variantIndex === 2 ? 10 : 18;
+        for (let r = 0; r < rungCount; r++) {
+          const frac = r / rungCount;
+          const val  = sb.dnaHelix[Math.floor(frac * segments)];
+          const y    = helixY0 + frac * helixH;
+          const ph   = frac * Math.PI * 5 + t * twistSpd;
+          const rr   = spread * (1 + val * 0.5);
+          const x1   = cx + Math.cos(ph) * rr;
+          const x2   = cx + Math.cos(ph + Math.PI) * rr;
+          ctx.globalAlpha = 0.28 + val * 0.55;
+          ctx.lineWidth   = 1.2 + val * 2;
+          ctx.shadowBlur  = 6 + val * 12;
+          ctx.strokeStyle = color;
+          ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+          ctx.fillStyle   = "#ffffff";
+          ctx.globalAlpha = 0.55 + val * 0.35;
+          ctx.shadowBlur  = 10;
+          [x1, x2].forEach(px => {
+            ctx.beginPath(); ctx.arc(px, y, 2 + val * 4, 0, Math.PI * 2); ctx.fill();
+          });
+        }
+
+      /* ── 27. Aurora ────────────────────────────────── */
+      } else if (style === "aurora") {
+        ctx.globalCompositeOperation = "lighter";
+        const bandCount = 8;
+        for (let b = 0; b < bandCount; b++) {
+          const frac   = b / bandCount;
+          const rv     = data[Math.floor(frac * n * 0.55)] / 255;
+          sb.aurora[b] += (rv - sb.aurora[b]) * (rv > sb.aurora[b] ? 0.2 : 0.06);
+          const val = sb.aurora[b];
+          if (val < 0.015) continue;
+          const baseY = H * 0.08 + b * (H * 0.55 / bandCount);
+          const pts   = [];
+          for (let s = 0; s <= 48; s++) {
+            const sx  = (s / 48) * W;
+            const ph  = t * (0.35 + b * 0.12) + s * 0.18;
+            const wv  = Math.sin(ph) * val * H * 0.16
+                      + Math.sin(ph * 2.1 + 1.1) * val * H * 0.07;
+            pts.push({ x: sx, y: baseY + wv });
+          }
+          const hue = variantIndex === 0 ? 150 + b * 12 + val * 25
+                    : variantIndex === 1 ? 260 + b * 18 + val * 35
+                    : 180 + b * 15 + Math.sin(t * 0.6 + b) * 25;
+          const bc = `hsl(${hue},90%,62%)`;
+          ctx.save();
+          ctx.shadowBlur  = 14; ctx.shadowColor = bc;
+          ctx.strokeStyle = bc;
+          ctx.lineWidth   = 2 + val * 3.5;
+          ctx.globalAlpha = 0.5 + val * 0.5;
+          drawCurve(ctx, pts); ctx.stroke();
+          const grad = ctx.createLinearGradient(0, baseY - H * 0.12, 0, baseY + H * 0.22);
+          grad.addColorStop(0, `hsla(${hue},90%,65%,${val * 0.45})`);
+          grad.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = grad; ctx.globalAlpha = 0.5;
+          drawCurve(ctx, pts);
+          ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+          ctx.restore();
+        }
+
+      /* ── 28. Kaleidoscope ──────────────────────────── */
+      } else if (style === "kaleidoscope") {
+        const segs      = variantIndex === 0 ? 6 : variantIndex === 1 ? 8 : 12;
+        const angStep   = (Math.PI * 2) / segs;
+        const maxR      = Math.min(cx, cy) * 0.88;
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < 64; i++) {
+          const rv = data[Math.floor((i / 64) * n)] / 255;
+          sb.kaleidoscope[i] += (rv - sb.kaleidoscope[i]) * 0.2;
+        }
+        for (let seg = 0; seg < segs; seg++) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(seg * angStep + t * (0.08 + bass * 0.08));
+          for (let r = 0; r < 32; r++) {
+            const frac    = r / 32;
+            const val     = sb.kaleidoscope[Math.floor(frac * 64)];
+            const rStart  = frac * maxR * 0.15;
+            const rLen    = (maxR / 32) * (0.6 + val * 1.8);
+            const angW    = angStep * 0.45;
+            ctx.fillStyle   = color;
+            ctx.shadowBlur  = 6 + val * 14;
+            ctx.shadowColor = color;
+            ctx.globalAlpha = 0.08 + val * 0.68;
+            ctx.beginPath();
+            ctx.arc(0, 0, rStart + rLen, -angW / 2, angW / 2);
+            ctx.arc(0, 0, rStart, angW / 2, -angW / 2, true);
+            ctx.closePath(); ctx.fill();
+          }
+          ctx.restore();
+        }
+
+      /* ── 29. Star Warp ─────────────────────────────── */
+      } else if (style === "starWarp") {
+        if (sb.starWarp.length === 0) {
+          for (let i = 0; i < 200; i++) {
+            sb.starWarp.push({ x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2, z: Math.random(), pz: 0 });
+          }
+        }
+        const spd = 0.005 + bass * 0.025 + highs * 0.006;
+        ctx.globalCompositeOperation = "lighter";
+        sb.starWarp.forEach((star) => {
+          star.pz = star.z;
+          star.z -= spd;
+          if (star.z <= 0) { star.x = (Math.random() - 0.5) * 2; star.y = (Math.random() - 0.5) * 2; star.z = 1; star.pz = 1; }
+          const sx = (star.x / star.z) * cx + cx;
+          const sy = (star.y / star.z) * cy + cy;
+          const px = (star.x / star.pz) * cx + cx;
+          const py = (star.y / star.pz) * cy + cy;
+          if (sx < 0 || sx > W || sy < 0 || sy > H) return;
+          const size  = (1 - star.z) * 3.5;
+          const alpha = 0.35 + (1 - star.z) * 0.65;
+          ctx.fillStyle   = color;
+          ctx.strokeStyle = color;
+          ctx.globalAlpha = alpha;
+          ctx.shadowBlur  = size * 3;
+          ctx.shadowColor = color;
+          if (variantIndex === 0 && star.pz < 0.98) {
+            ctx.lineWidth = Math.max(0.5, size * 0.55);
+            ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx, sy); ctx.stroke();
+          } else {
+            ctx.beginPath(); ctx.arc(sx, sy, Math.max(0.5, size), 0, Math.PI * 2); ctx.fill();
+          }
+          if (variantIndex === 2) {
+            ctx.globalAlpha = alpha * 0.1; ctx.shadowBlur = 0;
+            ctx.beginPath(); ctx.arc(sx, sy, size * 6 + bass * 8, 0, Math.PI * 2); ctx.fill();
+          }
+        });
+
+      /* ── 30. Magnet Field ──────────────────────────── */
+      } else if (style === "magnetField") {
+        ctx.globalCompositeOperation = "lighter";
+        const p1x = cx - W * 0.2, p2x = cx + W * 0.2;
+        for (let i = 0; i < 32; i++) {
+          const rv = data[Math.floor((i / 32) * n)] / 255;
+          sb.magnetField[i] += (rv - sb.magnetField[i]) * 0.18;
+        }
+        if (variantIndex === 1) {
+          for (let l = 0; l < 20; l++) {
+            const val = sb.magnetField[l % 32];
+            const ang = (l / 20) * Math.PI * 2 + t * 0.15;
+            const len = H * (0.08 + val * 0.3);
+            ctx.strokeStyle = color; ctx.lineWidth = 0.8 + val * 2.5;
+            ctx.globalAlpha = 0.12 + val * 0.55; ctx.shadowBlur = 8 + val * 12; ctx.shadowColor = color;
+            ctx.beginPath(); ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + Math.cos(ang) * len, cy + Math.sin(ang) * len); ctx.stroke();
+          }
+        } else {
+          const lineCount = variantIndex === 2 ? 20 : 16;
+          for (let l = 0; l < lineCount; l++) {
+            const val   = sb.magnetField[l % 32];
+            const angle = (l / lineCount - 0.5) * Math.PI * 1.5;
+            const midY  = cy + Math.sin(angle) * H * 0.4 * (1 + val * 0.4);
+            ctx.strokeStyle = color; ctx.lineWidth = 0.8 + val * 2;
+            ctx.globalAlpha = 0.12 + val * 0.5; ctx.shadowBlur = 7 + val * 10; ctx.shadowColor = color;
+            ctx.beginPath(); ctx.moveTo(p1x, cy);
+            ctx.quadraticCurveTo((p1x + p2x) * 0.5, midY, p2x, cy); ctx.stroke();
+          }
+          [p1x, p2x].forEach((px, pi) => {
+            const pv = pi === 0 ? bass : mids;
+            const r  = 18 + pv * 22;
+            const g  = ctx.createRadialGradient(px, cy, 2, px, cy, r);
+            g.addColorStop(0, "#ffffff"); g.addColorStop(0.4, color); g.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = g; ctx.globalAlpha = 0.85; ctx.shadowBlur = 22; ctx.shadowColor = color;
+            ctx.beginPath(); ctx.arc(px, cy, r, 0, Math.PI * 2); ctx.fill();
+          });
+        }
+
+      /* ── 31. Voronoi ───────────────────────────────── */
+      } else if (style === "voronoi") {
+        const cells = sb.voronoiCells;
+        ctx.globalCompositeOperation = "lighter";
+        cells.forEach((cell, i) => {
+          const rv = data[(i * 6 + 2) % n] / 255;
+          cell.val += (rv - cell.val) * 0.14;
+          cell.px = ((cell.px + cell.vx * (1 + mids)) + 1) % 1;
+          cell.py = ((cell.py + cell.vy * (1 + mids)) + 1) % 1;
+        });
+        const pos = cells.map(c => ({ x: c.px * W, y: c.py * H, val: c.val }));
+        ctx.shadowBlur = 8; ctx.shadowColor = color;
+        for (let a = 0; a < pos.length; a++) {
+          for (let b = a + 1; b < pos.length; b++) {
+            const d = Math.hypot(pos[a].x - pos[b].x, pos[a].y - pos[b].y);
+            if (d < W * 0.28) {
+              const str = 1 - d / (W * 0.28);
+              const val = (pos[a].val + pos[b].val) * 0.5;
+              ctx.globalAlpha = str * (0.06 + val * 0.42);
+              ctx.strokeStyle = color; ctx.lineWidth = 0.7 + val * 1.8;
+              ctx.beginPath(); ctx.moveTo(pos[a].x, pos[a].y); ctx.lineTo(pos[b].x, pos[b].y); ctx.stroke();
+            }
+          }
+        }
+        pos.forEach(({ x, y, val }) => {
+          const r = variantIndex === 1 ? 8 + val * 28 : 3.5 + val * 13;
+          ctx.fillStyle = color; ctx.shadowBlur = 14 + val * 18; ctx.shadowColor = color;
+          ctx.globalAlpha = 0.4 + val * 0.6;
+          ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+          if (variantIndex === 2) {
+            ctx.strokeStyle = color; ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.18 + val * 0.4; ctx.shadowBlur = 4;
+            ctx.beginPath();
+            for (let k = 0; k < 6; k++) {
+              const a = (k / 6) * Math.PI * 2 + t * 0.08;
+              const pr = 24 + val * 48;
+              if (k === 0) ctx.moveTo(x + Math.cos(a) * pr, y + Math.sin(a) * pr);
+              else ctx.lineTo(x + Math.cos(a) * pr, y + Math.sin(a) * pr);
+            }
+            ctx.closePath(); ctx.stroke();
+          }
+          if (variantIndex === 0) {
+            ctx.strokeStyle = color; ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.14 + val * 0.28; ctx.shadowBlur = 5;
+            ctx.beginPath(); ctx.arc(x, y, r + 8 + val * 22, 0, Math.PI * 2); ctx.stroke();
+          }
+        });
+
+      /* ── 32. Oscilloscope ──────────────────────────── */
+      } else if (style === "oscilloscope") {
+        ctx.globalCompositeOperation = "lighter";
+        const pts = 128;
+        for (let i = 0; i < pts; i++) {
+          const bv  = data[Math.floor((i / pts) * n)] / 255;
+          const osc = Math.sin(i * 0.26 + t * 8) * bv + Math.sin(i * 0.13 + t * 5.2) * bv * 0.5;
+          sb.oscilloscope[i] += (osc - sb.oscilloscope[i]) * 0.3;
+        }
+        if (variantIndex === 1) {
+          ctx.strokeStyle = color; ctx.shadowBlur = 12; ctx.shadowColor = color;
+          ctx.lineWidth = 1.5; ctx.globalAlpha = 0.8;
+          ctx.beginPath();
+          const R = H * 0.3;
+          for (let i = 0; i < pts; i++) {
+            const x = cx + sb.oscilloscope[i] * R;
+            const y = cy + sb.oscilloscope[(i + 32) % pts] * R;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        } else {
+          const wc = variantIndex === 0 ? "#00ff88" : color;
+          ctx.strokeStyle = wc; ctx.lineWidth = 0.6; ctx.globalAlpha = 0.07; ctx.shadowBlur = 0;
+          for (let gx = 0; gx <= 10; gx++) {
+            ctx.beginPath(); ctx.moveTo(x0 + gx * (fieldW / 10), H * 0.18);
+            ctx.lineTo(x0 + gx * (fieldW / 10), H * 0.82); ctx.stroke();
+          }
+          for (let gy = 0; gy <= 6; gy++) {
+            ctx.beginPath(); ctx.moveTo(x0, H * 0.18 + gy * (H * 0.64 / 6));
+            ctx.lineTo(x0 + fieldW, H * 0.18 + gy * (H * 0.64 / 6)); ctx.stroke();
+          }
+          ctx.strokeStyle = wc; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.9;
+          ctx.shadowBlur = 16; ctx.shadowColor = wc;
+          ctx.beginPath();
+          for (let i = 0; i < pts; i++) {
+            const x = x0 + (i / (pts - 1)) * fieldW;
+            const y = cy + sb.oscilloscope[i] * H * 0.3;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+          if (variantIndex === 2) {
+            ctx.strokeStyle = "#ff8c00"; ctx.shadowColor = "#ff8c00";
+            ctx.globalAlpha = 0.6; ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            for (let i = 0; i < pts; i++) {
+              const x = x0 + (i / (pts - 1)) * fieldW;
+              const y = cy - sb.oscilloscope[(i + 32) % pts] * H * 0.28;
+              if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          }
+        }
+
+      /* ── 33. Neural Net ────────────────────────────── */
+      } else if (style === "neuralNet") {
+        ctx.globalCompositeOperation = "lighter";
+        const topo   = variantIndex === 1 ? [3, 5, 3] : [4, 8, 8, 4];
+        const lxs    = topo.map((_, li) => x0 + (li / (topo.length - 1)) * fieldW);
+        const nodes  = [];
+        topo.forEach((count, li) => {
+          for (let ni = 0; ni < count; ni++) {
+            const dIdx = ((li * 8 + ni * 3) * 7) % n;
+            const rv   = data[dIdx] / 255;
+            const nIdx = nodes.length;
+            sb.neuralActivity[nIdx] += (rv - sb.neuralActivity[nIdx]) * 0.22;
+            nodes.push({ x: lxs[li], y: cy + (ni - (count - 1) * 0.5) * H * 0.13, val: sb.neuralActivity[nIdx], li });
+          }
+        });
+        let offset = 0;
+        for (let li = 0; li < topo.length - 1; li++) {
+          const aS = offset, bS = offset + topo[li];
+          for (let a = 0; a < topo[li]; a++) {
+            for (let b = 0; b < topo[li + 1]; b++) {
+              const nA = nodes[aS + a], nB = nodes[bS + b];
+              const val = (nA.val + nB.val) * 0.5;
+              ctx.strokeStyle = color; ctx.lineWidth = 0.5 + val * 2.5;
+              ctx.globalAlpha = 0.04 + val * 0.5; ctx.shadowBlur = val * 10; ctx.shadowColor = color;
+              ctx.beginPath(); ctx.moveTo(nA.x, nA.y); ctx.lineTo(nB.x, nB.y); ctx.stroke();
+            }
+          }
+          offset += topo[li];
+        }
+        nodes.forEach((node) => {
+          const r = 4 + node.val * 14;
+          const g = ctx.createRadialGradient(node.x, node.y, 1, node.x, node.y, r);
+          g.addColorStop(0, "#ffffff"); g.addColorStop(0.5, color); g.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = g; ctx.globalAlpha = 0.5 + node.val * 0.5;
+          ctx.shadowBlur = 14 + node.val * 20; ctx.shadowColor = color;
+          ctx.beginPath(); ctx.arc(node.x, node.y, r, 0, Math.PI * 2); ctx.fill();
+          if (variantIndex === 2) {
+            ctx.strokeStyle = color; ctx.lineWidth = 1;
+            ctx.globalAlpha = node.val * 0.35; ctx.shadowBlur = 6;
+            ctx.beginPath(); ctx.arc(node.x, node.y, r + 8 + node.val * 14, 0, Math.PI * 2); ctx.stroke();
+          }
+        });
+
+      /* ── 34. Galaxy Spiral ─────────────────────────── */
+      } else if (style === "galaxySpiral") {
+        ctx.globalCompositeOperation = "lighter";
+        const arms        = variantIndex === 2 ? 3 : 2;
+        const starsPerArm = 88;
+        const rotSpd      = 0.12 + bass * 0.22;
+
+        for (let arm = 0; arm < arms; arm++) {
+          const armOff = (arm / arms) * Math.PI * 2;
+          for (let s = 0; s < starsPerArm; s++) {
+            const frac  = s / starsPerArm;
+            const theta = frac * Math.PI * 3.5 + armOff + t * rotSpd;
+            const r     = 20 + frac * H * 0.40;
+            const dIdx  = Math.floor(frac * n);
+            const rv    = data[dIdx] / 255;
+            sb.galaxySpiral[s % 48] += (rv - sb.galaxySpiral[s % 48]) * 0.12;
+            const val   = sb.galaxySpiral[s % 48];
+            const sx    = cx + Math.cos(theta) * r;
+            const sy    = cy + Math.sin(theta) * r * 0.66;
+            if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) continue;
+
+            const hue     = variantIndex === 1
+              ? (arm * 120 + frac * 80 + t * 18) % 360
+              : (arm * 180 + frac * 45) % 360;
+            const starCol = variantIndex === 0 ? color : `hsl(${hue},88%,68%)`;
+            const size    = Math.max(0.5, (1.4 + val * 3.5) * (1 - frac * 0.5));
+
+            ctx.fillStyle   = starCol;
+            ctx.shadowBlur  = size * 5 + val * 8;
+            ctx.shadowColor = starCol;
+            ctx.globalAlpha = 0.15 + val * 0.75 + (1 - frac) * 0.1;
+            ctx.beginPath();
+            ctx.arc(sx, sy, size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Galactic core
+        const cR   = 16 + bass * 34;
+        const cGrd = ctx.createRadialGradient(cx, cy, 1, cx, cy, cR * 2.2);
+        cGrd.addColorStop(0, "#ffffff");
+        cGrd.addColorStop(0.2, color);
+        cGrd.addColorStop(0.6, variantIndex === 1 ? `hsl(${(t * 40) % 360},90%,55%)` : color);
+        cGrd.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle   = cGrd;
+        ctx.globalAlpha = 0.9;
+        ctx.shadowBlur  = 30;
+        ctx.shadowColor = color;
+        ctx.beginPath();
+        ctx.arc(cx, cy, cR * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (variantIndex === 2) {
+          for (let rr = 0; rr < 3; rr++) {
+            const nr = H * (0.13 + rr * 0.1) * (1 + bass * 0.18);
+            ctx.strokeStyle = color; ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.06 + bass * 0.1; ctx.shadowBlur = 14;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, nr * 1.4, nr * 0.66, t * 0.04 * (rr + 1), 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+
+      /* ── 35. Ink Drop ──────────────────────────────── */
+      } else if (style === "inkDrop") {
+        ctx.globalCompositeOperation = "lighter";
+        const drops = sb.inkDrops;
+        if (bass > 0.52 && Math.random() < 0.25) {
+          const idle = drops.find(d => d.alpha <= 0);
+          if (idle) {
+            idle.x      = variantIndex === 0 ? cx : x0 + 60 + Math.random() * (fieldW - 120);
+            idle.y      = variantIndex === 0 ? cy : H * 0.2 + Math.random() * H * 0.6;
+            idle.radius = 6;
+            idle.alpha  = 1;
+            idle.speed  = 2 + bass * 4;
+            idle.width  = 1.2 + bass * 3;
+            idle.color  = variantIndex === 2
+              ? `hsl(${(t * 60 + Math.random() * 60) % 360},90%,65%)`
+              : color;
+          }
+        }
+        drops.forEach((drop) => {
+          if (drop.alpha <= 0) return;
+          drop.radius += drop.speed * (1 + mids * 0.3);
+          drop.alpha  -= 0.018;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, drop.alpha);
+          ctx.strokeStyle = drop.color || color;
+          ctx.shadowBlur  = 18; ctx.shadowColor = drop.color || color;
+          ctx.lineWidth   = drop.width;
+          ctx.beginPath(); ctx.arc(drop.x, drop.y, drop.radius, 0, Math.PI * 2); ctx.stroke();
+          if (drop.radius < 90) {
+            ctx.globalAlpha = Math.max(0, drop.alpha * 0.4);
+            ctx.lineWidth = drop.width * 0.5;
+            ctx.beginPath(); ctx.arc(drop.x, drop.y, drop.radius * 0.55, 0, Math.PI * 2); ctx.stroke();
+          }
+          ctx.restore();
+        });
+        const cR   = 10 + bass * 28;
+        const cGrd = ctx.createRadialGradient(cx, cy, 2, cx, cy, cR);
+        cGrd.addColorStop(0, "#ffffff"); cGrd.addColorStop(0.4, color); cGrd.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = cGrd; ctx.globalAlpha = bass * 0.55;
+        ctx.shadowBlur = 20; ctx.shadowColor = color;
+        ctx.beginPath(); ctx.arc(cx, cy, cR, 0, Math.PI * 2); ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    renderLoop();
+  </script>
+</body>
+</html>

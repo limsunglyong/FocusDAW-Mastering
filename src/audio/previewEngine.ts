@@ -402,6 +402,46 @@ export class PreviewEngine {
     });
   }
 
+  /** v0.12.7: Transport Segment LED용 5대역+RMS 실시간 레벨(각 0..1). */
+  getTransportLevels(): { sub: number; low: number; mid: number; high: number; air: number; rms: number } | null {
+    const g = this.graph;
+    if (!g || !this.playing || !this.ctx) return null;
+
+    const frequency = new Float32Array(g.spectrum.frequencyBinCount);
+    g.spectrum.getFloatFrequencyData(frequency);
+    const binHz = this.ctx.sampleRate / g.spectrum.fftSize;
+    const band = (lowHz: number, highHz: number) => {
+      const lo = Math.max(1, Math.floor(lowHz / binHz));
+      const hi = Math.min(frequency.length - 1, Math.ceil(highHz / binHz));
+      let power = 0;
+      let count = 0;
+      for (let i = lo; i <= hi; i++) {
+        const db = Number.isFinite(frequency[i]) ? frequency[i] : -84;
+        power += Math.pow(10, db / 10);
+        count++;
+      }
+      const db = count ? 10 * Math.log10(power / count) : -84;
+      return Math.max(0, Math.min(1, (db + 72) / 60));
+    };
+
+    const time = new Float32Array(g.spectrum.fftSize);
+    g.spectrum.getFloatTimeDomainData(time);
+    let sumSquares = 0;
+    for (let i = 0; i < time.length; i++) sumSquares += time[i] * time[i];
+    const rms = Math.sqrt(sumSquares / Math.max(1, time.length));
+    // −60 dBFS..0 dBFS를 LED 0..1 범위로 표시한다.
+    const rmsLevel = rms > 0 ? Math.max(0, Math.min(1, (20 * Math.log10(rms) + 60) / 60)) : 0;
+
+    return {
+      sub: band(20, 80),
+      low: band(80, 250),
+      mid: band(250, 2000),
+      high: band(2000, 8000),
+      air: band(8000, Math.min(20000, this.ctx.sampleRate / 2)),
+      rms: rmsLevel,
+    };
+  }
+
   private crossfadePreview(enabled: boolean) {
     const ctx = this.ctx;
     const graph = this.graph;

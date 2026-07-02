@@ -1,4 +1,4 @@
-// FocusDAW Mastering Desk v0.12.1 - 릴리스 노트 (현재 버전 전용)
+// FocusDAW Mastering Desk v0.12.7 - 릴리스 노트 (현재 버전 전용)
 // Help ▸ Release Notes 창에 표시. v0.10.0 이후 현재 버전까지의 변경 내용을 간략히 누적한다.
 import { APP_VERSION } from './version';
 
@@ -17,6 +17,7 @@ export const RELEASE_NOTES: ReleaseNotes = {
   version: APP_VERSION,
   date: '2026-07-02',
   features: [
+    'Added a compact LOW/MID/HIGH/RMS Segment LED level meter to the Transport panel.',
     'Added a WASM SIMD polyphase sinc sample-rate conversion engine with automatic TypeScript fallback.',
     'Added Help > Release Notes and an in-app update-check result window.',
     'Added direct AIFF/AIF playback, analysis, and export support.',
@@ -24,6 +25,9 @@ export const RELEASE_NOTES: ReleaseNotes = {
     'Expanded Render Batch with multiple jobs, per-job Session Cards, and mixed file/folder input.',
   ],
   improvements: [
+    'Expanded the Transport level meter from three frequency bands to SUB/LOW/MID/HIGH/AIR plus RMS.',
+    'Added two-way MP3/96 kHz compatibility prompts that preserve the previous format or rate until the user confirms.',
+    'Refined the Transport meters to a centered fixed-width group with six vertical segments, 20/35/50/65/80% thresholds, and green/yellow/orange/red ranges.',
     'Selected tracks are now resampled immediately after loading, selection, or input-rate changes without blocking the UI.',
     'Matched STFT FFT and hop sizes to the selected sample rate and made Pre spectrum comparisons use the selected processing rate in both Denoise states.',
     'Update availability is now shown as a scrolling footer message with a single centered update dialog.',
@@ -35,6 +39,9 @@ export const RELEASE_NOTES: ReleaseNotes = {
     'Added the support contact address to Help > About.',
   ],
   fixes: [
+    'Fixed the PAUSE overlay appearing after Stop in Repeat mode by tracking Pause explicitly instead of inferring it from playback position.',
+    'Fixed the next selected track not preparing its decoded and processing buffers after the current track was removed.',
+    'Fixed playback stopping when a different, non-playing file was removed from the input queue.',
     'Fixed Repeat playback Fade In/Out so overlapping track-edge fades are reapplied on every loop without accumulated-time silence.',
     'Removed 48→44.1 kHz high-band alias residue and 48→96 kHz source-Nyquist spectral images by replacing Chromium SRC with measured Kaiser polyphase sinc conversion.',
     'Removed the duplicate lower-right update banner and unified unavailable/error states as a normal informational message.',

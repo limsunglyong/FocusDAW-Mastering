@@ -189,9 +189,36 @@ body {
   height: 30px;
   border-radius: 8px;
   margin-top: -5px;
-  background: #fbf6ea;
+  background:
+    linear-gradient(#13171c, #13171c) center / 3px 17px no-repeat,
+    var(--dk-vol-accent, #fbf6ea);
   border: 1px solid rgba(0, 0, 0, 0.28);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.dk-vol-muted::-webkit-slider-thumb {
+  animation: dkvolmutethumb 1.05s ease-in-out infinite alternate;
+}
+@keyframes dkvolmutethumb {
+  from {
+    background:
+      linear-gradient(rgba(255, 77, 94, 0.24), rgba(255, 77, 94, 0.24)) center / 3px 17px no-repeat,
+      var(--dk-vol-accent, #fbf6ea);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  }
+  to {
+    background:
+      linear-gradient(#ff4d5e, #ff4d5e) center / 3px 17px no-repeat,
+      var(--dk-vol-accent, #fbf6ea);
+    box-shadow: 0 0 7px rgba(255, 77, 94, 0.55), 0 1px 3px rgba(0, 0, 0, 0.45);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dk-vol-muted::-webkit-slider-thumb {
+    animation: none;
+    background:
+      linear-gradient(#ff4d5e, #ff4d5e) center / 3px 17px no-repeat,
+      var(--dk-vol-accent, #fbf6ea);
+  }
 }
 
 /* v0.2.9: BATCH QUEUE [Decoding...] 숨쉬기(네온) 표시 */

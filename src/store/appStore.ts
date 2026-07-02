@@ -57,6 +57,8 @@ type AppState = DeskState & {
   preAnalysis: PreAnalysis | null;
   // ── 원본 재생 (v0.2.1 Phase 1 Patch) ──
   isOriginalPlaying: boolean;
+  /** v0.12.6: 재생 위치와 독립된 명시적 Pause UI 상태. */
+  isOriginalPaused: boolean;
   originalPlayError: string | null;
   // ── Transport 패널 (v0.2.11) ──
   transportOpen: boolean;
@@ -316,7 +318,7 @@ async function swapPlaybackToEffective() {
   await previewEngine.play(
     buf,
     previewParamsFromState(latest, lf),
-    () => useAppStore.setState({ isOriginalPlaying: false }),
+    () => useAppStore.setState({ isOriginalPlaying: false, isOriginalPaused: false }),
     Math.min(pos, Math.max(0, buf.duration - 0.001)),
     latest.isPreviewing,
   );
@@ -612,6 +614,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   previewError: null,
   preAnalysis: null,
   isOriginalPlaying: false,
+  isOriginalPaused: false,
   originalPlayError: null,
   transportOpen: false,
   volume: 1,
@@ -898,7 +901,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const resumeSeq = ++originalSelectionResumeSeq;
     previewEngine.stop();
     previewEngine.setLoop(false, 0, 0);
-    set({ isOriginalPlaying: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
+    set({ isOriginalPlaying: false, isOriginalPaused: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
     set((s) => {
       if (s.files.length === 0) return {};
       const nextIdx = (s.curFile - 1 + s.files.length) % s.files.length;
@@ -923,7 +926,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const resumeSeq = ++originalSelectionResumeSeq;
     previewEngine.stop();
     previewEngine.setLoop(false, 0, 0);
-    set({ isOriginalPlaying: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
+    set({ isOriginalPlaying: false, isOriginalPaused: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
     set((s) => {
       if (s.files.length === 0) return {};
       const nextIdx = (s.curFile + 1) % s.files.length;
@@ -948,7 +951,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const resumeSeq = ++originalSelectionResumeSeq;
     previewEngine.stop();
     previewEngine.setLoop(false, 0, 0);
-    set({ isOriginalPlaying: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
+    set({ isOriginalPlaying: false, isOriginalPaused: false, loopEnabled: false, loopStart: 0, loopEnd: 0 });
     set((s) => {
       if (i < 0 || i >= s.files.length) return {};
       const file = s.files[i];
@@ -1016,22 +1019,44 @@ export const useAppStore = create<AppState>((set, get) => ({
     prioritizeSelectedDecode();
   },
 
-  removeFile: (id) =>
-    {
-      get().stopPreview();
-      get().stopOriginalPlayback();
-      previewEngine.setLoop(false, 0, 0);
+  removeFile: (id) => {
+      const before = get();
+      const removeIndex = before.files.findIndex((f) => f.id === id);
+      if (removeIndex < 0) return;
+      const removingSelected = before.files[before.curFile]?.id === id;
+
+      // v0.12.3: 재생 중이지 않은 큐 항목 삭제는 현재 transport/Preview/Repeat를 건드리지 않는다.
+      // 선택 파일 자체를 삭제할 때만 기존처럼 엔진을 안전하게 정지하고 다음 파일로 전환한다.
+      if (removingSelected) {
+        before.stopPreview();
+        before.stopOriginalPlayback();
+        previewEngine.setLoop(false, 0, 0);
+      }
       dropFromMeasureQueue(id);
       set((s) => {
-      const idx = s.files.findIndex((f) => f.id === id);
-      if (idx < 0) return {};
-      const files = s.files.filter((f) => f.id !== id);
-      let curFile = s.curFile;
-      if (idx < curFile) curFile -= 1;
-      curFile = Math.min(curFile, Math.max(0, files.length - 1));
-      return { files, curFile, loopEnabled: false, loopStart: 0, loopEnd: 0, preAnalysis: null };
+        const idx = s.files.findIndex((f) => f.id === id);
+        if (idx < 0) return {};
+        const files = s.files.filter((f) => f.id !== id);
+        let curFile = s.curFile;
+        if (idx < curFile) curFile -= 1;
+        curFile = Math.min(curFile, Math.max(0, files.length - 1));
+        if (!removingSelected) return { files, curFile };
+        const nextFile = files[curFile];
+        const noiseDepth = nextFile?.noiseDepth ?? '2';
+        const denoiseAmt = nextFile?.denoiseAmt ?? 35;
+        return {
+          files,
+          curFile,
+          vals: { ...s.vals, 'pre.noiseDepth': noiseDepth, 'pre.denoiseAmt': denoiseAmt },
+          appliedNoiseDepth: noiseDepth,
+          appliedDenoiseAmt: denoiseAmt,
+          loopEnabled: false,
+          loopStart: 0,
+          loopEnd: 0,
+          preAnalysis: null,
+        };
       });
-      void get().analyzePreSelected();
+      if (removingSelected) prioritizeSelectedDecode();
     },
 
   clearFiles: () => {
@@ -1340,6 +1365,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       files: invalidateProcessingBuffers(s.files),
       preAnalysis: null,
       isOriginalPlaying: false,
+      isOriginalPaused: false,
       previewError: null,
       originalPlayError: null,
     }));
@@ -1365,14 +1391,14 @@ export const useAppStore = create<AppState>((set, get) => ({
           await previewEngine.play(
             playBuffer,
             previewParamsFromState(latest, latestFile),
-            () => set({ isOriginalPlaying: false }),
+            () => set({ isOriginalPlaying: false, isOriginalPaused: false }),
             Math.min(resumeTime, Math.max(0, playBuffer.duration - 0.001)),
             latest.isPreviewing,
           );
-          set({ isOriginalPlaying: true, originalPlayError: null });
+          set({ isOriginalPlaying: true, isOriginalPaused: false, originalPlayError: null });
         }
       } catch {
-        set({ isOriginalPlaying: false, originalPlayError: 'Resampling failed.' });
+        set({ isOriginalPlaying: false, isOriginalPaused: false, originalPlayError: 'Resampling failed.' });
       }
     }
   },
@@ -1388,7 +1414,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       if (s.isOriginalPlaying) {
         previewEngine.pause();
-        set({ isOriginalPlaying: false, originalPlayError: null });
+        set({ isOriginalPlaying: false, isOriginalPaused: true, originalPlayError: null });
         return;
       }
       const playBuffer = await get().effectivePlaybackBuffer(file.id);
@@ -1399,11 +1425,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       await previewEngine.play(
         playBuffer,
         previewParamsFromState(latest, latestFile),
-        () => set({ isOriginalPlaying: false }),
+        () => set({ isOriginalPlaying: false, isOriginalPaused: false }),
         offset,
         latest.isPreviewing,
       );
-      set({ isOriginalPlaying: true, originalPlayError: null });
+      set({ isOriginalPlaying: true, isOriginalPaused: false, originalPlayError: null });
     } catch {
       set({ isOriginalPlaying: false, originalPlayError: 'Original playback failed.' });
     }
@@ -1412,7 +1438,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   stopOriginalPlayback: () => {
     originalSelectionResumeSeq++;
     previewEngine.stop(true, true);
-    set({ isOriginalPlaying: false });
+    set({ isOriginalPlaying: false, isOriginalPaused: false });
   },
 
   resumeOriginalPlaybackAfterSelection: async (resumeSeq) => {
@@ -1428,12 +1454,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       await previewEngine.play(
         playBuffer,
         previewParamsFromState(latest, latestFile),
-        () => set({ isOriginalPlaying: false }),
+        () => set({ isOriginalPlaying: false, isOriginalPaused: false }),
         0,
         latest.isPreviewing,
       );
       if (resumeSeq !== originalSelectionResumeSeq) return;
-      set({ isOriginalPlaying: true, originalPlayError: null });
+      set({ isOriginalPlaying: true, isOriginalPaused: false, originalPlayError: null });
     } catch {
       if (resumeSeq !== originalSelectionResumeSeq) return;
       set({ isOriginalPlaying: false, originalPlayError: 'Original playback failed.' });
@@ -1579,6 +1605,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Rate 가 바뀌면 처리/denoise 버퍼를 무효화(다음 Preview/Export 시 lazy 재생성).
       files: rateChanged ? invalidateProcessingBuffers(s.files) : s.files,
       isOriginalPlaying: false,
+      isOriginalPaused: false,
       // 세션 적용은 새 기준점 → 섹션별 Undo/Redo 스택 초기화.
       undoStacks: {},
       redoStacks: {},

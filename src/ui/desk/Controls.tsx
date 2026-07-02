@@ -7,8 +7,11 @@ import { Knob } from './Knob';
 import type { Control, DeskView } from '../../desk/compute';
 import { getDenoiseRecommendation } from '../../audio/denoise';
 
-function ControlItem({ c, view }: { c: Control; view: DeskView }) {
+type SetValHandler = (fk: string, value: number | string | boolean, skipUndo?: boolean) => void;
+
+function ControlItem({ c, view, onSetVal }: { c: Control; view: DeskView; onSetVal?: SetValHandler }) {
   const setVal = useAppStore((s) => s.setVal);
+  const changeVal = onSetVal ?? setVal;
   const paperCtl = view.pal.paperCtl;
 
   if (c.isRot) {
@@ -30,7 +33,7 @@ function ControlItem({ c, view }: { c: Control; view: DeskView }) {
           <span style={{ fontFamily: 'Archivo', fontSize: 9.5, color: '#8a8070', whiteSpace: 'nowrap' }}>{c.label}</span>
           <div style={{ display: 'flex', gap: 3, background: paperCtl, borderRadius: 8, padding: 3 }}>
             {c.opts!.map((o) => (
-              <div key={o.value} onClick={() => setVal(c.fk, o.value)} style={css(o.style)}>{o.label}</div>
+              <div key={o.value} onClick={() => changeVal(c.fk, o.value)} style={css(o.style)}>{o.label}</div>
             ))}
           </div>
         </div>
@@ -624,7 +627,7 @@ function SpectralControls({ view }: { view: DeskView }) {
   );
 }
 
-function ExportMeta({ view }: { view: DeskView }) {
+function ExportMeta({ view, onSetVal }: { view: DeskView; onSetVal: SetValHandler }) {
   const pal = view.pal;
   const setVal = useAppStore((s) => s.setVal);
   // v0.8.0 (Phase 7): Export 실행 상태/액션
@@ -662,7 +665,7 @@ function ExportMeta({ view }: { view: DeskView }) {
             ) : (
               <div style={{ display: 'flex', gap: 3, background: pal.paperCtl, borderRadius: 8, padding: 3 }}>
                 {f.opts.map((o: any) => (
-                  <div key={o.value} onClick={() => setVal(f.fk, o.value)} style={css(o.style)}>{o.label}</div>
+                  <div key={o.value} onClick={() => onSetVal(f.fk, o.value)} style={css(o.style)}>{o.label}</div>
                 ))}
               </div>
             )}
@@ -727,7 +730,26 @@ function LoudnessControls({ view }: { view: DeskView }) {
 
 export function Controls({ view }: { view: DeskView }) {
   const setVal = useAppStore((s) => s.setVal);
+  const inputRate = useAppStore((s) => String(s.vals['input.rate']));
+  const exportFormat = useAppStore((s) => String(s.vals['export.format']));
+  const [rateFormatPrompt, setRateFormatPrompt] = useState<'mp3-at-96' | 'rate96-with-mp3' | null>(null);
+
+  // v0.12.5: MP3 인코더 지원 상한(48 kHz)과 Input processing rate의 충돌을
+  // 값 변경 전에 차단한다. Cancel/경고 확인 경로는 기존 상태를 전혀 변경하지 않는다.
+  const requestSetVal: SetValHandler = (fk, value, skipUndo) => {
+    if (fk === 'export.format' && value === 'MP3' && inputRate === '96k') {
+      setRateFormatPrompt('mp3-at-96');
+      return;
+    }
+    if (fk === 'input.rate' && value === '96k' && exportFormat === 'MP3') {
+      setRateFormatPrompt('rate96-with-mp3');
+      return;
+    }
+    setVal(fk, value, skipUndo);
+  };
+
   return (
+    <>
     <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 22, marginBottom: 11 }}>
         <div style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: '#a99f8a' }}>PARAMETERS</div>
@@ -771,13 +793,67 @@ export function Controls({ view }: { view: DeskView }) {
         <LoudnessControls view={view} />
       ) : view.genCtrl && (
         <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '16px 22px', alignContent: 'flex-start' }}>
-          {view.controls.map((c) => <ControlItem key={c.key} c={c} view={view} />)}
+          {view.controls.map((c) => <ControlItem key={c.key} c={c} view={view} onSetVal={requestSetVal} />)}
         </div>
       )}
       {view.isInput && <InputPanels view={view} />}
       {view.isDynamics && <DynamicsExtra view={view} />}
       {view.isSpectral && <SpectralControls view={view} />}
-      {view.isExport && <ExportMeta view={view} />}
+      {view.isExport && <ExportMeta view={view} onSetVal={requestSetVal} />}
     </div>
+    {rateFormatPrompt && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="MP3 sample rate compatibility"
+        style={{
+          position: 'fixed', inset: 0, zIndex: 10020,
+          display: 'grid', placeItems: 'center',
+          background: 'rgba(10,12,14,0.46)', backdropFilter: 'blur(2px)',
+        }}
+      >
+        <div style={{
+          width: 390, maxWidth: 'calc(100vw - 32px)', boxSizing: 'border-box',
+          padding: '22px 24px 20px', borderRadius: 13,
+          background: view.pal.paperInput, color: view.pal.pInk,
+          border: '1px solid rgba(127,127,127,0.28)',
+          boxShadow: '0 18px 52px rgba(0,0,0,0.36)',
+        }}>
+          <div style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', color: view.pal.pInk }}>
+            MP3 SAMPLE RATE
+          </div>
+          <div style={{ marginTop: 12, fontFamily: 'Archivo', fontSize: 12, lineHeight: 1.65, color: view.pal.pInk2 }}>
+            {rateFormatPrompt === 'mp3-at-96'
+              ? 'MP3 does not support 96 kHz output in this app. Continue to change the re-sampling rate to 48 kHz and select MP3?'
+              : 'MP3 does not support a 96 kHz re-sampling rate in this app. The previous sampling rate will be kept.'}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+            {rateFormatPrompt === 'mp3-at-96' && (
+              <button
+                type="button"
+                onClick={() => setRateFormatPrompt(null)}
+                style={{ padding: '8px 15px', borderRadius: 8, border: '1px solid rgba(127,127,127,0.25)', background: view.pal.paperCtl, color: view.pal.pInk2, fontFamily: 'Archivo', fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (rateFormatPrompt === 'mp3-at-96') {
+                  setVal('input.rate', '48k');
+                  setVal('export.format', 'MP3');
+                }
+                setRateFormatPrompt(null);
+              }}
+              style={{ padding: '8px 17px', borderRadius: 8, border: 'none', background: view.accent, color: view.pal.aInk, fontFamily: 'Archivo', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

@@ -287,8 +287,8 @@ export function RenderBatchWindow() {
             <section key={job.id} style={jobStyle}>
               <div style={{ height: 34, padding: '0 10px 0 13px', display: 'flex', alignItems: 'center', gap: 9, borderBottom: job.expanded ? '1px solid #d3c9b2' : 'none' }}>
                 <button onClick={() => updateJob(job.id, { expanded: !job.expanded })} style={iconBtn}>{job.expanded ? '▾' : '▸'}</button>
-                <span style={label}>JOB {index + 1}</span>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: '#4e473d' }}>{job.folderName || 'New batch job'}</span>
+                <span style={{ ...label, fontWeight: 800 }}>JOB{index + 1}</span>
+                {job.folderName && <span style={{ fontSize: 11.5, fontWeight: 700, color: '#4e473d' }}>{job.folderName}</span>}
                 <span style={{ fontSize: 9.5, color: '#8a8170' }}>{job.sources.length} files{job.session ? ` · ${job.session.name}` : ''}{done ? ` · ${done} done` : ''}</span>
                 <span style={{ flex: 1 }} />
                 {!running && <button onClick={() => removeJob(job.id)} title="Remove job" style={{ ...iconBtn, color: '#a34252' }}>×</button>}

@@ -1,7 +1,7 @@
 // FocusDAW Mastering Desk v0.2.11 (Phase 1) - 하단 Transport 패널
 // 웨이브폼(클릭 탐색) + Rewind/Play·Pause/Forward + 모니터 볼륨 + 재생헤드(rAF).
 // 기존 좌측 Play/Space 와 동일한 transport(isOriginalPlaying)·엔진을 공유한다.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { previewEngine } from '../../audio/previewEngine';
 import type { DeskView } from '../../desk/compute';
@@ -40,9 +40,90 @@ function fmt(t: number): string {
   return m + ':' + String(s).padStart(2, '0');
 }
 
+// v0.12.2: audio-visual-2.html의 Level Meter/Segment LED를 Transport 높이 안에 맞춘 1×4 형태로 이식.
+function TransportLevelMeter({ accent }: { accent: string }) {
+  const [levels, setLevels] = useState([0, 0, 0, 0, 0, 0]);
+  const smoothRef = useRef([0, 0, 0, 0, 0, 0]);
+
+  useEffect(() => {
+    let raf = 0;
+    let lastPaint = 0;
+    const tick = (now: number) => {
+      const measured = previewEngine.getTransportLevels();
+      const targets = measured ? [measured.sub, measured.low, measured.mid, measured.high, measured.air, measured.rms] : [0, 0, 0, 0, 0, 0];
+      const smooth = smoothRef.current;
+      for (let i = 0; i < smooth.length; i++) {
+        const rate = targets[i] > smooth[i] ? 0.38 : 0.1;
+        smooth[i] += (targets[i] - smooth[i]) * rate;
+        if (smooth[i] < 0.004) smooth[i] = 0;
+      }
+      if (now - lastPaint >= 40) {
+        lastPaint = now;
+        setLevels([...smooth]);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const labels = ['SUB', 'LOW', 'MID', 'HIGH', 'AIR', 'RMS'];
+  // v0.12.4 화면 위→아래: red/orange/yellow/green×3.
+  const segments = [
+    { color: '#ef4444', threshold: 0.80 },
+    { color: '#f97316', threshold: 0.65 },
+    { color: '#facc15', threshold: 0.50 },
+    { color: '#22c55e', threshold: 0.35 },
+    { color: '#22c55e', threshold: 0.20 },
+    { color: '#22c55e', threshold: 0 },
+  ];
+  return (
+    <div
+      aria-label="Audio level meter"
+      style={{
+        flex: '1 1 250px', minWidth: 210, maxWidth: 330, height: 34,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 10px',
+        borderLeft: '1px solid #252c32', borderRight: '1px solid #252c32',
+      }}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 34px) 6px 34px', gap: 8, alignItems: 'center' }}>
+        {labels.flatMap((label, meterIndex) => {
+          const meter = (
+            <div key={label} style={{ width: 34, minWidth: 0 }}>
+              <div style={{ display: 'grid', gridTemplateRows: 'repeat(6, 1fr)', gap: 1.25, width: 24, height: 22, margin: '0 auto 2px' }}>
+                {segments.map(({ color, threshold }, segmentIndex) => {
+                  const active = levels[meterIndex] > threshold;
+                  return (
+                    <span
+                      key={segmentIndex}
+                      style={{
+                        borderRadius: 1.5,
+                        background: active ? color : '#252c31',
+                        boxShadow: active ? `0 0 5px ${color}, 0 0 9px ${accent}42` : 'inset 0 0 0 1px rgba(255,255,255,0.025)',
+                        opacity: active ? 1 : 0.62,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <div style={{ textAlign: 'center', fontFamily: 'Archivo', fontSize: 7.5, fontWeight: 600, letterSpacing: '0.12em', color: '#68757d', lineHeight: 1 }}>
+                {label}
+              </div>
+            </div>
+          );
+          return label === 'RMS'
+            ? [<span key="air-rms-separator" aria-hidden="true" style={{ width: 6, textAlign: 'center', color: '#657078', fontFamily: 'Arial, sans-serif', fontSize: 8, lineHeight: 1 }}>●</span>, meter]
+            : [meter];
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function TransportPanel({ view }: { view: DeskView }) {
   const file = useAppStore((s) => s.files[s.curFile]);
   const isPlaying = useAppStore((s) => s.isOriginalPlaying);
+  const isPaused = useAppStore((s) => s.isOriginalPaused);
   const toggleOriginalPlayback = useAppStore((s) => s.toggleOriginalPlayback);
   const stopOriginalPlayback = useAppStore((s) => s.stopOriginalPlayback);
   const seekPreview = useAppStore((s) => s.seekPreview);
@@ -62,7 +143,6 @@ export function TransportPanel({ view }: { view: DeskView }) {
   const pal = view.pal;
   const hasFile = !!file;
   const duration = file?.meta.duration ?? 0;
-  const isPaused = hasFile && !isPlaying && previewEngine.getCurrentTime() > 0.05;
 
   const waveRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -366,7 +446,7 @@ export function TransportPanel({ view }: { view: DeskView }) {
           <span style={{ display: 'inline-block', width: 58, textAlign: 'left', fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums', fontSize: 16.5, color: '#6f7d86', lineHeight: 1 }}>{fmt(duration)}</span>
         </div>
 
-        <div style={{ flex: 1 }} />
+        <TransportLevelMeter accent={accent} />
 
         <button
           type="button"
@@ -374,7 +454,8 @@ export function TransportPanel({ view }: { view: DeskView }) {
           disabled={!hasFile || loopEnd - loopStart < 0.25}
           title={loopEnd - loopStart >= 0.25 ? `Repeat ${fmt(loopStart)}–${fmt(loopEnd)}` : 'Drag a waveform range first'}
           style={{
-            height: 27, padding: '0 11px', borderRadius: 7, flex: 'none',
+            height: 27, padding: '0 11px', borderRadius: 7, flex: 'none', marginLeft: 'auto',
+            display: 'inline-flex', alignItems: 'center', gap: 5,
             border: `1px solid ${loopEnabled ? accent : '#303841'}`,
             background: loopEnabled ? `${accent}2e` : '#222830',
             color: loopEnabled ? accent : '#77848c',
@@ -384,6 +465,10 @@ export function TransportPanel({ view }: { view: DeskView }) {
             opacity: hasFile && loopEnd - loopStart >= 0.25 ? 1 : 0.5,
           }}
         >
+          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style={{ flex: 'none' }}>
+            <path d="M3 5.2h7.3l-1.5-1.5M13 10.8H5.7l1.5 1.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M12.8 5.2a3.2 3.2 0 0 1 .2 1.1M3.2 10.8A3.2 3.2 0 0 1 3 9.7" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
           REPEAT
         </button>
 
@@ -404,10 +489,15 @@ export function TransportPanel({ view }: { view: DeskView }) {
           </svg>
         </div>
         <input
-          className="dk-vol"
+          className={`dk-vol${muted ? ' dk-vol-muted' : ''}`}
           type="range" min={0} max={100} value={Math.round(volume * 100)}
           onChange={(e) => setVolume(Number(e.target.value) / 100)}
-          style={{ width: 150, flex: 'none', background: `linear-gradient(to right, ${accent} ${Math.round(volume * 100)}%, #2a3037 ${Math.round(volume * 100)}%)` }}
+          style={{
+            width: 150,
+            flex: 'none',
+            background: `linear-gradient(to right, ${muted ? '#6f777d' : accent} ${Math.round(volume * 100)}%, #2a3037 ${Math.round(volume * 100)}%)`,
+            '--dk-vol-accent': accent,
+          } as CSSProperties}
         />
         <span style={{ fontFamily: 'Archivo', fontSize: 10.5, color: '#9aa7af', width: 30, textAlign: 'right', flex: 'none' }}>{Math.round(volume * 100)}</span>
       </div>

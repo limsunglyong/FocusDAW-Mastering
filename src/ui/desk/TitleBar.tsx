@@ -63,6 +63,9 @@ export function TitleBar({ view }: { view: DeskView }) {
       useAppStore.getState().redo();
     } else if (label === 'New Session') {
       useAppStore.getState().newSession();
+    } else if (label === 'New with Wizard…' || label === 'New with Wizard...') {
+      // v0.13.0: 대화형 마스터링 마법사 창.
+      window.focusdaw?.win?.openWizard?.({ theme: useAppStore.getState().theme });
     } else if (label === 'Open') {
       // v0.9.0: 세션(프로젝트) 불러오기 창 — 저장된 마스터링 체인 설정을 카드로 선택해 적용.
       window.focusdaw?.win?.openSessions?.({ mode: 'load', theme: useAppStore.getState().theme });

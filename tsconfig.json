@@ -16,9 +16,9 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
+    // 1. "baseUrl": "." 줄을 삭제했습니다.
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"] // 2. 기존 "src/*" 앞에 "./"를 추가했습니다.
     }
   },
   "include": ["src"],

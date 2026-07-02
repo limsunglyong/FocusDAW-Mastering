@@ -25,6 +25,9 @@ declare global {
         /** v0.9.1: Render Batch 창 열기(모달). */
         openRenderBatch?: (opts: { theme?: string }) => void;
         getRenderBatchTheme?: () => Promise<string | null>;
+        /** v0.13.0: Mastering Wizard 창 열기 + 초기 테마 취득. */
+        openWizard?: (opts: { theme?: string }) => void;
+        getWizardTheme?: () => Promise<string | null>;
         setTheme?: (theme: string) => void;
         /** v0.9.1: 메인 창 흐림(dim) 토글 수신. */
         onDim?: (callback: (on: boolean) => void) => () => void;

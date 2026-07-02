@@ -19,6 +19,7 @@ import { ReleaseNotesWindow } from './ui/desk/ReleaseNotesWindow';
 import { ManualWindow } from './ui/desk/ManualWindow';
 import { SessionsWindow } from './ui/desk/SessionsWindow';
 import { RenderBatchWindow } from './ui/desk/RenderBatchWindow';
+import { WizardWindow } from './ui/desk/WizardWindow';
 import { Footer } from './ui/desk/Footer';
 import { APP_VERSION_LABEL } from './version';
 
@@ -29,6 +30,7 @@ export default function App() {
   const isManual = window.location.hash === '#manual' || window.location.search.includes('window=manual');
   const isSessions = window.location.hash === '#sessions' || window.location.search.includes('window=sessions');
   const isRenderBatch = window.location.hash === '#renderbatch' || window.location.search.includes('window=renderbatch');
+  const isWizard = window.location.hash === '#wizard' || window.location.search.includes('window=wizard');
 
   const theme = useAppStore((s) => s.theme);
 
@@ -71,6 +73,10 @@ export default function App() {
 
   if (isRenderBatch) {
     return <RenderBatchWindow />;
+  }
+
+  if (isWizard) {
+    return <WizardWindow />;
   }
 
   return <StudioDesk />;

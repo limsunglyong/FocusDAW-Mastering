@@ -388,6 +388,60 @@ ipcMain.on('win:open-render-batch', (event, opts) => {
 });
 ipcMain.handle('render-batch:get-theme', async () => renderBatchTheme);
 
+// v0.13.0: Mastering Wizard 창(#wizard). 대화형으로 마스터링 세팅을 구성 → 결과 카드 →
+// 창 내장 A/B 청취 → sessionIO.apply/save. 세션 창처럼 비모달 자식 창.
+let wizardWindow = null;
+let wizardTheme = null;
+const WIZARD_W = 812;
+const WIZARD_H = 700;
+ipcMain.on('win:open-wizard', (event, opts) => {
+  wizardTheme = (opts && opts.theme) || null;
+  if (wizardWindow) {
+    wizardWindow.webContents.send('win:theme-updated', wizardTheme);
+    wizardWindow.focus();
+    return;
+  }
+  const parentWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  let x;
+  let y;
+  if (parentWindow) {
+    const b = parentWindow.getBounds();
+    x = Math.round(b.x + (b.width - WIZARD_W) / 2);
+    y = Math.round(b.y + (b.height - WIZARD_H) / 2);
+  }
+  const iconPath = path.join(__dirname, '..', 'assets', 'logo-main2.png');
+  wizardWindow = new BrowserWindow({
+    width: WIZARD_W,
+    height: WIZARD_H,
+    x,
+    y,
+    parent: undefined,
+    frame: false,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    backgroundColor: '#0c0f12',
+    show: false,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  wizardWindow.once('ready-to-show', () => wizardWindow?.show());
+  if (isDev) {
+    wizardWindow.loadURL(DEV_SERVER_URL + '#wizard');
+  } else {
+    wizardWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'wizard' });
+  }
+  wizardWindow.on('closed', () => {
+    wizardWindow = null;
+  });
+});
+ipcMain.handle('wizard:get-theme', async () => wizardTheme);
+
 // v0.9.0: 세션(프로젝트) 창 열기. mode='save'|'load', payload=현재 직렬화 세션(저장용), theme=현재 테마.
 ipcMain.on('win:open-sessions', (event, opts) => {
   sessionContext = {

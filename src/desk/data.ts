@@ -135,7 +135,7 @@ export const META: MetaDef[] = [
 export type FileItem = { name: string; size: string; fmt: string; dur: string; sr: string; depth: string; ch: string; lufs: string };
 
 export const MENUS: Record<string, [string, string][]> = {
-  Project: [['New Session', '⌘N'], ['Open', '⌘O'], ['Save Session', '⌘S'], ['__div', ''], ['Render Batch...', ''], ['__div', ''], ['Import Files...', '⌘I'], ['Import Folder', ''], ['Quit', '⌘Q']],
+  Project: [['New Session', '⌘N'], ['New with Wizard…', ''], ['Open', '⌘O'], ['Save Session', '⌘S'], ['__div', ''], ['Render Batch...', ''], ['__div', ''], ['Import Files...', '⌘I'], ['Import Folder', ''], ['Quit', '⌘Q']],
   Edit: [['Undo', '⌘Z'], ['Redo', '⇧⌘Z'], ['__div', ''], ['Preference (Setup)', '⌘,']],
   Help: [['Manual', ''], ['__div', ''], ['Check for Updates...', ''], ['Release Notes', ''], ['About', '']],
 };

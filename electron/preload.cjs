@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld('focusdaw', {
     // v0.9.1: Render Batch 창 열기(모달). theme=현재 테마.
     openRenderBatch: (opts) => ipcRenderer.send('win:open-render-batch', opts),
     getRenderBatchTheme: () => ipcRenderer.invoke('render-batch:get-theme'),
+    // v0.13.0: Mastering Wizard 창 열기 + 초기 테마 취득.
+    openWizard: (opts) => ipcRenderer.send('win:open-wizard', opts),
+    getWizardTheme: () => ipcRenderer.invoke('wizard:get-theme'),
     setTheme: (theme) => ipcRenderer.send('win:set-theme', theme),
     // v0.9.1: 메인 창 흐림(dim) 토글 수신 — Render Batch 등 모달 창 표시 중.
     onDim: (callback) => {

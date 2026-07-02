@@ -1,4 +1,4 @@
-// FocusDAW Mastering Desk v0.12.0 - 릴리스 노트 (현재 버전 전용)
+// FocusDAW Mastering Desk v0.12.1 - 릴리스 노트 (현재 버전 전용)
 // Help ▸ Release Notes 창에 표시. v0.10.0 이후 현재 버전까지의 변경 내용을 간략히 누적한다.
 import { APP_VERSION } from './version';
 
@@ -15,7 +15,7 @@ export type ReleaseNotes = {
 
 export const RELEASE_NOTES: ReleaseNotes = {
   version: APP_VERSION,
-  date: '2026-07-01',
+  date: '2026-07-02',
   features: [
     'Added a WASM SIMD polyphase sinc sample-rate conversion engine with automatic TypeScript fallback.',
     'Added Help > Release Notes and an in-app update-check result window.',
@@ -35,6 +35,7 @@ export const RELEASE_NOTES: ReleaseNotes = {
     'Added the support contact address to Help > About.',
   ],
   fixes: [
+    'Fixed Repeat playback Fade In/Out so overlapping track-edge fades are reapplied on every loop without accumulated-time silence.',
     'Removed 48→44.1 kHz high-band alias residue and 48→96 kHz source-Nyquist spectral images by replacing Chromium SRC with measured Kaiser polyphase sinc conversion.',
     'Removed the duplicate lower-right update banner and unified unavailable/error states as a normal informational message.',
     'Update-server or release-file failures no longer obstruct the app or expose raw server responses.',

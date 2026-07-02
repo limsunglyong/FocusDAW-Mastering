@@ -69,6 +69,8 @@ export type BuildMasterChainOptions = {
   nodes: AudioNode[];
   /** Pre fade 엔벨로프 기준 재생 오프셋(초). Export 는 0. */
   offset: number;
+  /** v0.12.1: Repeat 중 곡 끝 Fade Out이 누적 재생시간에 걸리지 않도록 Preview에서만 억제. */
+  suppressFadeOut?: boolean;
   /** 리미터 워클릿 모듈이 ctx 에 로드되어 있는지(미로드 시 리미터 통과). */
   workletReady: boolean;
   /** ctx.sampleRate 기준으로 생성된 합성 리버브 IR. */
@@ -204,7 +206,13 @@ export function loudnessGainValue(params: PreviewParams): number {
 
 // Pre fade 엔벨로프를 재생 위치(startOffset) 기준 절대 시간으로 (재)스케줄한다.
 // Export 는 startCtxTime=0, startOffset=0 으로 전체 곡 기준 1회 적용한다.
-export function scheduleFade(fade: GainNode, params: PreviewParams, startCtxTime: number, startOffset: number) {
+export function scheduleFade(
+  fade: GainNode,
+  params: PreviewParams,
+  startCtxTime: number,
+  startOffset: number,
+  suppressFadeOut = false,
+) {
   const fadeIn = Math.max(0, num(params.vals['pre.fadein']) / 1000);
   const fadeOut = Math.max(0, num(params.vals['pre.fadeout']) / 1000);
   const duration = params.meta.duration;
@@ -215,12 +223,68 @@ export function scheduleFade(fade: GainNode, params: PreviewParams, startCtxTime
     fade.gain.setValueAtTime(startOffset / fadeIn, startCtxTime);
     fade.gain.linearRampToValueAtTime(1, startCtxTime + remain);
   }
-  if (fadeOut > 0 && duration > fadeOut) {
+  if (!suppressFadeOut && fadeOut > 0 && duration > fadeOut) {
     const outStart = duration - fadeOut;
     if (startOffset < duration) {
       const at = startCtxTime + Math.max(0, outStart - startOffset);
       fade.gain.setValueAtTime(1, at);
       fade.gain.linearRampToValueAtTime(0, at + fadeOut);
+    }
+  }
+}
+
+// v0.12.1: native AudioBufferSourceNode.loop의 반복 위치에 맞춰 Fade In/Out을 짧은
+// look-ahead 구간에 예약한다. AudioContext 절대시간은 되감기지 않으므로 각 loop 경계에서
+// gain을 loopStart 위치의 값으로 복원하고, 다음 fade 경계까지 선형 자동화를 다시 만든다.
+export function scheduleRepeatFade(
+  fade: GainNode,
+  params: PreviewParams,
+  startCtxTime: number,
+  startPosition: number,
+  loopStart: number,
+  loopEnd: number,
+  horizon = 3,
+) {
+  const fadeIn = Math.max(0, num(params.vals['pre.fadein']) / 1000);
+  const fadeOut = Math.max(0, num(params.vals['pre.fadeout']) / 1000);
+  const duration = params.meta.duration;
+  const validLoopStart = Math.max(0, Math.min(loopStart, duration));
+  const validLoopEnd = Math.max(validLoopStart, Math.min(loopEnd, duration));
+  if (validLoopEnd - validLoopStart < 0.25) return;
+
+  const gainAt = (position: number) => {
+    let gain = 1;
+    if (fadeIn > 0 && position < fadeIn) gain = Math.min(gain, Math.max(0, position / fadeIn));
+    if (fadeOut > 0 && duration > fadeOut && position > duration - fadeOut) {
+      gain = Math.min(gain, Math.max(0, (duration - position) / fadeOut));
+    }
+    return gain;
+  };
+
+  let position = Math.max(validLoopStart, Math.min(startPosition, validLoopEnd));
+  let elapsed = 0;
+  const endElapsed = Math.max(0.25, horizon);
+  const gain = fade.gain;
+  gain.cancelScheduledValues(startCtxTime);
+  gain.setValueAtTime(gainAt(position), startCtxTime);
+
+  while (elapsed < endElapsed) {
+    const boundaries = [validLoopEnd];
+    if (fadeIn > position && fadeIn < validLoopEnd) boundaries.push(fadeIn);
+    const fadeOutStart = duration - fadeOut;
+    if (fadeOut > 0 && fadeOutStart > position && fadeOutStart < validLoopEnd) boundaries.push(fadeOutStart);
+    const nextPosition = Math.min(...boundaries);
+    const step = Math.min(nextPosition - position, endElapsed - elapsed);
+    if (step > 0) {
+      elapsed += step;
+      position += step;
+      gain.linearRampToValueAtTime(gainAt(position), startCtxTime + elapsed);
+    }
+    if (position >= validLoopEnd - 1e-6 && elapsed < endElapsed) {
+      position = validLoopStart;
+      gain.setValueAtTime(gainAt(position), startCtxTime + elapsed);
+    } else if (step <= 0) {
+      break;
     }
   }
 }
@@ -286,7 +350,7 @@ function buildStereoSection(ctx: BaseAudioContext, input: AudioNode, vals: Vals,
  * source.connect(inputGain) 까지 내부에서 수행하며, output → (destination | wetGain) 연결은 호출자 몫.
  */
 export function buildMasterChain(ctx: BaseAudioContext, source: AudioNode, params: PreviewParams, opts: BuildMasterChainOptions): { output: AudioNode; refs: MasterChainRefs } {
-  const { nodes, offset, workletReady, reverbIR, channels } = opts;
+  const { nodes, offset, suppressFadeOut = false, workletReady, reverbIR, channels } = opts;
   const vals = params.vals;
   const enabled = params.enabled;
   const srcChannels = params.meta.channels;
@@ -326,7 +390,7 @@ export function buildMasterChain(ctx: BaseAudioContext, source: AudioNode, param
     input.connect(g);
     nodes.push(g);
     fade = g;
-    scheduleFade(g, params, ctx.currentTime, offset);
+    scheduleFade(g, params, ctx.currentTime, offset, suppressFadeOut);
     return g;
   });
 
@@ -470,7 +534,13 @@ export function buildMasterChain(ctx: BaseAudioContext, source: AudioNode, param
 
 // Preview/Export 공용 실시간 파라미터 적용. Export 는 1회 빌드로 끝나므로 Preview 만 사용한다.
 // fadeOffset: Pre fade 재스케줄 기준 현재 재생 위치(초).
-export function applyMasterChainParams(ctx: BaseAudioContext, refs: MasterChainRefs, params: PreviewParams, fadeOffset: number) {
+export function applyMasterChainParams(
+  ctx: BaseAudioContext,
+  refs: MasterChainRefs,
+  params: PreviewParams,
+  fadeOffset: number,
+  suppressFadeOut = false,
+) {
   const vals = params.vals;
   const enabled = params.enabled;
   const nyq = ctx.sampleRate / 2;
@@ -485,7 +555,7 @@ export function applyMasterChainParams(ctx: BaseAudioContext, refs: MasterChainR
 
   setParam(refs.inputGain.gain, inputGainValue(params), ctx);
 
-  if (refs.fade) scheduleFade(refs.fade, params, ctx.currentTime, fadeOffset);
+  if (refs.fade) scheduleFade(refs.fade, params, ctx.currentTime, fadeOffset, suppressFadeOut);
 
   refs.eqFilters.forEach((f, i) => {
     if (isGraphicEq(vals)) {

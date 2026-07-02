@@ -13,6 +13,7 @@ import { computeCorrelation, computeFoldLoss } from './stereo';
 import { getLimiterWorkletUrl } from './limiterWorklet';
 import {
   buildMasterChain, applyMasterChainParams, makeReverbIR,
+  scheduleRepeatFade,
   type PreviewParams, type MasterChainRefs,
 } from './masterChain';
 
@@ -63,6 +64,8 @@ export class PreviewEngine {
   private loopEnabled = false;
   private loopStart = 0;
   private loopEnd = 0;
+  // v0.12.1: Repeat Fade 자동화는 AudioContext 시간 기준 3초 look-ahead를 1초마다 갱신한다.
+  private loopFadeTimer: ReturnType<typeof setInterval> | null = null;
 
   isPlaying() {
     return this.playing;
@@ -180,7 +183,10 @@ export class PreviewEngine {
   update(params: PreviewParams) {
     this.params = params;
     if (!this.ctx || !this.graph) return;
-    applyMasterChainParams(this.ctx, this.graph.refs, params, this.getCurrentTime());
+    // v0.12.1: native source.loop은 AudioContext 시간이 계속 흐르므로 곡 끝 Fade Out 예약을
+    // 유지하면 반복 위치와 무관하게 gain이 0에 도달한다. Repeat 중에는 해당 예약을 억제한다.
+    applyMasterChainParams(this.ctx, this.graph.refs, params, this.getCurrentTime(), this.loopEnabled);
+    this.scheduleLoopFade();
   }
 
   setPreviewEnabled(enabled: boolean) {
@@ -249,9 +255,11 @@ export class PreviewEngine {
     this.startedAt = ctx.currentTime;
     this.playing = true;
     source.start(0, Math.min(this.offset, Math.max(0, buffer.duration - 0.001)));
+    this.startLoopFadeScheduler();
   }
 
   private stopGraph() {
+    this.stopLoopFadeScheduler();
     const graph = this.graph;
     if (!graph) return;
     graph.onEnded = null;
@@ -261,6 +269,35 @@ export class PreviewEngine {
       try { node.disconnect(); } catch { /* already disconnected */ }
     }
     this.graph = null;
+  }
+
+  private scheduleLoopFade() {
+    const ctx = this.ctx;
+    const graph = this.graph;
+    const params = this.params;
+    if (!ctx || !graph?.refs.fade || !params || !this.loopEnabled) return;
+    scheduleRepeatFade(
+      graph.refs.fade,
+      params,
+      ctx.currentTime,
+      this.getCurrentTime(),
+      this.loopStart,
+      this.loopEnd,
+    );
+  }
+
+  private startLoopFadeScheduler() {
+    this.stopLoopFadeScheduler();
+    if (!this.loopEnabled) return;
+    this.scheduleLoopFade();
+    this.loopFadeTimer = setInterval(() => this.scheduleLoopFade(), 1000);
+  }
+
+  private stopLoopFadeScheduler() {
+    if (this.loopFadeTimer !== null) {
+      clearInterval(this.loopFadeTimer);
+      this.loopFadeTimer = null;
+    }
   }
 
   // Preview 그래프: 공유 마스터 체인(buildMasterChain) 위에 dry/wet A/B·master·상관도 탭을 덧씌운다.
@@ -282,6 +319,7 @@ export class PreviewEngine {
     const { output, refs } = buildMasterChain(ctx, source, params, {
       nodes,
       offset: this.offset,
+      suppressFadeOut: this.loopEnabled,
       workletReady: this.workletReady,
       reverbIR: this.getReverbIR(ctx),
       channels,

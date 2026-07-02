@@ -219,6 +219,131 @@ const SECTIONS = [
       en: ['If silent, check queue selection, output device, and system volume.', 'If playback stutters, wait for heavy processing such as Denoise and reduce other system load.', 'If output is too loud or distorted, lower Target LUFS and limiter reduction in section VI.', 'Level-match comparisons to avoid mistaking louder for better.'],
     },
   },
+  {
+    id: 'glossary',
+    title: { ko: '용어집 & 이펙트 가이드', en: 'Glossary & Effect Guide' },
+    intro: {
+      ko: '마스터링에 사용되는 주요 용어들과 각 이펙트의 실제 소리 적용 효과를 초심자의 눈높이에서 쉽게 설명합니다.',
+      en: 'Easy-to-understand explanations of key mastering terms and the actual audible effects of each stage for beginners.',
+    },
+    steps: {
+      ko: [],
+      en: [],
+    },
+  },
+];
+
+const GLOSSARY_ITEMS = [
+  {
+    term: { ko: 'Denoise (노이즈 제거)', en: 'Denoise' },
+    desc: {
+      ko: '음원 녹음 시 함께 녹음된 원치 않는 배경 잡음(쉬익 하는 히스 소리, 바람 소리, 기기 웅웅거림 등)을 분석하여 지우는 기능입니다.',
+      en: 'Analyzes and removes unwanted background noise (such as tape hiss, wind noise, or equipment hum) captured during recording.',
+    },
+    effect: {
+      ko: '노래 뒤에 깔린 지저분한 잡음이 차분히 정리되어 목소리와 악기가 훨씬 더 깨끗하게 들립니다. 단, 너무 무리하게 작동시키면 고음이 멍해지거나 소리가 물속에 있는 것처럼 울렁거릴 수 있습니다.',
+      en: 'Cleans up background noise so vocals and instruments stand out clearly. However, over-processing can make the high end sound muffled or create watery, artificial artifacts.',
+    },
+  },
+  {
+    term: { ko: 'Equalizer (이퀄라이저 / EQ)', en: 'Equalizer (EQ)' },
+    desc: {
+      ko: '저음, 중음, 고음 등 특정 음역대의 높낮이를 독립적으로 조절하여 소리의 밝기나 톤을 성형하는 도구입니다.',
+      en: 'A tool that shapes the tone and brightness of your audio by independently boosting or cutting specific frequency ranges (bass, midrange, treble).',
+    },
+    effect: {
+      ko: '먹먹한 소리에 고음을 살려 화사하게 만들거나, 방방거리는 저음을 깎아 깔끔하게 정리할 수 있습니다. 중음역을 조절해 보컬의 앞뒤 위치를 잡을 수도 있습니다.',
+      en: 'Makes dull tracks sound brighter by boosting treble, or cleans up boominess by cutting muddy bass. Adjusting the midrange can also push the lead vocal forward or backward.',
+    },
+  },
+  {
+    term: { ko: 'Dynamics (다이내믹 / 컴프레서)', en: 'Dynamics (Compressor)' },
+    desc: {
+      ko: '큰 소리는 눌러서 작게 만들고 작은 소리는 위로 당겨서, 소리 간의 볼륨 편차(다이내믹 레인지)를 균일하게 조절하는 이펙터입니다.',
+      en: 'An effect that evens out volume variations (dynamic range) by compressing the loudest peaks and raising the quieter details.',
+    },
+    effect: {
+      ko: '음원의 평균적인 밀도가 단단하게 차오르며, 악기 소리들이 따로 놀지 않고 하나로 뭉쳐 들립니다. 과도하게 압축하면 소리가 답답해지고 타격감이 사라져 숨 막히는 소리가 됩니다.',
+      en: 'Creates a denser, glued-together sound where everything feels unified. Excess compression squeezes out the life of the track, making it sound flat, pumping, and fatiguing.',
+    },
+  },
+  {
+    term: { ko: 'Exciter (익사이터)', en: 'Exciter' },
+    desc: {
+      ko: '오디오 신호에 미세한 인공 고조파(Harmonics)를 덧붙여서 원래 소리에는 없던 윤기와 귀를 자극하는 선명함을 만들어내는 도구입니다.',
+      en: 'Adds subtle, artificial harmonics to the audio signal to generate shine and crisp presence that might not have been in the original recording.',
+    },
+    effect: {
+      ko: '소리의 고역 끝자락에 얇고 선명한 막을 입힌 것처럼 청량감이 느껴집니다. 단, 많이 쓸수록 귀를 쏘거나 따가운 질감이 되어 쉽게 피로해질 수 있으니 소량만 사용해야 합니다.',
+      en: 'Adds a refreshing clarity and high-frequency sparkle. Use sparingly, as excessive amounts can make the track sound harsh and painful to listen to.',
+    },
+  },
+  {
+    term: { ko: 'Stereo Width (스테레오 너비)', en: 'Stereo Width' },
+    desc: {
+      ko: '좌우 스피커 사이에서 소리가 울려 퍼지는 공간적인 넓이와 분포를 조절하여 입체감을 주는 기능입니다.',
+      en: 'Controls the spatial width and distribution of sound between the left and right speakers to enhance the 3D stereo image.',
+    },
+    effect: {
+      ko: '값을 높이면 소리가 양옆으로 넓게 벌어져 웅장하고 입체적인 공간을 만듭니다. 반대로 너무 넓히면 소리의 중심이 흔들리거나, 모노 스피커에서 소리가 힘없이 작아질 수 있습니다.',
+      en: 'Expanding this widens the soundstage for a grand, immersive feel. However, widening it too much can blur the center focus or cause the sound to collapse and weaken on mono speakers.',
+    },
+  },
+  {
+    term: { ko: 'Bass Mono (저음 모노화)', en: 'Bass Mono' },
+    desc: {
+      ko: '극저역 주파수 이하의 소리들을 좌우 편차 없이 한가운데(Mono)로 강제로 정렬하는 기술입니다.',
+      en: 'Forces low-frequency sub-bass sounds into the center (mono) rather than letting them spread to the sides.',
+    },
+    effect: {
+      ko: '베이스와 킥드럼처럼 무거운 에너지를 가진 저음이 중앙에 단단하게 고정되어, 클럽 스피커나 모바일 기기에서도 저역이 흩어지지 않고 꽉 찬 펀치감을 내게 해줍니다.',
+      en: 'Anchors heavy energy sources like the kick drum and bass synth firmly in the center. This ensures the low end remains tight, punchy, and consistent across various playback systems.',
+    },
+  },
+  {
+    term: { ko: 'Saturation (새츄레이션)', en: 'Saturation' },
+    desc: {
+      ko: '아날로그 진공관(Tube)이나 테이프 머신이 과부하될 때 생기는 부드러운 일그러짐을 복제하여 음원에 배음을 채우는 장치입니다.',
+      en: 'Replicates the gentle distortion created by overdriven analog tubes or tape machines, filling the audio with rich harmonics.',
+    },
+    effect: {
+      ko: '소리에 기분 좋은 따뜻함과 든든한 알맹이를 더해 줍니다. 리미터 진입 전에 볼륨을 채우는 역할을 하지만, 너무 과하면 뭉개지고 지저분하게 왜곡됩니다.',
+      en: 'Infuses the sound with a pleasing analog warmth, weight, and grit. It helps beef up the track before the limiter, but too much will make it sound fuzzy and distorted.',
+    },
+  },
+  {
+    term: { ko: 'Limiter & True Peak (리미터와 트루 피크)', en: 'Limiter & True Peak' },
+    desc: {
+      ko: '소리가 특정 상한선(Ceiling)을 넘지 못하게 벽을 치고 가둬 두면서 전체 음량을 안전하게 키우는 브레이크 장치이자, 실제 기기 출력 시 생길 수 있는 아날로그 정밀 피크를 일컫는 용어입니다.',
+      en: 'A limiter acts as a brick-wall ceiling preventing signal peaks from exceeding a set limit while safely pushing up the overall level. True Peak refers to the actual peak level after analog reconstruction.',
+    },
+    effect: {
+      ko: '디지털 왜곡(클리핑)이 생기지 않는 최대 한도까지 전체적인 음량이 빵빵하게 올라갑니다. 목표를 과하게 잡으면 소리가 짓눌리고 평평해져 음악의 생동감이 죽습니다.',
+      en: 'Maximizes the overall loudness of the track without causing harsh digital clipping. Pushing it too hard will squash the dynamics, leaving the song flat and devoid of life.',
+    },
+  },
+  {
+    term: { ko: 'LUFS (체감 음량 단위)', en: 'LUFS' },
+    desc: {
+      ko: '소리의 단순한 전압이나 물리적 크기가 아닌, 인간의 청각적 특성에 맞게 보정한 실제 \'느껴지는 음량의 크기\'를 나타내는 국제 통합 표준 단위입니다.',
+      en: 'An international standard unit for measuring perceived loudness, designed to match how the human ear actually hears different frequencies.',
+    },
+    effect: {
+      ko: '유튜브(-14 LUFS), 애플뮤직(-16 LUFS) 등 각 플랫폼별 기준에 맞추는 척도가 됩니다. 이 값보다 소리가 너무 크면 스트리밍 시 강제로 볼륨이 줄어들어 믹스의 다이내믹만 손해보게 됩니다.',
+      en: 'Serves as the benchmark for platform loudness normalization. If your track is mastered too loud, streaming platforms will automatically lower its volume, leaving your music sounding flat compared to dynamic tracks.',
+    },
+  },
+  {
+    term: { ko: 'Bypass (바이패스 / 건너뛰기)', en: 'Bypass' },
+    desc: {
+      ko: '현재 이펙터나 보정 단계를 활성화하지 않고 신호를 그대로 흘려보내 효과를 적용하기 전 상태로 돌리는 동작입니다.',
+      en: 'Bypasses the active processing block, allowing the original unprocessed signal to pass through.',
+    },
+    effect: {
+      ko: '지금 만지고 있는 효과(예: EQ, 컴프레서)가 소리를 진짜 더 낫게 만들었는지 아니면 해쳤는지, 귀로 신속하고 객관적으로 전후를 비교해 가며 작업할 수 있게 해줍니다.',
+      en: 'Enables rapid and objective A/B testing to verify whether a specific processing stage (like EQ or compression) is actually improving the sound or making it worse.',
+    },
+  },
 ];
 
 const SETTINGS = {
@@ -1086,6 +1211,7 @@ const html = `<!DOCTYPE html>
     const SETTINGS = ${JSON.stringify(SETTINGS, null, 2)};
     const MEDIA_META = ${JSON.stringify(MEDIA, null, 2)};
     const IMAGES = ${JSON.stringify(images, null, 2)};
+    const GLOSSARY_ITEMS = ${JSON.stringify(GLOSSARY_ITEMS, null, 2)};
     
     // Application State
     let currentLang = 'ko';
@@ -1288,13 +1414,46 @@ const html = `<!DOCTYPE html>
         \`;
         
         // Steps list
-        if (section.steps && section.steps[currentLang]) {
+        if (section.steps && section.steps[currentLang] && section.steps[currentLang].length > 0) {
           htmlContent += '<ul class="steps-list">';
           section.steps[currentLang].forEach((step) => {
             const stepHtml = highlightQuery(step, searchQuery);
             htmlContent += \`<li>\${stepHtml}</li>\`;
           });
           htmlContent += '</ul>';
+        }
+        
+        // Glossary Items
+        if (section.id === 'glossary') {
+          htmlContent += '<div style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px;">';
+          
+          GLOSSARY_ITEMS.forEach((item) => {
+            const termHtml = highlightQuery(item.term[currentLang], searchQuery);
+            const descHtml = highlightQuery(item.desc[currentLang], searchQuery);
+            const effectHtml = highlightQuery(item.effect[currentLang], searchQuery);
+            const conceptLabel = currentLang === 'ko' ? '💡 기본 개념' : '💡 Concept';
+            const effectLabel = currentLang === 'ko' ? '🎧 실제 적용 효과' : '🎧 Audible Effect';
+            
+            htmlContent += \`
+              <div style="padding: 16px 18px; border: 1px solid var(--t-ell); border-radius: 10px; background: var(--t-cardA); box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 12px;">
+                <h3 style="margin: 0; font-size: 14.5px; font-weight: 700; color: var(--t-aMain); display: flex; align-items: center; gap: 8px;">
+                  <span style="display: inline-block; width: 6px; height: 16px; background: var(--t-aMain); border-radius: 2px;"></span>
+                  \${termHtml}
+                </h3>
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; line-height: 1.65;">
+                  <div>
+                    <strong style="color: var(--t-pInk); display: block; margin-bottom: 2px;">\${conceptLabel}</strong>
+                    <span style="color: var(--t-pInk2);">\${descHtml}</span>
+                  </div>
+                  <div style="padding: 8px 10px; background: var(--t-cardSelA); border-left: 3px solid var(--t-aBright); border-radius: 0 6px 6px 0; margin-top: 4px;">
+                    <strong style="color: var(--t-aBright); display: block; margin-bottom: 2px;">\${effectLabel}</strong>
+                    <span style="color: var(--t-pInk);">\${effectHtml}</span>
+                  </div>
+                </div>
+              </div>
+            \`;
+          });
+          htmlContent += '</div>';
         }
         
         // Extra Tables for pre (Denoise), loudness, and tips

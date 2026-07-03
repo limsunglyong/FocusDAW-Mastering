@@ -39,7 +39,10 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
   for (let n = 0; n < 9; n++) v[`spectral.graphic.g${n}`] = graphicEq.g[n];
   v['dynamics.ratio'] = GENRE_RATIO[a.genre];
 
-  // ── II. Mood — 색채/질감 delta ────────────────────────────────────────
+  // ── II. Normalize — 시작 볼륨 정렬(input.normimp: 입력 피크 → -0.1dBFS, v0.14.1) ─
+  v['input.normimp'] = a.normalize === 'align';
+
+  // ── III. Mood — 색채/질감 delta ───────────────────────────────────────
   switch (a.mood) {
     case 'bright':
       add('spectral.g4', 2.5); // 고역 shelf(12k) ↑
@@ -65,7 +68,7 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
       break;
   }
 
-  // ── III. Bass — 저역 무게감 ───────────────────────────────────────────
+  // ── IV. Bass — 저역 무게감 ────────────────────────────────────────────
   if (a.bass === 'light') {
     add('spectral.g0', -3);
     addGraphic(0, -3); addGraphic(1, -2);
@@ -77,7 +80,7 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
     v['stereo.crossover'] = 120;
   }
 
-  // ── IV. Space — 스테레오 폭/잔향 ──────────────────────────────────────
+  // ── V. Space — 스테레오 폭/잔향 ───────────────────────────────────────
   const SPACE = {
     dry: { width: 100, reverb: 0, delay: 0 },
     subtle: { width: 120, reverb: 5, delay: 2 },
@@ -87,7 +90,7 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
   v['stereo.reverb'] = SPACE.reverb;
   v['stereo.delay'] = SPACE.delay;
 
-  // ── V. Loudness — 목표 LUFS/리미터(확정형) ────────────────────────────
+  // ── VI. Loudness — 목표 LUFS/리미터(확정형) ───────────────────────────
   const LOUD = {
     dynamic: { target: -16, limiter: 'Clear', sat: 5 },
     balanced: { target: -14, limiter: 'Punchy', sat: Math.max(5, num('loudness.sat')) },
@@ -99,7 +102,7 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
   v['loudness.ceiling'] = -1;
   v['loudness.tplimit'] = true;
 
-  // ── VI. Source — Denoise 토글/Depth 힌트 ──────────────────────────────
+  // ── VII. Source — Denoise 토글/Depth 힌트 ─────────────────────────────
   // 주: pre.noiseDepth 는 세션 화이트리스트에서 제외(곡별 분석 우선)라 저장 시 스트립된다.
   //     여기서는 토글(pre.denoise, 화이트리스트 포함)만 실질적으로 반영된다.
   if (a.source === 'clean') {
@@ -109,7 +112,7 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
     v['pre.noiseDepth'] = a.source === 'noisy' ? '3' : '2';
   }
 
-  // ── VII. Output — 포맷/샘플레이트/비트뎁스 ────────────────────────────
+  // ── VIII. Output — 포맷/샘플레이트/비트뎁스 ───────────────────────────
   const OUT = {
     streaming: { format: 'WAV', rate: '48k', bit: '24' },
     archive: { format: 'FLAC', rate: '44.1k', bit: '24' },

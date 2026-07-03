@@ -40,11 +40,12 @@ export function buildSummary(a: WizardAnswers, lang: Lang): SummaryRow[] {
   const pre = (en
     ? { clean: 'Denoise off', slight: 'Denoise · Depth 2', noisy: 'Denoise · Depth 3' }
     : { clean: 'Denoise 꺼짐', slight: 'Denoise · Depth 2', noisy: 'Denoise · Depth 3' })[a.source];
+  const norm = a.normalize === 'align' ? (en ? 'Normalize on' : 'Normalize 켜짐') : (en ? 'Normalize off' : 'Normalize 꺼짐');
 
   const clean = (arr: (string | null)[]): string[] => arr.filter((x): x is string => !!x);
 
   return [
-    { roman: 'I', name: 'Input', chips: [out.fmt, out.sr, out.bit] },
+    { roman: 'I', name: 'Input', chips: [out.fmt, out.sr, out.bit, norm] },
     { roman: 'II', name: 'Pre', chips: [pre] },
     { roman: 'III', name: 'Spectral EQ', chips: clean([eqType, eqPreset, moodEq, bassEq]) },
     { roman: 'IV', name: 'Dynamics', chips: clean([ratio, moodDyn]) },

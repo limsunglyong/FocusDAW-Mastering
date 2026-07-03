@@ -1,5 +1,5 @@
 // FocusDAW Mastering Desk - Mastering Wizard 데이터 모델 (v0.13.0)
-// 대화형 마법사 8단계(I~VIII)의 질문·선택지·요약 섹션·UI 문자열 정의.
+// 대화형 마법사 9단계(I~IX)의 질문·선택지·요약 섹션·UI 문자열 정의.
 // 디자인 출처: _refer/Mastering Wizard.standalone.html (DCLogic 프로토타입)을 앱 구조로 이식.
 // 이 파일은 순수 데이터/타입만 담는다(오디오·DOM 의존 없음 → 매핑 로직과 함께 테스트 가능).
 
@@ -9,6 +9,7 @@ export type Localized = { ko: string; en: string };
 /** 각 단계의 응답 키와 허용값(내부 코드). UI 라벨은 STEPS.opts 에서 별도 관리. */
 export type WizardAnswers = {
   genre: 'pop' | 'dance' | 'rock' | 'classic' | 'hiphop';
+  normalize: 'align' | 'keep';
   eqMode: 'graphic' | 'minimal';
   mood: 'bright' | 'warm' | 'punchy' | 'smooth';
   bass: 'light' | 'normal' | 'thick';
@@ -42,7 +43,7 @@ export type WizardStep = {
   opts: WizardOption[];
 };
 
-export const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'] as const;
+export const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'] as const;
 
 /** 마법사가 조정하는 7개 섹션(요약 카드 행 순서 = 신호 흐름). */
 export const WIZARD_SECTIONS: { roman: string; name: string }[] = [
@@ -57,6 +58,7 @@ export const WIZARD_SECTIONS: { roman: string; name: string }[] = [
 
 export const DEFAULT_ANSWERS: WizardAnswers = {
   genre: 'pop',
+  normalize: 'align',
   eqMode: 'minimal',
   mood: 'warm',
   bass: 'normal',
@@ -84,7 +86,21 @@ export const STEPS: WizardStep[] = [
     ],
   },
   {
-    key: 'eqMode', roman: 'II', label: { ko: '이퀄라이저', en: 'Equalizer' },
+    // v0.14.1: Normalize(input.normimp) 추천 스텝 — 사진 밝기 비유로 "다듬기 전 시작 볼륨 정렬"을 설명.
+    key: 'normalize', roman: 'II', label: { ko: '시작 볼륨', en: 'Start level' },
+    q: { ko: '녹음된 볼륨이 작거나 곡마다 들쭉날쭉한가요?', en: 'Is the recording quiet, or uneven between tracks?' },
+    sub: {
+      ko: '사진을 보정하기 전에 어둡게 찍힌 사진의 밝기부터 맞추듯, 다듬기 전에 시작 볼륨을 표준 기준에 맞춰 드릴 수 있어요. 완성본이 얼마나 크게 들릴지는 뒤의 음량 단계에서 따로 정해요.',
+      en: "Like fixing a dark photo's brightness before editing, we can align the starting volume before polishing. How loud the final track sounds is decided later, in the Loudness step.",
+    },
+    cols: 2,
+    opts: [
+      { v: 'align', icon: 'align', t: { ko: '네, 맞춰 주세요', en: 'Yes, align it' }, d: { ko: '작게 녹음된 곡도 표준 볼륨에서 시작해 늘 일정한 결과가 나와요', en: 'Quiet recordings start from a standard level for consistent results' }, rec: true },
+      { v: 'keep', icon: 'wave', t: { ko: '그대로 둘게요', en: 'Leave it as is' }, d: { ko: '원본 볼륨 그대로 다듬기를 시작해요', en: 'Start polishing at the original volume' } },
+    ],
+  },
+  {
+    key: 'eqMode', roman: 'III', label: { ko: '이퀄라이저', en: 'Equalizer' },
     q: { ko: '저음, 중음, 고음 효과를 어떻게 할까요?', en: 'How should the lows, mids, and highs feel?' },
     sub: { ko: 'Equalizer의 종류를 고르는 것입니다.', en: 'Choose the type of equalizer to use.' },
     cols: 2,
@@ -94,7 +110,7 @@ export const STEPS: WizardStep[] = [
     ],
   },
   {
-    key: 'mood', roman: 'III', label: { ko: '분위기', en: 'Mood' },
+    key: 'mood', roman: 'IV', label: { ko: '분위기', en: 'Mood' },
     q: { ko: '어떤 느낌이면 좋을까요?', en: 'What feeling do you want?' },
     sub: { ko: '곡 전체에 입혀질 색깔과 질감을 골라 주세요.', en: 'Pick the overall color and texture for the track.' },
     cols: 2,
@@ -106,7 +122,7 @@ export const STEPS: WizardStep[] = [
     ],
   },
   {
-    key: 'bass', roman: 'IV', label: { ko: '저음', en: 'Bass' },
+    key: 'bass', roman: 'V', label: { ko: '저음', en: 'Bass' },
     q: { ko: '저음은 얼마나 넣을까요?', en: 'How much bass would you like?' },
     sub: { ko: '쿵쿵 울리는 낮은 소리의 무게감을 정해요.', en: 'Sets the weight of the deep, rumbling low sounds.' },
     cols: 3,
@@ -117,7 +133,7 @@ export const STEPS: WizardStep[] = [
     ],
   },
   {
-    key: 'space', roman: 'V', label: { ko: '공간감', en: 'Space' },
+    key: 'space', roman: 'VI', label: { ko: '공간감', en: 'Space' },
     q: { ko: '소리가 얼마나 넓게 퍼지면 좋을까요?', en: 'How wide should the sound feel?' },
     sub: { ko: '소리가 좌우로 펼쳐지는 정도와 은은한 울림의 양이에요.', en: 'How far the sound spreads left-to-right, plus gentle ambience.' },
     cols: 3,
@@ -128,7 +144,7 @@ export const STEPS: WizardStep[] = [
     ],
   },
   {
-    key: 'loudness', roman: 'VI', label: { ko: '음량', en: 'Loudness' },
+    key: 'loudness', roman: 'VII', label: { ko: '음량', en: 'Loudness' },
     q: { ko: '얼마나 크게 들리길 원하세요?', en: 'How loud should it sound?' },
     sub: { ko: '전체적으로 느껴지는 소리 크기예요. 궁금하면 물음표를 눌러 보세요.', en: 'The overall perceived volume. Tap the ? if you are curious.' },
     cols: 3,
@@ -139,7 +155,7 @@ export const STEPS: WizardStep[] = [
     ],
   },
   {
-    key: 'source', roman: 'VII', label: { ko: '원본 상태', en: 'Source' },
+    key: 'source', roman: 'VIII', label: { ko: '원본 상태', en: 'Source' },
     q: { ko: '원본 녹음 상태는 어떤가요?', en: 'How clean is the original recording?' },
     sub: {
       ko: '배경 잡음이 있는지 알려 주시면 알맞게 정리해 드려요.',
@@ -153,7 +169,7 @@ export const STEPS: WizardStep[] = [
     ],
   },
   {
-    key: 'output', roman: 'VIII', label: { ko: '용도', en: 'Use' },
+    key: 'output', roman: 'IX', label: { ko: '용도', en: 'Use' },
     q: { ko: '완성한 파일을 어디에 쓰실 건가요?', en: 'Where will you use the finished file?' },
     sub: { ko: '쓰실 곳에 딱 맞는 형식으로 저장해 드려요.', en: 'We save it in the format that fits your destination.' },
     cols: 3,

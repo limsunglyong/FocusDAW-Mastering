@@ -367,6 +367,9 @@
  *             Chromium SRC를 Worker 기반 Kaiser polyphase sinc로 교체해 48→44.1 고역 alias와
  *             48→96 source-Nyquist image를 제거했다. WASM SIMD를 우선 사용하고 TypeScript
  *             폴백을 유지하며, 파일 선택·Rate 변경 시 선택 곡 processingBuffer를 선행 생성한다.
+ *  - v0.12.8: (Patch) 인앱 Manual "용어집 & 이펙트 가이드" 섹션 추가(초심자용 ko/en 용어·청감 효과,
+ *             build-manual.js 정적 manual.html 동기 확장) + Mastering Wizard 착수(#wizard 창
+ *             라우팅/IPC, 8단계 데이터 모델·매핑·요약·아이콘·창 UI 골격 — 커밋 v0.12.8-wizard-init).
  *  - v0.14.0: (Minor) VI Loudness 새츄레이터 정규화 버그 수정 — Saturate 를 올릴수록 노이즈가 크게
  *             늘던 문제. 전달함수 `tanh(drive·s)/tanh(drive)` 는 "피크(s=1)=unity" 정규화라 원점 기울기가
  *             drive(≈4)배가 되어, 피크는 통과하지만 저레벨(노이즈 플로어·리버브 꼬리·숨소리)을 Saturate
@@ -377,6 +380,16 @@
  *             추가: Wizard V.Loudness 'balanced' 프리셋 새츄레이션 베이스라인 0→5%(warm 무드의 +10 은
  *             Math.max 로 유지) — 무색이던 balanced 에 최소 글루. (audio/loudnessDsp.ts, audio/masterChain.ts,
  *             wizard/wizardMap.ts, scripts/verify-decoder.mjs) 검증: lint(tsc)·verify(99/99) 통과.
+ *  - v0.14.1: (Patch) Mastering Wizard 에 II. Normalize(시작 볼륨) 질문 추가 — 8→9단계.
+ *             음악 문외한 대상 카피(사진 밝기 비유 + "완성본 음량은 Loudness 단계에서 별도" 구분,
+ *             ko/en), 선택 카드 썸네일 그림(점선 기준선에 맞춰 올라간 막대 vs 들쭉날쭉한 원본),
+ *             결과 카드 wz-align 아이콘. align/keep → input.normimp 매핑(CTRL 기반 세션
+ *             화이트리스트 자동 포함), 결과 카드 요약 문장 + Input 행 "Normalize 켜짐/꺼짐" 칩.
+ *             결과→퀴즈 복귀 setStep(6) 하드코딩 → STEPS.length-1. Wizard 창 fit 높이 +20px
+ *             여유(질문 1/9 미세 수직 스크롤 제거). (wizard/wizardModel.ts, wizardMap.ts,
+ *             wizardSummary.ts, ui/desk/WizardWindow.tsx, WizardIcons.tsx) 검증: lint(tsc) +
+ *             Electron 드라이버 런타임 검증(9단계 진행·ko/en 카피·payload normimp true/false·
+ *             fit 높이 적용 시 수직 오버플로 0px).
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

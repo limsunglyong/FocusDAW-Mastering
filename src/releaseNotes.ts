@@ -1,4 +1,4 @@
-// FocusDAW Mastering Desk v0.14.0 - 릴리스 노트
+// FocusDAW Mastering Desk v0.14.1 - 릴리스 노트
 // Help ▸ Release Notes 창에 표시. v0.12.0 이후 변경 내용만 요약한다.
 import { APP_VERSION } from './version';
 
@@ -17,7 +17,8 @@ export const RELEASE_NOTES: ReleaseNotes = {
   version: APP_VERSION,
   date: '2026-07-03',
   features: [
-    'Added Session Wizard, an eight-step guided workflow that creates, previews, sends, and saves complete mastering setups.',
+    'Added Session Wizard, a nine-step guided workflow that creates, previews, sends, and saves complete mastering setups.',
+    'Added a Normalize (start level) question to the Session Wizard with an illustrated choice and plain-language guidance.',
     'Added Min-φ Parametric and 9-Band Graphic EQ selection to Session Wizard, with genre, mood, and bass-aware EQ mapping.',
     'Added editable Session Cards with descriptions, theme-highlighted headers, rename/delete controls, and full-title tooltips.',
     'Added a WASM SIMD Kaiser polyphase sinc sample-rate conversion engine with an automatic TypeScript fallback.',
@@ -27,7 +28,7 @@ export const RELEASE_NOTES: ReleaseNotes = {
   ],
   improvements: [
     'Session Wizard Balanced loudness now applies a 5% saturation baseline for subtle glue instead of no coloring.',
-    'Session Wizard now provides automatic content-height sizing, fixed width and top position, Before/After switching, detailed waveforms, and monitor volume inherited from the Desk.',
+    'Session Wizard now provides automatic content-height sizing with extra bottom slack, fixed width and top position, Before/After switching, detailed waveforms, and monitor volume inherited from the Desk.',
     'Wizard sessions use automatic genre-based serial names, localized Korean or English names, and preserve the generated setup summary as the session description.',
     'Moved Session Wizard from the Project submenu to the main application top bar.',
     'Expanded the Transport meter to SUB/LOW/MID/HIGH/AIR plus RMS with six-segment color thresholds.',

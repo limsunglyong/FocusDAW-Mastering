@@ -1,5 +1,5 @@
 // FocusDAW Mastering Desk - Mastering Wizard 창 (#wizard, v0.13.0)
-// 대화형 8단계로 마스터링 세팅을 자동 구성 → 결과 카드 → 창 내장 A/B 청취 →
+// 대화형 9단계로 마스터링 세팅을 자동 구성 → 결과 카드 → 창 내장 A/B 청취 →
 // "메인에 즉시 적용"(sessionIO.apply) / "저장"([Wizard] 세션, sessionIO.save).
 // 디자인 출처: _refer/Mastering Wizard.standalone.html. 오디오는 이 창 자체의 previewEngine 인스턴스로
 // 독립 디코딩/재생한다(메인 스토어 미의존 — 별도 렌더러이므로 AudioContext 도 분리됨).
@@ -61,6 +61,13 @@ const OPTION_PREVIEWS: Record<string, number[]> = {
 
 const STEREO_SPREAD: Record<string, number> = { dry: .16, subtle: .5, wide: .86 };
 
+// v0.14.1: Normalize 카드 썸네일 — keep=들쭉날쭉한 원본 볼륨, align=같은 모양을 기준선(점선)까지 끌어올린 볼륨.
+const NORM_TARGET_TOP = .14; // 점선 기준선의 top 비율 = align 최고 막대(.86)의 꼭대기.
+const NORM_PREVIEWS: Record<string, number[]> = {
+  keep: [.3, .72, .45, .62, .35, .55, .4, .68, .32],
+  align: [.36, .86, .54, .74, .42, .66, .48, .81, .38],
+};
+
 function plainLines(a: WizardAnswers, lang: Lang) {
   const en = lang === 'en';
   const genre = (en
@@ -68,6 +75,7 @@ function plainLines(a: WizardAnswers, lang: Lang) {
     : { pop: '팝', dance: '댄스', rock: '록', classic: '클래식', hiphop: '힙합' })[a.genre];
   const lines = [
     { key: 'genre', text: en ? `Tuned the base tone for a ${genre} track.` : `${genre} 곡에 맞춰 기본 톤을 잡았어요.` },
+    { key: 'normalize', text: a.normalize === 'align' ? (en ? 'Aligned the starting volume before polishing.' : '다듬기 전에 시작 볼륨을 표준에 맞췄어요.') : (en ? 'Kept the original starting volume as-is.' : '원본 시작 볼륨을 그대로 두고 시작했어요.') },
     { key: 'eqMode', text: a.eqMode === 'graphic' ? (en ? 'Shaped it clearly with 9-Band EQ.' : '9-Band EQ로 주파수 효과를 확실하게 잡았어요.') : (en ? 'Fine-tuned it naturally with Min-EQ.' : 'Min-EQ로 사실적이고 정밀하게 다듬었어요.') },
     { key: 'mood', text: ({ bright: en ? 'Made it bright and airy up top.' : '위쪽을 밝고 청량하게 다듬었어요.', warm: en ? 'Warmed it up, soft and rich.' : '따뜻하고 포근한 색을 입혔어요.', punchy: en ? 'Gave it a bold, punchy energy.' : '힘 있고 단단한 에너지를 더했어요.', smooth: en ? 'Kept it smooth and natural.' : '부드럽고 담백하게 유지했어요.' })[a.mood] },
     { key: 'bass', text: ({ light: en ? 'Kept the bass light and clean.' : '저음은 가볍고 산뜻하게 했어요.', normal: en ? 'Balanced the bass just right.' : '저음은 적당한 밸런스로 맞췄어요.', thick: en ? 'Made the low end full and heavy.' : '저음을 묵직하고 꽉 차게 했어요.' })[a.bass] },
@@ -176,7 +184,7 @@ export function WizardWindow() {
   const pick = (k: StepKey, v: string) => setAnswers((a) => ({ ...a, [k]: v }) as WizardAnswers);
   const next = () => { if (step < STEPS.length - 1) setStep(step + 1); else setPhase('result'); };
   const back = () => {
-    if (phase === 'result') { setPhase('quiz'); setStep(6); }
+    if (phase === 'result') { setPhase('quiz'); setStep(STEPS.length - 1); }
     else if (step > 0) setStep(step - 1);
   };
 
@@ -293,8 +301,8 @@ export function WizardWindow() {
     const content = contentRef.current;
     const fit = () => {
       if (!content || !window.focusdaw?.win?.fitWizardHeight) return;
-      // title bar 44px + paper margin 32px + paper padding 64px + 실제 내용.
-      const desired = 44 + 32 + 64 + content.scrollHeight;
+      // title bar 44px + paper margin 32px + paper padding 64px + 실제 내용 + 여유 20px(v0.14.1: 스크롤 방지).
+      const desired = 44 + 32 + 64 + content.scrollHeight + 20;
       if (Math.abs(lastFitHeightRef.current - desired) < 2) return;
       lastFitHeightRef.current = desired;
       window.focusdaw.win.fitWizardHeight(desired);
@@ -392,6 +400,13 @@ export function WizardWindow() {
                           <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
                             <div style={{ position: 'absolute', left: 6, right: 6, top: '50%', height: 2, background: 'rgba(0,0,0,.12)' }} />
                             {[50 - spread * 42, 50 + spread * 42].map((left) => <div key={left} style={{ position: 'absolute', left: `${left}%`, top: '50%', width: 11, height: 11, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: on ? ac : pal.pInk2, boxShadow: `0 0 0 3px ${pal.paperCtl}` }} />)}
+                          </div>
+                        ) : stepDef.key === 'normalize' ? (
+                          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                            {o.v === 'align' && <div style={{ position: 'absolute', left: 0, right: 0, top: `${NORM_TARGET_TOP * 100}%`, borderTop: `1.6px dashed ${on ? ac : pal.pInk2}`, opacity: .8 }} />}
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, width: '100%', height: '100%' }}>
+                              {(NORM_PREVIEWS[o.v] || NORM_PREVIEWS.keep).map((h, k) => <div key={k} style={{ flex: 1, height: `${h * 100}%`, minHeight: 3, borderRadius: 2, background: on ? ac : pal.pInk2, opacity: on ? 1 : .55 }} />)}
+                            </div>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, width: '100%', height: '100%' }}>

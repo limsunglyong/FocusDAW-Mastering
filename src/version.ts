@@ -390,6 +390,15 @@
  *             wizardSummary.ts, ui/desk/WizardWindow.tsx, WizardIcons.tsx) 검증: lint(tsc) +
  *             Electron 드라이버 런타임 검증(9단계 진행·ko/en 카피·payload normimp true/false·
  *             fit 높이 적용 시 수직 오버플로 0px).
+ *  - v0.14.2: (Patch) 인앱 Manual 전면 개편 — ① 신버전(v0.14) 스크린샷 33장으로 교체/추가
+ *             (manual-ref-images → assets/manual, 구버전 그림 교체). ② "화면과 메뉴 조작" 장 신설
+ *             (Project/Edit/Transport/Help 메뉴·세션 저장/불러오기·업데이트 확인, 그림 8장).
+ *             ③ "Session Wizard" 장 신설(9단계 step-by-step + 결과 화면 조작, 그림 11장).
+ *             ④ Render Batch 장을 ①~⑧ step-by-step 으로 재작성(CANCEL·Clear Finished 포함).
+ *             ⑤ EQ 는 Min-Phase/Advanced/9-Band 3장 구성, Pre 는 통합 상세 1장으로 정리.
+ *             정적 manual.html(build-manual.js) 동일 내용 재생성. (ManualWindow.tsx,
+ *             scripts/build-manual.js, assets/manual/*) 검증: lint(tsc) + Electron 드라이버
+ *             런타임 검증(#manual 실구동 — 목차 14장·이미지 41장 로드 0 깨짐·ko/en 전환·검색).
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

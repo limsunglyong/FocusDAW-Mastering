@@ -1,4 +1,4 @@
-// FocusDAW Mastering Desk v0.14.1 - 릴리스 노트
+// FocusDAW Mastering Desk v0.14.2 - 릴리스 노트
 // Help ▸ Release Notes 창에 표시. v0.12.0 이후 변경 내용만 요약한다.
 import { APP_VERSION } from './version';
 
@@ -19,6 +19,7 @@ export const RELEASE_NOTES: ReleaseNotes = {
   features: [
     'Added Session Wizard, a nine-step guided workflow that creates, previews, sends, and saves complete mastering setups.',
     'Added a Normalize (start level) question to the Session Wizard with an illustrated choice and plain-language guidance.',
+    'Rebuilt the in-app Manual with new v0.14 screenshots, Screens & Menus and Session Wizard chapters, and a step-by-step Render Batch guide.',
     'Added Min-φ Parametric and 9-Band Graphic EQ selection to Session Wizard, with genre, mood, and bass-aware EQ mapping.',
     'Added editable Session Cards with descriptions, theme-highlighted headers, rename/delete controls, and full-title tooltips.',
     'Added a WASM SIMD Kaiser polyphase sinc sample-rate conversion engine with an automatic TypeScript fallback.',

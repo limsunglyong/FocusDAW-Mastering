@@ -25,37 +25,23 @@ function getBase64Image(filePath) {
 
 // 2. Load all images
 console.log('Loading and base64-encoding images...');
-const images = {
-  logo: getBase64Image(LOGO_PATH),
-  'app-overview.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'app-overview.png')),
-  'transport-panel.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'transport-panel.png')),
-  'loaded-file-info.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'loaded-file-info.png')),
-  'play-progress.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'play-progress.png')),
-  'transport-playing.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'transport-playing.png')),
-  'transport-loop.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'transport-loop.png')),
-  'bypass-toggle.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'bypass-toggle.png')),
-  'preview-toggle.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'preview-toggle.png')),
-  'input-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'input-details.png')),
-  'pre-noise-analysis.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'pre-noise-analysis.png')),
-  'pre-denoise-on.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'pre-denoise-on.png')),
-  'pre-spectrum-controls.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'pre-spectrum-controls.png')),
-  'pre-auto-settings.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'pre-auto-settings.png')),
-  'eq-overview.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-overview.png')),
-  'eq-advanced.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-advanced.png')),
-  'eq-user-preset.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-user-preset.png')),
-  'eq-preset-save.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-preset-save.png')),
-  'eq-9band-overview.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-9band-overview.png')),
-  'eq-9band-user-presets.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'eq-9band-user-presets.png')),
-  'dynamics-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'dynamics-details.png')),
-  'stereo-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'stereo-details.png')),
-  'loudness-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'loudness-details.png')),
-  'export-details.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'export-details.png')),
-  'render-batch-overview.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-overview.png')),
-  'render-batch-session-picker.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-session-picker.png')),
-  'render-batch-session-loaded.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-session-loaded.png')),
-  'render-batch-add-job.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-add-job.png')),
-  'render-batch-multiple-jobs.png': getBase64Image(path.join(MANUAL_ASSETS_DIR, 'render-batch-multiple-jobs.png'))
-};
+// v0.14.2: 신버전 스크린샷 교체 + menus/wizard 섹션 이미지 추가 (ManualWindow.tsx 와 동일 목록).
+const IMAGE_FILES = [
+  'app-overview.png', 'topbar-stages.png',
+  'transport-panel.png', 'transport-loop.png', 'loaded-file-info.png', 'bypass-toggle.png', 'preview-toggle.png',
+  'menu-project.png', 'menu-session-load.png', 'menu-session-save.png', 'menu-edit.png', 'menu-preferences.png',
+  'menu-help.png', 'help-check-updates.png', 'help-release-notes.png',
+  'wizard-menu.png', 'wizard-step1-genre.png', 'wizard-step2-normalize.png', 'wizard-step3-eq.png',
+  'wizard-step4-mood.png', 'wizard-step5-bass.png', 'wizard-step6-space.png', 'wizard-step7-loudness.png',
+  'wizard-step8-source.png', 'wizard-step9-output.png', 'wizard-result.png',
+  'input-details.png', 'pre-details.png',
+  'eq-overview.png', 'eq-advanced.png', 'eq-9band-overview.png',
+  'dynamics-details.png', 'stereo-details.png', 'loudness-details.png', 'export-details.png',
+  'render-batch-overview.png', 'render-batch-session-picker.png', 'render-batch-session-loaded.png',
+  'render-batch-add-job.png', 'render-batch-multiple-jobs.png',
+];
+const images = { logo: getBase64Image(LOGO_PATH) };
+for (const file of IMAGE_FILES) images[file] = getBase64Image(path.join(MANUAL_ASSETS_DIR, file));
 
 // 3. Define Manual Data Structures
 const SECTIONS = [
@@ -81,6 +67,56 @@ const SECTIONS = [
     steps: {
       ko: ['Project > Import Files 또는 Import Folder로 음원을 불러옵니다.', '큐에서 곡을 선택하고 Play로 원본을 확인합니다.', '각 섹션을 켜고 파라미터를 조절합니다. Bypass하면 해당 섹션만 건너뜁니다.', 'Preview ON/OFF로 처리음과 원음을 비교합니다.', 'VII Export에서 형식과 저장 위치를 정한 뒤 배치 출력합니다.'],
       en: ['Import audio with Project > Import Files or Import Folder.', 'Select a track in the queue and use Play to audition it.', 'Enable stages and adjust parameters. Bypass skips only that stage.', 'Use Preview ON/OFF to compare processed and original audio.', 'Choose format and destination in VII Export, then run the batch export.'],
+    },
+  },
+  {
+    id: 'menus',
+    title: { ko: '화면과 메뉴 조작', en: 'Screens & Menus' },
+    intro: {
+      ko: '상단 메뉴 막대에서 프로젝트 파일·세션, 편집, 도움말 기능을 조작합니다. 자주 쓰는 흐름을 그림과 함께 정리했습니다.',
+      en: 'The top menu bar hosts project files and sessions, editing, and help features. Common flows are illustrated below.',
+    },
+    steps: {
+      ko: ['Project ▸ Import Files… / Import Folder로 음원을 불러오고, New Session은 큐와 설정을 초기 상태로 되돌립니다.', 'Project ▸ Save Session / Open으로 현재 체인 설정을 Session Card로 저장하거나 불러옵니다. 카드에는 EQ 종류, 활성 이펙트, 출력 형식이 요약되어 표시됩니다.', 'Edit ▸ Undo / Redo로 파라미터 변경을 되돌리고, Preference (Setup)에서 테마 등 앱 환경을 설정합니다.', 'Help ▸ Check for Updates…는 새 버전 확인부터 다운로드·재시작 설치까지 안내하고, Release Notes는 현재 버전의 변경 내용을, Manual은 이 사용설명서를 엽니다.'],
+      en: ['Load audio with Project ▸ Import Files… / Import Folder; New Session resets the queue and settings.', 'Use Project ▸ Save Session / Open to store or recall the current chain as a Session Card, which summarizes EQ type, enabled effects, and output format.', 'Edit ▸ Undo / Redo reverts parameter changes, and Preference (Setup) configures the theme and app options.', 'Help ▸ Check for Updates… guides you from checking to download and restart-install; Release Notes shows what changed in this version, and Manual opens this guide.'],
+    },
+  },
+  {
+    id: 'wizard',
+    title: { ko: 'Session Wizard — 자동 마스터링 도우미', en: 'Session Wizard' },
+    intro: {
+      ko: '마스터링 지식이 없어도 9개의 쉬운 질문에 답하면 전체 체인 설정을 자동으로 만들어 주는 대화형 도우미입니다. 상단 바의 Wizard 버튼으로 엽니다.',
+      en: 'An interactive assistant that builds a complete mastering setup from nine simple questions — no mastering knowledge required. Open it with the Wizard button in the top bar.',
+    },
+    steps: {
+      ko: [
+        '1단계 장르 — 곡 스타일(팝·댄스·록·클래식·힙합)에 맞춰 기본 톤과 EQ 방향을 정합니다.',
+        '2단계 시작 볼륨 — 녹음 볼륨이 작거나 곡마다 들쭉날쭉하면 "네, 맞춰 주세요"를 선택하세요. 다듬기 전에 시작 볼륨을 표준에 맞춥니다(Normalize).',
+        '3단계 이퀄라이저 — 효과가 분명한 9-Band와 사실적이고 정밀한 Min-EQ 중 방식을 고릅니다.',
+        '4단계 분위기 — 밝게·따뜻하게·힘 있게·부드럽게 중 곡에 입힐 질감을 고릅니다.',
+        '5단계 저음 — 낮은 소리의 무게감을 가볍게·적당히·묵직하게로 정합니다.',
+        '6단계 공간감 — 소리가 좌우로 퍼지는 정도와 은은한 울림의 양을 정합니다.',
+        '7단계 음량 — 자연스럽게·적당히 크게·아주 크게 중에서 완성본의 체감 음량을 정합니다.',
+        '8단계 원본 상태 — 배경 잡음 정도를 알려주면 알맞은 노이즈 제거를 설정합니다.',
+        '9단계 용도 — 스트리밍·CD 소장·영상 편집 등 쓰임새에 맞는 파일 형식을 정합니다.',
+        '결과 화면 — 내 음악을 불러와 Before/After 토글로 비교해 듣고, Send to Desk로 메인 화면에 즉시 적용하거나 Save로 Session Card로 저장합니다.',
+      ],
+      en: [
+        'Step 1 Genre — sets the base tone and EQ direction for your style (pop, dance, rock, classical, hip-hop).',
+        'Step 2 Start level — choose "Yes, align it" if the recording is quiet or uneven; the starting volume is aligned before polishing (Normalize).',
+        'Step 3 Equalizer — pick clearly-shaped 9-Band or natural, precise Min-EQ.',
+        'Step 4 Mood — bright, warm, punchy, or smooth texture for the whole track.',
+        'Step 5 Bass — light, just right, or heavy low-end weight.',
+        'Step 6 Space — how wide the sound spreads plus gentle ambience.',
+        'Step 7 Loudness — natural, balanced, or very loud perceived volume.',
+        'Step 8 Source — tell it how noisy the recording is and denoising is configured accordingly.',
+        'Step 9 Use — the file format that fits streaming, CD/archive, or video editing.',
+        'Result — load your track, compare with the Before/After toggle, then Send to Desk to apply instantly or Save as a Session Card.',
+      ],
+    },
+    effect: {
+      ko: '음원 효과: Wizard 자체는 소리를 바꾸지 않고 I~VII 섹션의 설정값을 추천해 채워 줍니다. 적용 후 언제든 각 섹션에서 세부 조정할 수 있습니다.',
+      en: 'Audible effect: The Wizard itself does not process audio; it fills sections I–VII with recommended settings that you can fine-tune anytime afterward.',
     },
   },
   {
@@ -199,12 +235,30 @@ const SECTIONS = [
     id: 'renderBatch',
     title: { ko: 'Render Batch — 다중 작업 출력', en: 'Render Batch' },
     intro: {
-      ko: '메인 프로젝트와 별도로, 여러 원본 묶음에 저장된 Session Card를 각각 지정해 한 번에 렌더링하는 독립 작업 창입니다.',
-      en: 'A separate workspace that renders multiple source groups at once, each with its own saved Session Card.',
+      ko: '메인 프로젝트와 별도로, 여러 원본 묶음에 저장된 Session Card를 각각 지정해 한 번에 렌더링하는 독립 작업 창입니다. 아래 순서를 따라 하면 됩니다.',
+      en: 'A separate workspace that renders multiple source groups at once, each with its own saved Session Card. Follow the steps below in order.',
     },
     steps: {
-      ko: ['+ FILE, + FOLDER 또는 드래그 앤 드롭으로 첫 작업의 원본을 추가합니다.', 'SELECT에서 해당 원본에 적용할 Session Card를 선택하고 출력 폴더를 확인합니다.', '다른 원본에 다른 설정을 적용하려면 + ADD BATCH JOB으로 작업을 추가합니다.', 'START를 누르면 모든 작업을 위에서 아래 순서로 처리하며 상단에서 전체 진행률을 확인할 수 있습니다.'],
-      en: ['Add sources to the first job with + FILE, + FOLDER, or drag and drop.', 'Choose the Session Card for those sources with SELECT and confirm the output folder.', 'Use + ADD BATCH JOB when another source group needs different settings.', 'Press START to process all jobs from top to bottom while the header shows overall progress.'],
+      ko: [
+        '① 상단 오른쪽 Render Batch 버튼(또는 Project ▸ Render Batch…)으로 창을 엽니다. 열려 있는 동안 메인 화면은 잠시 잠깁니다.',
+        '② JOB1에 + FILE, + FOLDER 또는 드래그 앤 드롭으로 원본 음원을 추가합니다. ×로 개별 파일을, 제목 옆 ×로 전체를 지울 수 있습니다.',
+        '③ SELECT를 눌러 저장된 Session Card를 고릅니다. 그 카드의 체인 설정(EQ·이펙트·출력 형식)이 이 작업에 적용됩니다.',
+        '④ 카드 옆 출력 폴더를 확인하고 필요하면 Change로 변경합니다.',
+        '⑤ 다른 원본 묶음에 다른 설정이 필요하면 + ADD BATCH JOB으로 작업을 추가해 ②~④를 반복합니다.',
+        '⑥ START를 누르면 모든 작업이 위에서 아래로 처리됩니다. 곡마다 Decoding → Analyzing → Denoising(켜진 경우) → Rendering 단계가 표시됩니다.',
+        '⑦ 진행 중 CANCEL을 누르면 현재 곡을 마친 뒤 안전하게 중단하며, 이미 저장된 파일은 유지됩니다.',
+        '⑧ 완료된 파일은 오른쪽 MASTERED FILES에 "(Mastered) 파일명"으로 표시되고 출력 폴더에 저장됩니다. Clear Finished는 완료 항목만 목록에서 지웁니다.',
+      ],
+      en: [
+        '① Open the window with the Render Batch button at the top right (or Project ▸ Render Batch…). The main desk is locked while it is open.',
+        '② Add sources to JOB1 with + FILE, + FOLDER, or drag and drop. Use × to remove one file or the × beside the heading to clear all.',
+        '③ Press SELECT and pick a saved Session Card; its chain settings (EQ, effects, output format) apply to this job.',
+        '④ Check the output folder next to the card and use Change if needed.',
+        '⑤ When another source group needs different settings, press + ADD BATCH JOB and repeat ②–④.',
+        '⑥ Press START to process every job from top to bottom. Each track shows Decoding → Analyzing → Denoising (when enabled) → Rendering.',
+        '⑦ CANCEL stops safely after the current track finishes; files already saved are kept.',
+        '⑧ Finished tracks appear under MASTERED FILES as "(Mastered) filename" and are saved to the output folder. Clear Finished removes only completed items from the list.',
+      ],
     },
   },
   {
@@ -359,6 +413,21 @@ const SETTINGS = {
     { name: 'A/B Loop', values: 'A · B · Loop', detail: { ko: 'A로 시작점, B로 끝점을 지정하고 Loop를 켜면 구간을 반복합니다. 짧은 구간에서 EQ나 압축 차이를 비교할 때 유용합니다.', en: 'Set start with A, end with B, then enable Loop. This is useful for comparing EQ or compression on a short passage.' } },
     { name: 'Monitor volume', values: '0–100%', detail: { ko: '청취 전용 음량이며 Export 결과에는 반영되지 않습니다. 비교 시 원음과 처리음의 체감 음량을 비슷하게 맞추세요.', en: 'Monitoring-only level; it does not affect Export. Keep source and processed playback at similar perceived loudness.' } },
   ],
+  menus: [
+    { name: 'Project', values: 'New Session / Open / Save Session', detail: { ko: 'New Session은 초기 상태로 리셋, Open은 저장된 Session Card 불러오기, Save Session은 현재 체인 설정 저장입니다.', en: 'New Session resets to defaults, Open recalls a saved Session Card, and Save Session stores the current chain.' } },
+    { name: 'Project', values: 'Import / Render Batch…', detail: { ko: 'Import Files…(Ctrl+I)/Import Folder로 음원을 큐에 추가하고, Render Batch…는 다중 작업 출력 창을 엽니다.', en: 'Import Files… (Ctrl+I) / Import Folder add audio to the queue; Render Batch… opens the multi-job export window.' } },
+    { name: 'Edit', values: 'Undo / Redo / Preference', detail: { ko: 'Ctrl+Z 실행 취소, Ctrl+Y(또는 Ctrl+Shift+Z) 다시 실행. Preference (Setup)에서 테마 등 환경을 설정합니다.', en: 'Ctrl+Z undoes and Ctrl+Y (or Ctrl+Shift+Z) redoes parameter changes. Preference (Setup) configures the theme and options.' } },
+    { name: 'Transport', values: 'F4', detail: { ko: '파형·재생 컨트롤 패널을 열고 닫습니다. 패널 조작은 "기본 사용 방법" 장을 참고하세요.', en: 'Opens and closes the waveform/playback panel. See Basic Workflow for its controls.' } },
+    { name: 'Help', values: 'Manual / Updates / Notes / About', detail: { ko: 'Manual은 이 사용설명서, Check for Updates…는 새 버전 확인·설치, Release Notes는 현재 버전 변경 내용, About은 앱 정보를 보여줍니다.', en: 'Manual opens this guide; Check for Updates… checks and installs new versions; Release Notes lists changes in this version; About shows app info.' } },
+  ],
+  wizard: [
+    { name: 'Wizard', values: 'Top bar', detail: { ko: '상단 바의 Wizard 버튼으로 창을 엽니다. 이전 버튼으로 언제든 앞 단계로 돌아가고, 처음부터시작으로 전체를 다시 시작합니다.', en: 'Open it with the Wizard button in the top bar. Back returns to any earlier step and Start over restarts the whole quiz.' } },
+    { name: '한글 / EN', values: 'Language', detail: { ko: '오른쪽 위 토글로 질문과 결과의 언어를 전환합니다.', en: 'The toggle at the top right switches the questions and result language.' } },
+    { name: '추천 배지', values: 'Pick', detail: { ko: '선택지 중 하트 배지가 붙은 항목이 가장 무난한 추천값입니다. 잘 모르겠으면 추천을 따라가세요.', en: 'Options with the heart badge are the safest recommendations — follow them when unsure.' } },
+    { name: 'Before / After', values: 'A/B toggle', detail: { ko: '결과 화면에서 내 음악을 불러와 원본(Before)과 Wizard 설정 적용음(After)을 토글로 비교합니다. 미리듣기에는 잡음 제거가 빠져 있습니다.', en: 'Load a track on the result screen and toggle between the original (Before) and the Wizard settings (After). Preview excludes noise removal.' } },
+    { name: 'Send to Desk', values: 'Apply', detail: { ko: '추천 설정을 메인 Desk의 I~VII 섹션에 즉시 적용합니다.', en: 'Applies the recommended settings to sections I–VII of the main desk instantly.' } },
+    { name: 'Save', values: 'Session Card', detail: { ko: '설정을 장르 기반 자동 이름의 Session Card로 저장합니다. 저장된 카드는 Project ▸ Open과 Render Batch에서 사용할 수 있습니다.', en: 'Saves the setup as a Session Card with an automatic genre-based name, usable from Project ▸ Open and Render Batch.' } },
+  ],
   input: [
     { name: 'Source', values: 'Files / Folder', detail: { ko: 'Files는 여러 파일을 선택하고 Folder는 폴더를 한 번에 큐에 추가합니다. 파일을 창으로 끌어 놓아도 됩니다.', en: 'Files selects multiple files; Folder adds a directory to the queue. Drag-and-drop is also supported.' } },
     { name: 'PCM', values: '16 / 24 / 32f', detail: { ko: '내부 및 출력 PCM 비트 깊이입니다. 24-bit는 일반 마스터에 권장되며 32f는 후속 편집 헤드룸을 보존합니다.', en: 'Internal/output PCM depth. 24-bit is a solid mastering default; 32f preserves headroom for later editing.' } },
@@ -430,31 +499,47 @@ const SETTINGS = {
 
 const MEDIA = {
   overview: [
-    { src: 'app-overview.png', caption: { ko: '전체 앱 화면 — 상단 메뉴, Transport, 7단계 체인, 상세 화면과 하단 상태 표시', en: 'Full app — top menu, Transport, seven-stage chain, detail pane, and status footer' } },
+    { src: 'app-overview.png', caption: { ko: '전체 앱 화면 — 상단 메뉴, 7단계 체인, 상세 화면과 하단 상태 표시', en: 'Full app — top menu, seven-stage chain, detail pane, and status footer' } },
+    { src: 'topbar-stages.png', caption: { ko: '상단 바 — 재생·Preview, 파일 정보와 실측 LUFS·Peak, I~VII 스테이지 카드와 Render Batch', en: 'Top bar — playback and Preview, file info with measured LUFS/Peak, stage cards I–VII, and Render Batch' } },
   ],
   workflow: [
-    { src: 'transport-panel.png', caption: { ko: 'F4로 연 Transport 파형 패널', en: 'Transport waveform panel opened with F4' } },
+    { src: 'transport-panel.png', caption: { ko: 'F4로 연 Transport 패널 — 파형, 재생 컨트롤, 5대역+RMS 레벨 미터와 모니터 볼륨', en: 'Transport panel opened with F4 — waveform, playback controls, five-band + RMS meters, and monitor volume' } },
+    { src: 'transport-loop.png', caption: { ko: 'A/B 시작·끝 지점을 이용한 구간 반복(REPEAT)', en: 'Section repeat using A/B start and end markers' } },
     { src: 'loaded-file-info.png', caption: { ko: '파일 로드 후 큐와 선택 파일 분석 정보', en: 'Queue and selected-file analysis after loading audio' } },
-    { src: 'play-progress.png', caption: { ko: '재생 중 하단 진행 바와 현재 시간', en: 'Lower progress bar and current time during playback' } },
-    { src: 'transport-playing.png', caption: { ko: 'Transport 패널 재생 상태와 재생 헤드', en: 'Transport playback state and playhead' } },
-    { src: 'transport-loop.png', caption: { ko: 'A/B 시작·끝 지점을 이용한 구간 반복', en: 'A/B loop using start and end markers' } },
     { src: 'bypass-toggle.png', caption: { ko: '섹션별 Bypass ON/OFF 비교', en: 'Per-section Bypass ON/OFF comparison' } },
     { src: 'preview-toggle.png', caption: { ko: '원음과 전체 처리음을 비교하는 Preview ON/OFF', en: 'Preview ON/OFF for source versus processed comparison' } },
   ],
+  menus: [
+    { src: 'menu-project.png', caption: { ko: 'Project 메뉴 — 세션, Render Batch, 파일·폴더 불러오기', en: 'Project menu — sessions, Render Batch, and file/folder import' } },
+    { src: 'menu-session-load.png', caption: { ko: 'Project ▸ Open — 저장된 Session Card 선택', en: 'Project ▸ Open — choosing a saved Session Card' } },
+    { src: 'menu-session-save.png', caption: { ko: 'Project ▸ Save Session — 현재 설정을 Session Card로 저장', en: 'Project ▸ Save Session — saving the current setup as a Session Card' } },
+    { src: 'menu-edit.png', caption: { ko: 'Edit 메뉴 — Undo/Redo와 Preference', en: 'Edit menu — Undo/Redo and Preference' } },
+    { src: 'menu-preferences.png', caption: { ko: 'Preference (Setup) — 테마 등 앱 환경 설정', en: 'Preference (Setup) — theme and app options' } },
+    { src: 'menu-help.png', caption: { ko: 'Help 메뉴 — Manual, 업데이트, Release Notes, About', en: 'Help menu — Manual, updates, Release Notes, and About' } },
+    { src: 'help-check-updates.png', caption: { ko: 'Help ▸ Check for Updates — 새 버전 확인과 설치 안내', en: 'Help ▸ Check for Updates — checking and installing new versions' } },
+    { src: 'help-release-notes.png', caption: { ko: 'Help ▸ Release Notes — 현재 버전의 변경 내용', en: 'Help ▸ Release Notes — changes in the current version' } },
+  ],
+  wizard: [
+    { src: 'wizard-menu.png', caption: { ko: '상단 바의 Wizard 버튼으로 Session Wizard를 엽니다', en: 'Open the Session Wizard from the Wizard button in the top bar' } },
+    { src: 'wizard-step1-genre.png', caption: { ko: '1단계 — 곡 스타일(장르) 선택', en: 'Step 1 — choosing the track style (genre)' } },
+    { src: 'wizard-step2-normalize.png', caption: { ko: '2단계 — 시작 볼륨(Normalize) 정렬 여부 선택', en: 'Step 2 — aligning the start level (Normalize)' } },
+    { src: 'wizard-step3-eq.png', caption: { ko: '3단계 — 이퀄라이저 방식(9-Band / Min-EQ) 선택', en: 'Step 3 — choosing the equalizer type (9-Band / Min-EQ)' } },
+    { src: 'wizard-step4-mood.png', caption: { ko: '4단계 — 분위기(질감) 선택', en: 'Step 4 — choosing the mood (texture)' } },
+    { src: 'wizard-step5-bass.png', caption: { ko: '5단계 — 저음 무게감 선택', en: 'Step 5 — choosing the bass weight' } },
+    { src: 'wizard-step6-space.png', caption: { ko: '6단계 — 공간감(넓이·울림) 선택', en: 'Step 6 — choosing the space (width and ambience)' } },
+    { src: 'wizard-step7-loudness.png', caption: { ko: '7단계 — 완성본 체감 음량 선택', en: 'Step 7 — choosing the perceived loudness' } },
+    { src: 'wizard-step8-source.png', caption: { ko: '8단계 — 원본 잡음 상태 선택', en: 'Step 8 — describing the source noise' } },
+    { src: 'wizard-step9-output.png', caption: { ko: '9단계 — 완성 파일의 용도(출력 형식) 선택', en: 'Step 9 — choosing the destination (output format)' } },
+    { src: 'wizard-result.png', caption: { ko: '결과 화면 — 조정 요약, Before/After 비교 청취, Send to Desk와 Save', en: 'Result — adjustment summary, Before/After listening, Send to Desk, and Save' } },
+  ],
   input: [{ src: 'input-details.png', caption: { ko: 'Input 상세 화면 — 큐, 입력 규격, 배치 정보와 선택 파일 메타데이터', en: 'Input detail — queue, input format, batch information, and selected-file metadata' } }],
   pre: [
-    { src: 'pre-noise-analysis.png', caption: { ko: 'Pre Processing 상세 화면과 노이즈 분석 결과', en: 'Pre Processing detail and noise analysis result' } },
-    { src: 'pre-denoise-on.png', caption: { ko: 'Denoise를 켰을 때의 분석·처리 상태', en: 'Analysis and processing state with Denoise enabled' } },
-    { src: 'pre-spectrum-controls.png', caption: { ko: '3D 스펙트럼 회전·확대·이동 조작 안내', en: '3D spectrum rotate, zoom, and pan controls' } },
-    { src: 'pre-auto-settings.png', caption: { ko: '노이즈 분석 후 추천 Depth·Amount 적용', en: 'Applying recommended Depth and Amount after analysis' } },
+    { src: 'pre-details.png', caption: { ko: 'Pre Processing 상세 화면 — Denoise·Fade 설정과 3D 스펙트럼, 노이즈 분석·추천', en: 'Pre Processing detail — Denoise/Fade controls, 3D spectrum, and noise analysis with recommendation' } },
   ],
   eq: [
-    { src: 'eq-overview.png', caption: { ko: 'Spectral EQ 그래프와 프리셋 선택', en: 'Spectral EQ graph and preset selection' } },
-    { src: 'eq-advanced.png', caption: { ko: 'Advanced — 5개 밴드의 Frequency·Gain·Q', en: 'Advanced — Frequency, Gain, and Q for five bands' } },
-    { src: 'eq-user-preset.png', caption: { ko: 'User 프리셋 선택', en: 'Selecting the User preset' } },
-    { src: 'eq-preset-save.png', caption: { ko: 'User 프리셋 이름 변경과 현재 설정 저장', en: 'Renaming and saving current settings to a User preset' } },
-    { src: 'eq-9band-overview.png', caption: { ko: '9-Band EQ 기본 화면 — 9개 고정 주파수와 모드 전환 스위치', en: '9-Band EQ overview — nine fixed frequencies and the mode switch' } },
-    { src: 'eq-9band-user-presets.png', caption: { ko: '9-Band Pop 프리셋 곡선과 User 1–5 사용자 프리셋', en: '9-Band Pop curve and the User 1–5 preset slots' } },
+    { src: 'eq-overview.png', caption: { ko: 'Min-Phase Parametric EQ — 그래프와 프리셋 선택', en: 'Min-Phase Parametric EQ — graph and preset selection' } },
+    { src: 'eq-advanced.png', caption: { ko: 'Min-Phase Advanced — 5개 밴드의 Frequency·Gain·Q', en: 'Min-Phase Advanced — Frequency, Gain, and Q for five bands' } },
+    { src: 'eq-9band-overview.png', caption: { ko: '9-Band Graphic EQ — 9개 고정 주파수와 모드 전환 스위치', en: '9-Band Graphic EQ — nine fixed frequencies and the mode switch' } },
   ],
   dynamics: [{ src: 'dynamics-details.png', caption: { ko: 'Dynamics — 3밴드 Gain Reduction, Ratio, Transient와 Exciter', en: 'Dynamics — three-band gain reduction, Ratio, Transient, and Exciter' } }],
   stereo: [{ src: 'stereo-details.png', caption: { ko: 'Stereo — Width·공간 효과·Bass Mono와 Correlation', en: 'Stereo — Width, spatial effects, Bass Mono, and Correlation' } }],

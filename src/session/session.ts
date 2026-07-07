@@ -1,16 +1,16 @@
 // FocusDAW Mastering Desk v0.9.0 - 세션(프로젝트) 직렬화
 // 마스터링 체인 설정을 "Preset형"으로 저장/복원한다(파일 큐·곡별 denoise 미포함).
-// 저장 범위 결정(2026-06-29 사용자 확정): 7섹션 vals(곡별 denoise depth/amount 제외) +
-//   enabled(Bypass) + EQ 활성 프리셋 상태 + Export 메타/아트워크/Destination.
+// 저장 범위 결정(2026-06-29 사용자 확정): 7섹션 vals + enabled(Bypass) + EQ 활성 프리셋 상태 +
+//   Export 메타/아트워크/Destination.
+// v0.14.4: pre.noiseDepth/denoiseAmt 도 세션에 저장한다(사용자 확정 변경) — Render Batch 가
+//   곡별 자동 추천 대신 세션 카드에 저장된 Noise Depth/Reduction 을 적용하기 위함.
+//   메인 앱의 노브는 여전히 선택 곡별 분석/수동값 미러라서 applySession 에서는 이 두 키를 제외한다.
 import { CTRL, META, type ModId, type Vals } from '../desk/data';
 
 /** 세션에 저장하지 않는 vals 키.
- *  - pre.noiseDepth/denoiseAmt: 곡마다 STFT 분석 후 자동 추천되는 per-file 값(세션엔 denoise 토글만).
  *  - input.source/scope: 파일/폴더 임포트 UI 설정(마스터링 결과와 무관).
  */
 const VAL_BLOCKLIST = new Set<string>([
-  'pre.noiseDepth',
-  'pre.denoiseAmt',
   'input.source',
   'input.scope',
 ]);
@@ -86,6 +86,17 @@ export type SessionSummary = {
 /** Denoise 적용 여부 = Pre 섹션 On + Denoise 토글 On. */
 export function isDenoiseActive(payload: SessionPayload): boolean {
   return !!payload.vals['pre.denoise'] && payload.enabled?.pre !== false;
+}
+
+/** v0.14.4: 세션에 저장된 denoise 파라미터(Noise Depth/Reduction).
+ *  구버전 세션(v0.14.3 이전, 미저장)이면 null → 호출측(Render Batch)이 곡별 자동 분석으로 폴백. */
+export function sessionDenoiseParams(payload: SessionPayload): { depth: string; amount: number } | null {
+  const d = payload.vals?.['pre.noiseDepth'];
+  const a = payload.vals?.['pre.denoiseAmt'];
+  if (d === undefined || a === undefined) return null;
+  const amount = Number(a);
+  if (!Number.isFinite(amount)) return null;
+  return { depth: String(d), amount: Math.max(0, Math.min(100, amount)) };
 }
 
 /** Export 작업 폴더 표시 문자열(미지정이면 기본 Masters/<Album> 힌트). */

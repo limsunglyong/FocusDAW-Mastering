@@ -2,6 +2,7 @@
 // Web Audio 노드/Worklet 과 분리해 단위 시험(npm run verify) 가능하게 한다.
 // (룩어헤드 리미터 자체는 AudioWorkletProcessor → limiterWorklet.ts)
 import type { Vals } from '../desk/data';
+import { integratedLufsFromChannels } from './loudness';
 
 const num = (v: unknown, fallback = 0) => {
   const n = Number(v);
@@ -15,6 +16,20 @@ export const LIMITER_LOOKAHEAD_MS = 2;
 export function loudnessGain(targetLufs: number, measuredLufs: number): number {
   if (!Number.isFinite(measuredLufs)) return 1;
   return Math.max(0.05, Math.min(6, Math.pow(10, (targetLufs - measuredLufs) / 20)));
+}
+
+// v0.14.3: Export closed-loop LUFS 정규화 — 렌더된 PCM 을 실측(BS.1770)해 타깃과의 차이를 in-place 보정.
+// 개루프 make-up(loudnessGain)은 "원본 파일 LUFS" 기준이라 EQ 부스트·컴프(내장) 메이크업·익사이터·
+// 스테레오 send 등 체인이 더한 라우드니스가 전부 타깃 초과분으로 남았다(예: Multiband ON +4.4LU,
+// Normalize ON 시 피크 헤드룸만큼). 보정 게인은 개루프와 동일한 클램프(0.05~6배)를 공유하고,
+// 측정 불가(무음/400ms 미만)면 건드리지 않는다. 반환값 = 적용한 선형 게인(시험·로그용).
+export function normalizeToTargetLufs(channelData: Float32Array[], sampleRate: number, targetLufs: number): number {
+  const g = loudnessGain(targetLufs, integratedLufsFromChannels(channelData, sampleRate));
+  if (Math.abs(g - 1) < 1e-6) return 1;
+  for (const ch of channelData) {
+    for (let i = 0; i < ch.length; i++) ch[i] *= g;
+  }
+  return g;
 }
 
 // Saturate(0~100%) → tanh 드라이브용 amount(0~0.5).

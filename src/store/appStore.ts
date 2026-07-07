@@ -1582,6 +1582,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   applySession: (payload) => {
     const cur = get();
     const incomingVals = sanitizeSessionVals(payload?.vals);
+    // v0.14.4: pre.noiseDepth/denoiseAmt 는 세션에 저장되지만(Render Batch 적용용) 메인 앱의
+    // 노브는 선택 곡별 분석/수동값 미러이므로 세션 적용 시엔 제외한다(기존 동작 유지).
+    delete incomingVals['pre.noiseDepth'];
+    delete incomingVals['pre.denoiseAmt'];
     // 9-Band 도입 전 세션에는 mode가 없으므로 기존 Min-φ Parametric으로 복원한다.
     if (payload?.vals && payload.vals['spectral.mode'] === undefined) {
       incomingVals['spectral.mode'] = 'Parametric';
@@ -1592,7 +1596,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // 적용 중 재생 끊김/엉뚱한 버퍼 방지 — 재생 정지.
     previewEngine.stop();
     set((s) => ({
-      // 곡별 denoise 미러(pre.noiseDepth/denoiseAmt)는 incomingVals 에 없으므로 그대로 유지된다.
+      // 곡별 denoise 미러(pre.noiseDepth/denoiseAmt)는 위에서 제외했으므로 그대로 유지된다.
       vals: { ...s.vals, ...incomingVals },
       enabled: payload?.enabled ? { ...s.enabled, ...payload.enabled } : s.enabled,
       activeUserPresetIdx:

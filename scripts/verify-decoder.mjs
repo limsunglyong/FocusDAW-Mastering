@@ -5,7 +5,7 @@
 //   - 표시용 용량 포매팅(formatBytes) 단언
 import { createRequire } from 'module';
 import { pathToFileURL } from 'url';
-import { writeFileSync, readFileSync, mkdtempSync } from 'fs';
+import { writeFileSync, readFileSync, mkdtempSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -156,6 +156,11 @@ const dynUrl = transpileToModule('src/audio/dynamics.ts', 'dynamics.mjs');
 const stUrl = transpileToModule('src/audio/stereo.ts', 'stereo.mjs');
 // Phase 6 Loudness/Limiter 파라미터 매핑 + True Peak(순수 함수)
 const ldUrl = transpileToModule('src/audio/loudnessDsp.ts', 'loudnessDsp.mjs');
+// v0.14.4 세션 직렬화(순수 함수) — session.ts 의 '../desk/data' 상대 import 를 위해 디렉터리 구조 유지
+mkdirSync(join(outDir, 'desk'));
+mkdirSync(join(outDir, 'session'));
+transpileToModule('src/desk/data.ts', 'desk/data.mjs');
+const sesUrl = transpileToModule('src/session/session.ts', 'session/session.mjs');
 const { FFT } = await import(fftUrl);
 const { depthToOptions, denoiseKeyOf } = await import(dnUrl);
 const {
@@ -166,8 +171,9 @@ const {
 } = await import(stUrl);
 const {
   truePeakDb, loudnessGain, saturationAmount, ceilingLinear, limiterEnabled, limiterReleaseSec, thdStatus,
-  loudnessSatSample, loudnessSatBlend,
+  loudnessSatSample, loudnessSatBlend, normalizeToTargetLufs,
 } = await import(ldUrl);
+const { sessionValKeys, serializeSession, sanitizeSessionVals, sessionDenoiseParams } = await import(sesUrl);
 const { parseAudioHeader, parseHeaderMeta, decodeAiff } = await import(decUrl);
 const { formatBytes } = await import(qfUrl);
 const { integratedLufsFromChannels } = await import(loudUrl);
@@ -505,6 +511,45 @@ console.log('— Loudness / Limiter mapping + True Peak (Phase 6) —');
   check('thdStatus 0.5 = GENTLE', thdStatus(0.5), 'GENTLE');
   check('thdStatus 2 = MUSICAL', thdStatus(2), 'MUSICAL');
   check('thdStatus 4 = HOT', thdStatus(4), 'HOT');
+}
+
+console.log('— Export closed-loop LUFS 정규화 (v0.14.3) —');
+{
+  const fs = 48000;
+  // 997Hz 스테레오 사인(1s) — 정규화 후 실측이 타깃에 수렴해야 한다.
+  const L = sineChannel(0.1, 997, fs, 1.0);
+  const R = sineChannel(0.1, 997, fs, 1.0);
+  const before = integratedLufsFromChannels([L, R], fs);
+  const g = normalizeToTargetLufs([L, R], fs, -14);
+  checkClose('normalize 후 실측 LUFS = 타깃(-14)', integratedLufsFromChannels([L, R], fs), -14, 0.05);
+  checkClose('적용 게인(dB) = 타깃 − 실측', 20 * Math.log10(g), -14 - before, 1e-6);
+  // 무음(측정 불가) → 신호를 건드리지 않고 게인 1 반환
+  check('무음은 그대로 (gain 1)', normalizeToTargetLufs([new Float32Array(fs)], fs, -14), 1);
+  // 보정 게인은 개루프(loudnessGain)와 동일한 상한(6배) 공유
+  check('보정 게인 상한 6배 공유', normalizeToTargetLufs([sineChannel(0.001, 997, fs, 1.0)], fs, 0), 6);
+}
+
+console.log('— 세션 denoise 파라미터 저장/적용 (v0.14.4) —');
+{
+  const keys = sessionValKeys();
+  check('화이트리스트에 pre.noiseDepth 포함', keys.includes('pre.noiseDepth'), true);
+  check('화이트리스트에 pre.denoiseAmt 포함', keys.includes('pre.denoiseAmt'), true);
+  check('input.source 는 계속 제외', keys.includes('input.source'), false);
+
+  const payload = serializeSession({
+    vals: { 'pre.denoise': true, 'pre.noiseDepth': '3', 'pre.denoiseAmt': 55, 'input.source': 'Files' },
+    enabled: {}, activeUserPresetIdx: -1, lastActivePresetName: '', activeGraphicUserPresetIdx: -1,
+    artworkDataUrl: null, exportDir: null,
+  });
+  check('serializeSession 이 noiseDepth 저장', payload.vals['pre.noiseDepth'], '3');
+  check('serializeSession 이 denoiseAmt 저장', payload.vals['pre.denoiseAmt'], 55);
+  check('sanitizeSessionVals 가 denoiseAmt 보존', sanitizeSessionVals(payload.vals)['pre.denoiseAmt'], 55);
+
+  const p = sessionDenoiseParams(payload);
+  check('sessionDenoiseParams depth = 세션 값', p && p.depth, '3');
+  check('sessionDenoiseParams amount = 세션 값', p && p.amount, 55);
+  check('구버전 세션(값 미저장) → null (자동 분석 폴백)', sessionDenoiseParams({ vals: { 'pre.denoise': true } }), null);
+  check('amount 0~100 클램프', sessionDenoiseParams({ vals: { 'pre.noiseDepth': '2', 'pre.denoiseAmt': 250 } })?.amount, 100);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

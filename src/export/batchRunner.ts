@@ -8,7 +8,7 @@ import { analyzePre } from '../audio/preAnalysis';
 import { encodeMaster } from './exportRunner';
 import { baseName } from './wav';
 import type { PreviewParams } from '../audio/masterChain';
-import type { SessionPayload } from '../session/session';
+import { sessionDenoiseParams, type SessionPayload } from '../session/session';
 
 export type RenderedBatchFile = { bytes: Uint8Array; ext: string; filename: string };
 
@@ -27,22 +27,29 @@ export async function renderFileWithSession(
   let buffer = await resampleAudioBuffer(decoded.buffer, rate);
 
   // 세션 Denoise 토글 ON + Pre 섹션 ON 이면 적용.
-  // 곡별 depth/amount 는 세션에 없으므로 메인 앱과 동일하게 **곡마다 STFT 분석(SNR)→추천값**을 산출해 적용한다.
+  // v0.14.4: 세션 카드에 저장된 Noise Depth/Reduction(사용자 노브 값)을 우선 적용한다.
+  // 값이 없는 구버전 세션만 기존처럼 **곡마다 STFT 분석(SNR)→추천값**으로 폴백.
   const denoiseOn = !!payload.vals['pre.denoise'] && payload.enabled?.pre !== false;
   if (denoiseOn) {
     let depth = '2';
     let amt = 35;
-    try {
-      onStage?.('analyzing');
-      // 추천 기준은 원본(dry) 신호 — 메인 앱의 dry 분석과 동일하게 sourceBuffer 를 분석.
-      const analysis = await analyzePre(`batch:${file.name}`, `batch:${file.name}:${rate}`, decoded.buffer);
-      const rec = getDenoiseRecommendation(analysis.snrDb, analysis.floorDb);
-      depth = rec.depth;
-      amt = rec.amount;
-    } catch {
-      // 분석 실패 시 표준값(depth 2 / 30%)으로 폴백.
-      depth = '2';
-      amt = 30;
+    const saved = sessionDenoiseParams(payload);
+    if (saved) {
+      depth = saved.depth;
+      amt = saved.amount;
+    } else {
+      try {
+        onStage?.('analyzing');
+        // 추천 기준은 원본(dry) 신호 — 메인 앱의 dry 분석과 동일하게 sourceBuffer 를 분석.
+        const analysis = await analyzePre(`batch:${file.name}`, `batch:${file.name}:${rate}`, decoded.buffer);
+        const rec = getDenoiseRecommendation(analysis.snrDb, analysis.floorDb);
+        depth = rec.depth;
+        amt = rec.amount;
+      } catch {
+        // 분석 실패 시 표준값(depth 2 / 30%)으로 폴백.
+        depth = '2';
+        amt = 30;
+      }
     }
     try {
       onStage?.('denoising');

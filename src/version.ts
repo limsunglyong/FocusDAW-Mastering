@@ -399,6 +399,25 @@
  *             정적 manual.html(build-manual.js) 동일 내용 재생성. (ManualWindow.tsx,
  *             scripts/build-manual.js, assets/manual/*) 검증: lint(tsc) + Electron 드라이버
  *             런타임 검증(#manual 실구동 — 목차 14장·이미지 41장 로드 0 깨짐·ko/en 전환·검색).
+ *  - v0.14.3: (Patch) Export LUFS 가 Loudness Target 을 초과하던 버그 수정(예: 타깃 -14 → 실측 -9.8).
+ *             원인: 체인 내 make-up(loudnessGainValue)이 "원본 파일 LUFS" 기준 개루프라, EQ 부스트·
+ *             Multiband 컴프(DynamicsCompressorNode 내장 메이크업, 실측 +4.4LU)·Input Normalize
+ *             (피크 헤드룸만큼, 실측 +5.9LU)·익사이터/스테레오 send(기본값 +0.9LU) 등 체인이 더한
+ *             라우드니스가 그대로 초과분으로 남았다. → 오프라인 렌더 후 결과 PCM 을 BS.1770 실측해
+ *             타깃으로 보정하는 closed-loop 정규화(normalizeToTargetLufs, 개루프와 동일 0.05~6배
+ *             클램프)를 리미팅 전에 추가. Loudness 섹션 bypass 시엔 건너뛴다. Export 전용이라
+ *             Preview 경로는 불변. (audio/loudnessDsp.ts, export/renderOffline.ts,
+ *             scripts/verify-decoder.mjs) 검증: lint(tsc) + verify(103/103) + Electron 드라이버
+ *             renderMaster 실측(기본/Multiband/Normalize 조합 모두 타깃 ±0.3LU 수렴).
+ *  - v0.14.4: (Patch) Render Batch 의 Denoise 가 사용자 노브 값을 무시하던 문제 수정 — 세션이
+ *             pre.noiseDepth/denoiseAmt 를 저장하지 않아(구 블록리스트) 배치는 곡별 STFT 자동
+ *             추천값만 사용했다. → 두 키를 세션 화이트리스트에 포함(저장 범위 변경, 사용자 확정),
+ *             배치는 세션 카드에 저장된 Noise Depth/Reduction 을 우선 적용(sessionDenoiseParams)
+ *             하고 값이 없는 구버전 세션만 기존 곡별 자동 분석으로 폴백. 메인 앱 노브는 여전히
+ *             선택 곡별 분석/수동값 미러라 applySession 에선 두 키를 제외(기존 동작 유지).
+ *             메인 Export 의 denoise 는 종전대로 곡별 값(수동 조정 곡=노브 값, 미조정 곡=자동
+ *             추천) 적용을 확인. (session/session.ts, export/batchRunner.ts, store/appStore.ts,
+ *             wizard/wizardMap.ts, scripts/verify-decoder.mjs) 검증: lint(tsc) + verify(113/113).
  */
 export const APP_NAME = 'FocusDAW - Mastering Desk';
 export const APP_VERSION = __APP_VERSION__;

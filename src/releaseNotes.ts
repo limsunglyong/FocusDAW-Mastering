@@ -1,4 +1,4 @@
-// FocusDAW Mastering Desk v0.14.2 - 릴리스 노트
+// FocusDAW Mastering Desk v0.14.4 - 릴리스 노트
 // Help ▸ Release Notes 창에 표시. v0.12.0 이후 변경 내용만 요약한다.
 import { APP_VERSION } from './version';
 
@@ -15,7 +15,7 @@ export type ReleaseNotes = {
 
 export const RELEASE_NOTES: ReleaseNotes = {
   version: APP_VERSION,
-  date: '2026-07-03',
+  date: '2026-07-07',
   features: [
     'Added Session Wizard, a nine-step guided workflow that creates, previews, sends, and saves complete mastering setups.',
     'Added a Normalize (start level) question to the Session Wizard with an illustrated choice and plain-language guidance.',
@@ -38,6 +38,8 @@ export const RELEASE_NOTES: ReleaseNotes = {
     'Added MP3/96 kHz compatibility prompts, improved OGG/M4A metadata detection, and refined Render Batch feedback and file handling.',
   ],
   fixes: [
+    'Fixed exported files measuring louder than the Loudness LUFS target (for example -9.8 LUFS at a -14 target): the export renderer now measures the rendered audio and normalizes it to the target before true-peak limiting, so exports match the target regardless of EQ, Multiband, Normalize, or Stereo settings.',
+    'Fixed Render Batch ignoring the Noise Depth and Noise Reduction knob values: sessions now save both values and batch jobs apply them directly, falling back to per-track automatic analysis only for sessions saved with earlier versions.',
     'Fixed the Loudness saturator lifting the low-level noise floor as Saturate increased (up to +12 dB), so raising Saturate no longer adds audible hiss; harmonics and compression now occur only near peaks.',
     'Removed 48→44.1 kHz high-band alias residue and 48→96 kHz source-Nyquist imaging by replacing Chromium SRC with measured sinc conversion.',
     'Fixed 9-Band EQ graph, preset state, export, batch render, session save, and new-project reset behavior.',

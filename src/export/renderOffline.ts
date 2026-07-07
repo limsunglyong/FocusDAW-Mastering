@@ -11,9 +11,15 @@
 //   하드클립되어 찌그러지던 문제를 제거한다. Loudness 체인은 워클릿 없이 빌드(headroom 통과)하고,
 //   렌더 PCM 에 동일 알고리즘 리미터를 적용해 항상 ceiling 이하를 보장한다.
 //
+// v0.14.3: closed-loop LUFS 정규화 추가. 체인 내 make-up(loudnessGainValue)은 원본 파일 LUFS 기준
+//   개루프라, EQ 부스트·컴프 메이크업·익사이터·스테레오 send 등 체인이 더한 라우드니스가 그대로
+//   타깃 초과분으로 남았다(설정에 따라 +1~6LU — Export 실측이 Loudness Target 을 웃돌던 원인).
+//   → 렌더된 PCM 을 실측해 타깃으로 보정(normalizeToTargetLufs)한 뒤 리미팅한다.
+//   순서: 렌더 → LUFS 정규화 → True-Peak 리미팅. Loudness 섹션 bypass 시 정규화도 건너뛴다.
+//
 // Mono Master ON 이면 출력 채널을 1ch 로 만든다(체인은 동일 2ch 합 → destination 다운믹스).
-import { buildMasterChain, makeReverbIR, type PreviewParams } from '../audio/masterChain';
-import { LIMITER_LOOKAHEAD_MS, ceilingLinear, limiterReleaseSec, limiterEnabled } from '../audio/loudnessDsp';
+import { buildMasterChain, makeReverbIR, num, type PreviewParams } from '../audio/masterChain';
+import { LIMITER_LOOKAHEAD_MS, ceilingLinear, limiterReleaseSec, limiterEnabled, normalizeToTargetLufs } from '../audio/loudnessDsp';
 import { applyBrickwallLimiter } from './limiter';
 
 /** 인코더로 넘기는 렌더 결과(AudioBuffer 비의존 — Export 파이프라인 공용). */
@@ -58,6 +64,11 @@ export async function renderMaster(buffer: AudioBuffer, params: PreviewParams): 
   const channelData: Float32Array[] = [];
   for (let c = 0; c < outChannels; c++) {
     channelData.push(Float32Array.from(rendered.getChannelData(c)));
+  }
+
+  // v0.14.3: closed-loop LUFS 정규화 — 렌더 결과를 실측해 Loudness Target 으로 보정(리미팅 전).
+  if (params.enabled.loudness) {
+    normalizeToTargetLufs(channelData, rate, num(params.vals['loudness.target'], -14));
   }
 
   // 최종 True-Peak 리미팅(Preview 워클릿과 동일 알고리즘, 결정적) → 항상 ceiling 이하 보장.

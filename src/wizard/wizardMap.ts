@@ -103,8 +103,8 @@ export function answersToPayload(a: WizardAnswers): SessionPayload {
   v['loudness.tplimit'] = true;
 
   // ── VII. Source — Denoise 토글/Depth 힌트 ─────────────────────────────
-  // 주: pre.noiseDepth 는 세션 화이트리스트에서 제외(곡별 분석 우선)라 저장 시 스트립된다.
-  //     여기서는 토글(pre.denoise, 화이트리스트 포함)만 실질적으로 반영된다.
+  // v0.14.4: pre.noiseDepth/denoiseAmt 가 세션 화이트리스트에 포함되어 Render Batch 에서
+  // 그대로 적용된다(메인 앱 노브는 여전히 곡별 분석/수동값 미러 — applySession 에서 제외).
   if (a.source === 'clean') {
     v['pre.denoise'] = false;
   } else {

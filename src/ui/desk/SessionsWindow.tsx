@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode, type CSSProperties } from
 import { MODS } from '../../desk/data';
 import { THEMES, type ThemeName } from '../../theme/themes';
 import { APP_VERSION } from '../../version';
-import { exportFolderLabel, isDenoiseActive, type SessionPayload, type SessionSummary } from '../../session/session';
+import { exportFolderLabel, isDenoiseActive, makeSessionCard, type SessionPayload, type SessionSummary } from '../../session/session';
 
 type Mode = 'save' | 'load';
 
@@ -150,6 +150,25 @@ export function SessionsWindow() {
   const beginRename = (session: SessionSummary) => {
     setEditingId(session.id);
     setEditingName(session.name);
+  };
+
+  // v0.14.5: 라이브러리 세션을 .fmsc 카드 파일로 내보내기(native Save 다이얼로그). 기본 파일명=세션 이름.
+  const doExport = async (session: SessionSummary) => {
+    if (!io?.exportFile || busy) return;
+    setBusy(true);
+    try {
+      const file = await io.read(session.id);
+      if (!file?.payload) {
+        flash('Could not read session.');
+        return;
+      }
+      const card = makeSessionCard(file.payload, { name: file.name || session.name, description: file.description, appVersion: file.appVersion || APP_VERSION });
+      const res = await io.exportFile({ defaultName: file.name || session.name, data: card });
+      if (res?.canceled) return;
+      flash(res?.ok ? 'Session exported.' : (res?.error || 'Export failed.'));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const doRename = async () => {
@@ -410,7 +429,10 @@ export function SessionsWindow() {
                             <button className="app-no-drag" style={{ ...btn('transparent', '#5a5347', '#b5ae9f'), padding: '2px 4px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => { setEditingId(null); setEditingName(''); }}>Cancel</button>
                           </>
                         ) : (
-                          <button className="app-no-drag" style={{ ...btn('transparent', '#5a5347', '#b5ae9f'), padding: '2px 4px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => beginRename(s)}>EDIT</button>
+                          <>
+                            <button className="app-no-drag" style={{ ...btn('transparent', '#5a5347', '#b5ae9f'), padding: '2px 4px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => beginRename(s)}>EDIT</button>
+                            <button className="app-no-drag" style={{ ...btn('transparent', '#5a5347', '#b5ae9f'), padding: '2px 8px', fontSize: 10, display: 'grid', placeItems: 'center' }} onClick={() => void doExport(s)} disabled={busy}>EXPORT</button>
+                          </>
                         )}
                         <div style={{ flex: 1 }} />
                         <button className="app-no-drag" style={{ ...btn('transparent', '#8a5347', '#cbb9b0'), padding: '2px 4px', fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center' }} onClick={() => setConfirmDelete(s.id)}>×</button>

@@ -64,6 +64,10 @@ declare global {
         delete: (id: string) => Promise<{ ok: boolean; error?: string }>;
         rename: (id: string, name: string) => Promise<{ ok: boolean; error?: string }>;
         apply: (payload: import('./session/session').SessionPayload) => Promise<{ ok: boolean; error?: string }>;
+        /** v0.14.5: 세션 카드(.fmsc) 단일 파일 내보내기(native Save 다이얼로그). */
+        exportFile: (arg: { defaultName: string; data: import('./session/session').SessionCard }) => Promise<{ ok: boolean; path?: string; canceled?: boolean; error?: string }>;
+        /** v0.14.5: 세션 카드(.fmsc) 단일 파일 불러오기(native Open 다이얼로그). data 는 미검증 JSON. */
+        importFile: () => Promise<{ ok: boolean; path?: string; data?: unknown; canceled?: boolean; error?: string }>;
         onContextUpdated: (callback: (ctx: { mode: 'save' | 'load'; payload: import('./session/session').SessionPayload | null; theme: string | null }) => void) => () => void;
         onApply: (callback: (payload: import('./session/session').SessionPayload) => void) => () => void;
       };

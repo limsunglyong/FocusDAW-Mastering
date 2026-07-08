@@ -13,7 +13,8 @@ import { analyzePre, type PreAnalysis } from '../audio/preAnalysis';
 import { denoiseBuffer, denoiseKeyOf, getDenoiseRecommendation } from '../audio/denoise';
 import { encodeMaster, isSupportedFormat, ExportUnsupportedError } from '../export/exportRunner';
 import { baseName } from '../export/wav';
-import { sanitizeSessionVals, type SessionPayload } from '../session/session';
+import { sanitizeSessionVals, serializeSession, makeSessionCard, parseSessionCard, defaultSessionName, fileStemFromPath, type SessionPayload } from '../session/session';
+import { APP_VERSION } from '../version';
 
 // v0.10.2: Help ▸ Check for Updates 결과 모달 상태.
 export type UpdateCheckStatus = {
@@ -88,7 +89,9 @@ type AppState = DeskState & {
   /** 마지막으로 저장된 파일 경로(완료 후 Reveal 용). */
   exportLastPath: string | null;
   /** v0.8.5: Export 완료 알림(성공/실패 요약). 모달로 표시 후 사용자가 닫으면 null. */
-  exportNotice: { ok: boolean; saved: number; total: number; path: string | null; error: string | null } | null;
+  exportNotice: { ok: boolean; saved: number; total: number; path: string | null; error: string | null; title?: string; message?: string } | null;
+  /** v0.14.5: Preview 라우드니스 매칭(트림 실측) 진행 중 — 비차단 로딩 표시용. */
+  loudnessMatching: boolean;
   /** Album Artwork 미리보기 dataURL(현재 라운드는 표시 전용 — WAV 미임베드). */
   artworkDataUrl: string | null;
   /** v0.10.2: Help ▸ Check for Updates 결과 모달. null=닫힘. */
@@ -176,6 +179,12 @@ type AppState = DeskState & {
   // ── 세션(프로젝트) 적용 (v0.9.0) ──
   /** 세션 payload(체인 설정)를 현재 상태에 적용한다. 곡별 denoise·파일 큐는 건드리지 않는다. */
   applySession: (payload: SessionPayload) => void;
+
+  // ── 세션 카드(.fmsc) 파일 교환 (v0.14.5) ──
+  /** 현재 체인 설정을 .fmsc 카드로 직렬화해 native Save 다이얼로그로 내보낸다. */
+  exportSessionCard: () => Promise<void>;
+  /** native Open 다이얼로그로 .fmsc 카드를 골라 검증 후 현재 상태에 적용한다. */
+  importSessionCard: () => Promise<void>;
 
   // ── Denoise 조작 개선 (v0.10.4) ──
   appliedDenoiseAmt: number;
@@ -629,6 +638,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   processingTotal: 0,
   exporting: false,
   exportCancelling: false,
+  loudnessMatching: false,
   exportTotal: 0,
   exportDone: 0,
   exportCurrentName: '',
@@ -1619,4 +1629,55 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().refreshDenoise();
     void get().analyzePreSelected();
   },
+
+  // ── 세션 카드(.fmsc) 파일 교환 (v0.14.5) ──
+  exportSessionCard: async () => {
+    const api = window.focusdaw?.sessionIO;
+    if (!api?.exportFile) return;
+    const s = get();
+    const name = defaultSessionName(s.vals);
+    const card = makeSessionCard(serializeSession(s), { name, appVersion: APP_VERSION });
+    const res = await api.exportFile({ defaultName: name, data: card });
+    if (!res || res.canceled) return; // 사용자가 다이얼로그 취소
+    if (res.ok && res.path) {
+      // v0.14.5(수정요청): 완료 알림에 album title 대신 "실제 저장된 파일 이름"을 표시.
+      const savedName = fileStemFromPath(res.path) || card.name;
+      set({
+        exportLastPath: res.path, // Reveal 재사용
+        exportNotice: { ok: true, saved: 1, total: 1, path: res.path, error: null, title: 'Session exported', message: `Saved “${savedName}”` },
+      });
+    } else {
+      set({ exportNotice: { ok: false, saved: 0, total: 1, path: null, error: res.error || 'Export failed', title: 'Session export failed' } });
+    }
+  },
+
+  importSessionCard: async () => {
+    const api = window.focusdaw?.sessionIO;
+    if (!api?.importFile) return;
+    const res = await api.importFile();
+    if (!res || res.canceled) return; // 사용자가 다이얼로그 취소
+    if (!res.ok || res.data === undefined) {
+      set({ exportNotice: { ok: false, saved: 0, total: 1, path: null, error: res.error || 'Import failed', title: 'Session import failed' } });
+      return;
+    }
+    const parsed = parseSessionCard(res.data);
+    if (!parsed.ok) {
+      set({ exportNotice: { ok: false, saved: 0, total: 1, path: null, error: parsed.error, title: 'Session import failed' } });
+      return;
+    }
+    get().applySession(parsed.card.payload);
+    // v0.14.5(수정요청): 가져온 세션을 라이브러리에 "불러온 .fmsc 파일 이름"으로 자동 저장(신규 항목).
+    const savedName = fileStemFromPath(res.path || '') || parsed.card.name || 'Imported Session';
+    let libSaved = false;
+    try {
+      const r = await api.save?.({ name: savedName, description: parsed.card.description, payload: parsed.card.payload, appVersion: parsed.card.appVersion || APP_VERSION });
+      libSaved = !!r?.ok;
+    } catch { libSaved = false; }
+    set({ exportNotice: { ok: true, saved: 1, total: 1, path: null, error: null, title: 'Session imported', message: libSaved ? `Applied & saved “${savedName}”` : `Applied “${savedName}”` } });
+  },
 }));
+
+// v0.14.5: Preview 라우드니스 매칭(트림 실측) 진행 상태를 스토어에 반영 — 비차단 로딩 인디케이터용.
+previewEngine.setTrimComputingListener((computing) => {
+  useAppStore.setState({ loudnessMatching: computing });
+});

@@ -18,53 +18,24 @@
 //   순서: 렌더 → LUFS 정규화 → True-Peak 리미팅. Loudness 섹션 bypass 시 정규화도 건너뛴다.
 //
 // Mono Master ON 이면 출력 채널을 1ch 로 만든다(체인은 동일 2ch 합 → destination 다운믹스).
-import { buildMasterChain, makeReverbIR, num, type PreviewParams } from '../audio/masterChain';
+//
+// v0.14.5: 오프라인 체인 렌더(정규화/리미터 直前)는 audio/offlineRender.renderChainOffline 로 이관해
+//   Preview(라우드니스 트림 실측)와 공유한다. 여기서는 그 위에 closed-loop 정규화+True-Peak 리미팅만 얹는다.
+import { num, type PreviewParams } from '../audio/masterChain';
 import { LIMITER_LOOKAHEAD_MS, ceilingLinear, limiterReleaseSec, limiterEnabled, normalizeToTargetLufs } from '../audio/loudnessDsp';
+import { renderChainOffline, type RenderedAudio } from '../audio/offlineRender';
 import { applyBrickwallLimiter } from './limiter';
 
-/** 인코더로 넘기는 렌더 결과(AudioBuffer 비의존 — Export 파이프라인 공용). */
-export type RenderedAudio = {
-  sampleRate: number;
-  numberOfChannels: number;
-  length: number;
-  channelData: Float32Array[];
-};
+export type { RenderedAudio } from '../audio/offlineRender';
 
 /**
- * 처리 버퍼에 현재 마스터 체인을 오프라인 렌더한다.
+ * 처리 버퍼에 현재 마스터 체인을 오프라인 렌더한 뒤 closed-loop 정규화 + True-Peak 리미팅을 적용한다.
  * @param buffer 사용자 Input Rate 로 변환된 processingBuffer
  * @param params 현재 vals/enabled/meta (Preview 와 동일 파라미터)
  */
 export async function renderMaster(buffer: AudioBuffer, params: PreviewParams): Promise<RenderedAudio> {
-  if (typeof OfflineAudioContext === 'undefined') {
-    throw new Error('OfflineAudioContext is not available.');
-  }
-  const rate = buffer.sampleRate;
-  const srcChannels = Math.max(1, buffer.numberOfChannels);
-  const monoMaster = !!params.vals['stereo.mono'];
-  const outChannels = monoMaster ? 1 : srcChannels;
-  const length = buffer.length;
-
-  const offline = new OfflineAudioContext(outChannels, length, rate);
-  const source = offline.createBufferSource();
-  source.buffer = buffer;
-  const reverbIR = makeReverbIR(offline);
-  // workletReady=false → Loudness 단은 리미터 노드 없이 빌드(±headroom 통과). 리미팅은 렌더 후 JS 패스.
-  const { output } = buildMasterChain(offline, source, params, {
-    nodes: [],
-    offset: 0,
-    workletReady: false,
-    reverbIR,
-    channels: srcChannels,
-  });
-  output.connect(offline.destination);
-  source.start(0);
-
-  const rendered = await offline.startRendering();
-  const channelData: Float32Array[] = [];
-  for (let c = 0; c < outChannels; c++) {
-    channelData.push(Float32Array.from(rendered.getChannelData(c)));
-  }
+  const rendered = await renderChainOffline(buffer, params);
+  const { channelData, sampleRate: rate } = rendered;
 
   // v0.14.3: closed-loop LUFS 정규화 — 렌더 결과를 실측해 Loudness Target 으로 보정(리미팅 전).
   if (params.enabled.loudness) {
@@ -80,5 +51,5 @@ export async function renderMaster(buffer: AudioBuffer, params: PreviewParams): 
     lookaheadMs: LIMITER_LOOKAHEAD_MS,
   });
 
-  return { sampleRate: rate, numberOfChannels: outChannels, length, channelData };
+  return rendered;
 }

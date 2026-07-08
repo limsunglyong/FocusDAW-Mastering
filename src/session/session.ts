@@ -143,6 +143,77 @@ export function sanitizeSessionVals(vals: Vals | undefined): Vals {
   return out;
 }
 
+// ── 세션 카드(.fmsc) 디스크 교환 포맷 (v0.14.5) ─────────────────────────────
+// 앱 내부 세션 라이브러리(sessionIO, <userData>/sessions/*.json)와 별개로, 단일 파일로 주고받는
+// 이식용 포맷. Project ▸ Export/Import Session 이 native 파일 다이얼로그로 저장/열기 한다.
+export const SESSION_CARD_EXT = 'fmsc';
+export const SESSION_CARD_FORMAT = 'focusdaw-mastering-session-card';
+export const SESSION_CARD_VERSION = 1;
+
+/** .fmsc 파일 1건(JSON). 내부 세션 라이브러리의 SessionFile 과 유사하나 format 마커로 검증한다. */
+export type SessionCard = {
+  format: typeof SESSION_CARD_FORMAT;
+  formatVersion: number;
+  name: string;
+  description?: string;
+  savedAt: number;
+  appVersion: string;
+  payload: SessionPayload;
+};
+
+/** 직렬화된 payload + 메타로 .fmsc 카드 객체를 만든다(저장 직전). */
+export function makeSessionCard(payload: SessionPayload, meta: { name: string; description?: string; appVersion: string }): SessionCard {
+  return {
+    format: SESSION_CARD_FORMAT,
+    formatVersion: SESSION_CARD_VERSION,
+    name: (meta.name || '').trim() || 'Untitled Session',
+    description: meta.description || '',
+    savedAt: Date.now(),
+    appVersion: meta.appVersion || '',
+    payload,
+  };
+}
+
+/** 임의의 파싱 결과(JSON)를 .fmsc 카드로 검증·정규화한다. 실패 시 사용자용 메시지를 돌려준다. */
+export function parseSessionCard(raw: unknown): { ok: true; card: SessionCard } | { ok: false; error: string } {
+  if (!raw || typeof raw !== 'object') return { ok: false, error: 'This file is not a valid session card.' };
+  const o = raw as Record<string, unknown>;
+  if (o.format !== SESSION_CARD_FORMAT) return { ok: false, error: 'This file is not a FocusDAW session card (.fmsc).' };
+  const rawPayload = o.payload;
+  if (!rawPayload || typeof rawPayload !== 'object') return { ok: false, error: 'Session card is missing its settings payload.' };
+  const p = rawPayload as Record<string, unknown>;
+  const vals = sanitizeSessionVals(p.vals as Vals | undefined);
+  if (Object.keys(vals).length === 0) return { ok: false, error: 'Session card contains no recognizable settings.' };
+  const enabled = (p.enabled && typeof p.enabled === 'object') ? { ...(p.enabled as Record<ModId, boolean>) } : ({} as Record<ModId, boolean>);
+  const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+  const str = (v: unknown, fallback: string) => (typeof v === 'string' ? v : fallback);
+  const card: SessionCard = {
+    format: SESSION_CARD_FORMAT,
+    formatVersion: num(o.formatVersion, 1),
+    name: str(o.name, '').trim() || 'Imported Session',
+    description: str(o.description, ''),
+    savedAt: num(o.savedAt, Date.now()),
+    appVersion: str(o.appVersion, ''),
+    payload: {
+      vals,
+      enabled,
+      activeUserPresetIdx: num(p.activeUserPresetIdx, -1),
+      lastActivePresetName: str(p.lastActivePresetName, 'Normal'),
+      activeGraphicUserPresetIdx: num(p.activeGraphicUserPresetIdx, -1),
+      artworkDataUrl: typeof p.artworkDataUrl === 'string' ? p.artworkDataUrl : null,
+      exportDir: typeof p.exportDir === 'string' ? p.exportDir : null,
+    },
+  };
+  return { ok: true, card };
+}
+
+/** 전체 경로에서 파일명 본체(디렉터리·확장자 제거)를 얻는다. 표시/세션명용(sanitize 안 함 — 실제 파일명). */
+export function fileStemFromPath(p: string): string {
+  const seg = (p || '').split(/[\\/]/).pop() || p || '';
+  const dot = seg.lastIndexOf('.');
+  return (dot > 0 ? seg.slice(0, dot) : seg).trim();
+}
+
 /** 기본 세션 이름(저장 시 placeholder) — 앨범명 또는 날짜 기반. */
 export function defaultSessionName(vals: Vals): string {
   const album = String(vals['export.album'] || '').trim();

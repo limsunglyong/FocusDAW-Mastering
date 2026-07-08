@@ -84,6 +84,9 @@ contextBridge.exposeInMainWorld('focusdaw', {
     delete: (id) => ipcRenderer.invoke('session:delete', id),
     rename: (id, name) => ipcRenderer.invoke('session:rename', id, name),
     apply: (payload) => ipcRenderer.invoke('session:apply', payload),
+    // v0.14.5: 세션 카드(.fmsc) 단일 파일 내보내기/불러오기 — native 파일 다이얼로그.
+    exportFile: (arg) => ipcRenderer.invoke('session:export-file', arg),
+    importFile: () => ipcRenderer.invoke('session:import-file'),
     // 세션 창이 이미 열려 있을 때 mode/payload 갱신 통지.
     onContextUpdated: (callback) => {
       const listener = (_event, ctx) => callback(ctx);

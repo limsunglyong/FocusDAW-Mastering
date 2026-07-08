@@ -120,6 +120,7 @@ function StudioDesk() {
   const clearExportNotice = useAppStore((s) => s.clearExportNotice);
   const revealLastExport = useAppStore((s) => s.revealLastExport);
   const cancelExport = useAppStore((s) => s.cancelExport);
+  const loudnessMatching = useAppStore((s) => s.loudnessMatching);
   // v0.10.2: Help ▸ Check for Updates 결과 모달.
   const updateCheck = useAppStore((s) => s.updateCheck);
   const closeUpdateCheck = useAppStore((s) => s.closeUpdateCheck);
@@ -317,6 +318,9 @@ function StudioDesk() {
         />
       )}
 
+      {/* v0.14.5: Preview 라우드니스 매칭(트림 실측) 진행 중 — 작업을 막지 않는 상태 pill. */}
+      {loudnessMatching && <LoudnessMatchingPill accent={view.accent} glow={view.pal.glow} />}
+
       {/* v0.10.2: Help ▸ Check for Updates 결과 모달 */}
       {updateCheck && (
         <CheckUpdateModal
@@ -333,18 +337,20 @@ function StudioDesk() {
 }
 
 function ExportNotice({ notice, accent, glow, onReveal, onClose }: {
-  notice: { ok: boolean; saved: number; total: number; path: string | null; error: string | null };
+  notice: { ok: boolean; saved: number; total: number; path: string | null; error: string | null; title?: string; message?: string };
   accent: string; glow: string; onReveal: () => void; onClose: () => void;
 }) {
   const ok = notice.ok;
+  // v0.14.5: title/message 가 있으면(세션 카드 등) 그대로 쓰고, 없으면 오디오 Export 기본 문구로 폴백.
+  const title = notice.title ?? (ok ? 'Export complete' : 'Export finished with errors');
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,11,14,0.66)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: 380, padding: '26px 28px 22px', borderRadius: 18, background: 'linear-gradient(160deg, rgba(40,48,56,0.74), rgba(18,23,28,0.84))', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(18px) saturate(1.3)', boxShadow: `0 30px 70px -18px rgba(0,0,0,0.85), 0 0 44px ${glow}` }}>
         <div style={{ fontFamily: 'Spectral, serif', fontSize: 20, fontWeight: 600, color: ok ? '#efe7d6' : '#f0a8a8', textAlign: 'center' }}>
-          {ok ? 'Export complete' : 'Export finished with errors'}
+          {title}
         </div>
         <div style={{ marginTop: 8, fontFamily: 'Archivo', fontSize: 12.5, color: '#cdd3da', textAlign: 'center', lineHeight: 1.5 }}>
-          {notice.saved} / {notice.total} file{notice.total === 1 ? '' : 's'} saved
+          {notice.message ?? `${notice.saved} / ${notice.total} file${notice.total === 1 ? '' : 's'} saved`}
           {notice.path && (
             <div style={{ marginTop: 6, fontSize: 11, color: '#8a9099', wordBreak: 'break-all' }}>{notice.path}</div>
           )}
@@ -359,6 +365,18 @@ function ExportNotice({ notice, accent, glow, onReveal, onClose }: {
           <button onClick={onClose} style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 700, padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', cursor: 'pointer', color: '#dfe5ea', background: 'rgba(255,255,255,0.06)' }}>OK</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// v0.14.5: Preview 라우드니스 매칭 진행 표시 — 우하단 비차단 pill(작업/클릭을 막지 않음).
+// Preview 를 Export 와 같은 라우드니스로 맞추려 대표 구간을 백그라운드 실측(≈2s)하는 동안 표시.
+function LoudnessMatchingPill({ accent, glow }: { accent: string; glow: string }) {
+  return (
+    <div style={{ position: 'fixed', right: 16, bottom: 16, zIndex: 9000, pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 14px', borderRadius: 999, background: 'linear-gradient(160deg, rgba(40,48,56,0.82), rgba(18,23,28,0.9))', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', boxShadow: `0 10px 26px -12px rgba(0,0,0,0.8), 0 0 20px ${glow}` }}>
+      <span style={{ display: 'inline-block', width: 13, height: 13, borderRadius: '50%', border: `2px solid ${accent}`, borderTopColor: 'transparent', animation: 'fmscSpin 0.7s linear infinite' }} />
+      <span style={{ fontFamily: 'Archivo', fontSize: 11.5, fontWeight: 600, color: '#dfe5ea', whiteSpace: 'nowrap' }}>Matching loudness…</span>
+      <style>{'@keyframes fmscSpin{to{transform:rotate(360deg)}}'}</style>
     </div>
   );
 }

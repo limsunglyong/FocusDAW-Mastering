@@ -61,6 +61,9 @@ export type MasterChainRefs = {
   stereo: StereoNodes | null;
   loudnessGain: GainNode | null;
   loudnessSat: WaveShaperNode | null;
+  // v0.14.5: Preview closed-loop 라우드니스 트림(Saturation 後·리미터 前). Export 렌더-後 정규화와 동일 게인을
+  // 실측(offlineRender.computeLoudnessTrim)해 걸어 Preview 라우드니스를 Export 와 일치시킨다. 기본 1(투명).
+  normTrim: GainNode | null;
   limiter: AudioWorkletNode | null;
   sections: Partial<Record<ModId, SectionGain>>;
 };
@@ -485,9 +488,10 @@ export function buildMasterChain(ctx: BaseAudioContext, source: AudioNode, param
     return built.out;
   });
 
-  // VI Loudness — LUFS make-up gain → Saturation → True Peak 룩어헤드 리미터(Worklet, 최종)
+  // VI Loudness — LUFS make-up gain → Saturation → (normTrim) → True Peak 룩어헤드 리미터(Worklet, 최종)
   let loudnessGain: GainNode | null = null;
   let loudnessSat: WaveShaperNode | null = null;
+  let normTrim: GainNode | null = null;
   let limiter: AudioWorkletNode | null = null;
   tail = wrapSection('loudness', tail, (input) => {
     const g = ctx.createGain();
@@ -497,13 +501,19 @@ export function buildMasterChain(ctx: BaseAudioContext, source: AudioNode, param
     const sat = ctx.createWaveShaper();
     sat.curve = loudnessSatCurve(saturationAmount(vals));
     sat.oversample = '4x';
+    // v0.14.5: Preview closed-loop 라우드니스 트림. Export(offline)는 이 노드를 건드리지 않고(=1 투명)
+    // 렌더-後 정규화가 담당하며, Preview 는 실측 게인을 여기 걸어 Export 라우드니스와 정합한다.
+    const trim = ctx.createGain();
+    trim.gain.value = 1;
     input.connect(g);
     g.connect(pre);
     pre.connect(sat);
-    nodes.push(g, pre, sat);
+    sat.connect(trim);
+    nodes.push(g, pre, sat, trim);
     loudnessGain = g;
     loudnessSat = sat;
-    // 처리 순서: LUFS 게인 → Saturation → True Peak 리미팅(최종)
+    normTrim = trim;
+    // 처리 순서: LUFS 게인 → Saturation → (트림) → True Peak 리미팅(최종)
     if (workletReady) {
       const lim = new AudioWorkletNode(ctx, LIMITER_PROCESSOR_NAME, {
         numberOfInputs: 1,
@@ -515,17 +525,17 @@ export function buildMasterChain(ctx: BaseAudioContext, source: AudioNode, param
       lim.parameters.get('release')!.value = limiterReleaseSec(vals);
       lim.parameters.get('enabled')!.value = limiterEnabled(vals) ? 1 : 0;
       if (opts.onLimiterGr) lim.port.onmessage = (e) => opts.onLimiterGr!(e.data?.gr ?? 1);
-      sat.connect(lim);
+      trim.connect(lim);
       nodes.push(lim);
       limiter = lim;
       return lim;
     }
-    return sat;
+    return trim;
   });
 
   return {
     output: tail,
-    refs: { inputGain, fade, eqFilters, dyn, stereo, loudnessGain, loudnessSat, limiter, sections },
+    refs: { inputGain, fade, eqFilters, dyn, stereo, loudnessGain, loudnessSat, normTrim, limiter, sections },
   };
 }
 

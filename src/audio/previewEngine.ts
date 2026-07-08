@@ -16,10 +16,15 @@ import {
   scheduleRepeatFade,
   type PreviewParams, type MasterChainRefs,
 } from './masterChain';
+import { computeLoudnessTrim } from './offlineRender';
 
 export type { PreviewParams } from './masterChain';
 
 const RAMP = 0.015;
+// v0.14.5: Preview closed-loop 라우드니스 트림 재계산 디바운스(ms)와 적용 ramp(초).
+// 노브를 놓고 이 시간이 지나면 백그라운드 오프라인 실측 1회 → normTrim 을 부드럽게 반영한다.
+const TRIM_DEBOUNCE_MS = 220;
+const TRIM_RAMP = 0.06;
 
 type ActiveGraph = {
   source: AudioBufferSourceNode;
@@ -66,6 +71,26 @@ export class PreviewEngine {
   private loopEnd = 0;
   // v0.12.1: Repeat Fade 자동화는 AudioContext 시간 기준 3초 look-ahead를 1초마다 갱신한다.
   private loopFadeTimer: ReturnType<typeof setInterval> | null = null;
+  // v0.14.5: Preview↔Export 라우드니스 정합용 closed-loop 트림(선형 게인) + 디바운스/재계산 제어.
+  // trimHash 는 (vals·enabled·버퍼) 스냅샷 — 동일하면 재계산 생략. busy/dirty 로 동시 렌더 방지·재실측 예약.
+  private loudnessTrim = 1;
+  private trimHash = '';
+  private trimTimer: ReturnType<typeof setTimeout> | null = null;
+  private trimBusy = false;      // 오프라인 실측 렌더 진행 중
+  private trimDirty = false;     // 진행 중 새 변경 발생 → 완료 후 1회 더 실측
+  private trimComputing = false; // 로딩 표시용(busy 의 알림 반영값)
+  private onTrimComputing: ((computing: boolean) => void) | null = null;
+
+  /** 라우드니스 매칭(트림 실측) 진행 상태 리스너 등록 — UI 로딩 표시용. */
+  setTrimComputingListener(cb: ((computing: boolean) => void) | null) {
+    this.onTrimComputing = cb;
+  }
+
+  private setTrimComputing(v: boolean) {
+    if (this.trimComputing === v) return;
+    this.trimComputing = v;
+    this.onTrimComputing?.(v);
+  }
 
   isPlaying() {
     return this.playing;
@@ -87,13 +112,17 @@ export class PreviewEngine {
   async play(buffer: AudioBuffer, params: PreviewParams, onEnded: () => void, offset = 0, previewEnabled = this.previewEnabled) {
     await this.ensureContext(buffer.sampleRate);
     this.stop(false);
-    if (this.currentBuffer !== buffer) this.lastStereoMetering = null; // 새 파일 → 측정 초기화
+    if (this.currentBuffer !== buffer) {
+      this.lastStereoMetering = null; // 새 파일 → 측정 초기화
+      this.trimHash = ''; // v0.14.5: 버퍼(파일·denoise) 교체 → 라우드니스 트림 강제 재실측
+    }
     this.params = params;
     this.currentBuffer = buffer;
     this.currentOnEnded = onEnded;
     this.offset = Math.max(0, offset);
     this.previewEnabled = previewEnabled;
     this.start(buffer, onEnded);
+    this.scheduleTrimRecompute();
   }
 
   // v0.2.11: 모니터 볼륨(0~1). master gain 을 짧게 ramp. Export 와는 무관(청취 전용).
@@ -176,12 +205,17 @@ export class PreviewEngine {
       this.offset = (keepLoopOffset && this.loopEnabled && this.loopEnd > this.loopStart) ? this.loopStart : 0;
       this.currentBuffer = null;
       this.currentOnEnded = null;
+      // v0.14.5: 완전 정지 → 대기 중 트림 실측 취소 + 로딩 표시 해제(in-flight 은 완료 후 null 그래프에 no-op).
+      if (this.trimTimer !== null) { clearTimeout(this.trimTimer); this.trimTimer = null; }
+      this.trimDirty = false;
+      this.setTrimComputing(false);
     }
   }
 
   // 노브/세그먼트/섹션 On-Bypass 변경: 재생을 끊지 않고 live 반영한다.
   update(params: PreviewParams) {
     this.params = params;
+    this.scheduleTrimRecompute(); // v0.14.5: 파라미터 변화 → 라우드니스 트림 재실측(디바운스)
     if (!this.ctx || !this.graph) return;
     // v0.12.1: native source.loop은 AudioContext 시간이 계속 흐르므로 곡 끝 Fade Out 예약을
     // 유지하면 반복 위치와 무관하게 gain이 0에 도달한다. Repeat 중에는 해당 예약을 억제한다.
@@ -300,6 +334,56 @@ export class PreviewEngine {
     }
   }
 
+  // v0.14.5: Preview↔Export 라우드니스 정합. Export 는 렌더-後 closed-loop 정규화로 Target LUFS 에 맞추지만
+  // Preview 는 개루프 make-up 뿐이라 EQ·컴프·익사이터 등 체인이 더한 라우드니스만큼 더 크게(예: +7LU)
+  // 들렸다. 파라미터가 안정되면 Export 와 동일한 오프라인 실측으로 보정 게인을 구해 normTrim 에 건다.
+  private scheduleTrimRecompute() {
+    if (this.trimTimer !== null) clearTimeout(this.trimTimer);
+    this.trimTimer = setTimeout(() => {
+      this.trimTimer = null;
+      void this.recomputeTrim();
+    }, TRIM_DEBOUNCE_MS);
+  }
+
+  private trimKey(params: PreviewParams): string {
+    const b = this.currentBuffer;
+    return JSON.stringify(params.vals) + '|' + JSON.stringify(params.enabled) + '|' + (b ? b.length + 'x' + b.sampleRate : 'none');
+  }
+
+  private async recomputeTrim() {
+    const params = this.params;
+    const buffer = this.currentBuffer;
+    if (!params || !buffer) return;
+    const hash = this.trimKey(params);
+    if (hash === this.trimHash) return; // 처리에 영향 없는 변화(볼륨·seek 등)면 재실측 생략
+    if (this.trimBusy) { this.trimDirty = true; return; } // 진행 중 → 완료 후 최신값으로 1회 더
+    this.trimBusy = true;
+    this.trimDirty = false;
+    this.setTrimComputing(true);
+    let trim = 1;
+    try {
+      trim = await computeLoudnessTrim(buffer, params);
+    } catch {
+      trim = 1; // 실측 실패 시 무보정(개루프 동작으로 폴백)
+    } finally {
+      this.trimBusy = false;
+      this.setTrimComputing(false);
+    }
+    this.trimHash = hash;
+    this.loudnessTrim = trim;
+    this.applyLoudnessTrim();
+    // 실측 중 파라미터가 또 바뀌었으면 최신 기준으로 한 번 더 예약(디바운스 경유).
+    if (this.trimDirty) { this.trimDirty = false; this.scheduleTrimRecompute(); }
+  }
+
+  private applyLoudnessTrim() {
+    const ctx = this.ctx;
+    const g = this.graph;
+    if (!ctx || !g?.refs.normTrim) return;
+    g.refs.normTrim.gain.cancelScheduledValues(ctx.currentTime);
+    g.refs.normTrim.gain.setTargetAtTime(this.loudnessTrim, ctx.currentTime, TRIM_RAMP);
+  }
+
   // Preview 그래프: 공유 마스터 체인(buildMasterChain) 위에 dry/wet A/B·master·상관도 탭을 덧씌운다.
   private buildGraph(ctx: AudioContext, source: AudioBufferSourceNode, params: PreviewParams): ActiveGraph {
     const channels = params.meta.channels;
@@ -325,6 +409,8 @@ export class PreviewEngine {
       channels,
       onLimiterGr: (gr) => { this.limiterGr = gr; },
     });
+    // v0.14.5: 그래프 재빌드(seek/pause 재개) 시 마지막 실측 트림을 즉시 반영해 라우드니스 연속성 유지.
+    if (refs.normTrim) refs.normTrim.gain.value = this.loudnessTrim;
     output.connect(wetGain);
     wetGain.connect(out);
 

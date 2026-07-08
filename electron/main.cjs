@@ -691,6 +691,46 @@ ipcMain.handle('session:apply', async (_event, payload) => {
   return { ok: true };
 });
 
+// v0.14.5: 세션 카드(.fmsc) 단일 파일 내보내기 — native Save 다이얼로그로 위치 선택 후 JSON 저장.
+ipcMain.handle('session:export-file', async (event, arg) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const data = arg && arg.data;
+  if (!data) return { ok: false, error: 'Empty session data.' };
+  const safeName = String((arg && arg.defaultName) || 'session').replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'session';
+  const res = await dialog.showSaveDialog(win, {
+    title: 'Export Session Card',
+    defaultPath: `${safeName}.fmsc`,
+    filters: [{ name: 'FocusDAW Session Card', extensions: ['fmsc'] }],
+  });
+  if (res.canceled || !res.filePath) return { ok: false, canceled: true };
+  try {
+    fs.writeFileSync(res.filePath, JSON.stringify(data, null, 2), 'utf8');
+    return { ok: true, path: res.filePath };
+  } catch (err) {
+    console.error('Failed to export session card:', err);
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
+
+// v0.14.5: 세션 카드(.fmsc) 단일 파일 불러오기 — native Open 다이얼로그로 파일 선택 후 JSON 파싱해 반환.
+ipcMain.handle('session:import-file', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Import Session Card',
+    filters: [{ name: 'FocusDAW Session Card', extensions: ['fmsc'] }],
+    properties: ['openFile'],
+  });
+  if (res.canceled || !res.filePaths.length) return { ok: false, canceled: true };
+  const file = res.filePaths[0];
+  try {
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return { ok: true, path: file, data };
+  } catch (err) {
+    console.error('Failed to import session card:', err);
+    return { ok: false, error: 'Could not read this file as a session card.' };
+  }
+});
+
 // v0.8.0 (Phase 7): Export 파일 저장 IO (단계 7-D)
 // 기본 Destination = <Music>/Masters. 사용자 선택 폴더 다이얼로그 + 디렉터리 보장 + 파일 쓰기.
 ipcMain.handle('export:default-dir', async () => {

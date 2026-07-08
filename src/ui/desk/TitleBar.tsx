@@ -70,6 +70,12 @@ export function TitleBar({ view }: { view: DeskView }) {
       // v0.9.0: 현재 체인 설정을 직렬화해 세션 저장 창으로 전달(Preset형).
       const s = useAppStore.getState();
       window.focusdaw?.win?.openSessions?.({ mode: 'save', payload: serializeSession(s), theme: s.theme });
+    } else if (label === 'Import Session…' || label === 'Import Session...') {
+      // v0.14.5: .fmsc 세션 카드 파일 불러오기 → 현재 체인에 적용.
+      await useAppStore.getState().importSessionCard();
+    } else if (label === 'Export Session…' || label === 'Export Session...') {
+      // v0.14.5: 현재 체인 설정을 .fmsc 세션 카드 파일로 내보내기.
+      await useAppStore.getState().exportSessionCard();
     } else if (label === 'Render Batch...' || label === 'Render Batch…') {
       // v0.9.1: 세션 기반 일괄 Export 창(모달).
       window.focusdaw?.win?.openRenderBatch?.({ theme: useAppStore.getState().theme });
